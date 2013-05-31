@@ -102,9 +102,9 @@ def for_template_entry(pen, num, length):
     
     return _register_ie(InformationElement(None, pen, num, _TypeForName["octetArray"], length))
 
-def use_iana_default:
+def use_iana_default():
     print(__file__)
     
-def use_5103_default:
+def use_5103_default():
     print(__file__)
     
