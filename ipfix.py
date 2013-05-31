@@ -1,5 +1,0 @@
-
-
-# precompiled module variables (parsers)
-
-                    
