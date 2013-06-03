@@ -41,10 +41,10 @@ class BytesType(IpfixType):
     """An IPFIX byte array, without endian conversion"""
     def __init__(self, name, num, length):
         super().__init__(name, num)
-        self.length = length;
+        self.blength = length;
         
     def length(self):
-        return self.length;
+        return self.blength;
     
     def decode_value_from(self, buf, offset, length):
         return bytes(buf[offset:offset+length])

@@ -1,4 +1,5 @@
 import re
+import os.path
 from . import types
 from functools import total_ordering
 
@@ -56,11 +57,9 @@ class InformationElement:
         else:
             return self.__class__(self.name, self.pen, self.num, self.type, length)
 
-def for_spec(spec):
+def parse_spec(spec):
+    """Parse an iespec into name, pen, number, typename, and length fields"""
     (name, pen, num, typename, length) = _iespec_re.match(spec).group(1,4,5,7,9)
-
-    if not name and not pen and not num and not typename and not length:
-        raise ValueError("unrecognized IE spec "+spec)
     
     if pen: 
         pen = int(pen)
@@ -76,6 +75,17 @@ def for_spec(spec):
         length = int(length)
     else:
         length = 0
+        
+    if not typename:
+        typename = False
+    
+    return (name, pen, num, typename, length)
+
+def for_spec(spec):
+    (name, pen, num, typename, length) = parse_spec(spec)
+
+    if not name and not pen and not num and not typename and not length:
+        raise ValueError("unrecognized IE spec "+spec)
     
     if name and not pen and not num and name in _ieForName:
             # lookup in name registry
@@ -94,7 +104,7 @@ def for_spec(spec):
     if not ietype:
         raise ValueError("unrecognized type name '"+typename+"'")
     
-    return _register_ie(cls(name, pen, num, ietype, length))
+    return _register_ie(InformationElement(name, pen, num, ietype, length))
  
 def for_template_entry(pen, num, length):
     if ((pen, num) in _ieForNum):
@@ -102,9 +112,14 @@ def for_template_entry(pen, num, length):
     
     return _register_ie(InformationElement(None, pen, num, _TypeForName["octetArray"], length))
 
+def load_specfile(filename):
+    with open(filename) as f:
+        for line in f:
+            for_spec(line)
+
 def use_iana_default():
-    print(__file__)
+    load_specfile(os.path.join(os.path.dirname(__file__), "iana.iespec"))
     
 def use_5103_default():
-    print(__file__)
+    load_specfile(os.path.join(os.path.dirname(__file__), "rfc5103.iespec"))
     
