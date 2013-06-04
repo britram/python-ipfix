@@ -81,7 +81,7 @@ class PackedType(IpfixType):
     
     def decode_value_from(self, buf, offset, length):
         if length == self.length():
-            return st.unpack_from(buf, offset)
+            return self.st.unpack_from(buf, offset)
         else:
             for rletype in self.rletypes:
                 if length == rletype.length():
@@ -90,7 +90,7 @@ class PackedType(IpfixType):
     
     def encode_value_to(self, val, buf, offset, length):
         if length == self.length():
-            return st.pack_into(buf, offset, val);
+            return self.st.pack_into(buf, offset, val);
         else:
             for rletype in self.rletypes:
                 if length == rletype.length():

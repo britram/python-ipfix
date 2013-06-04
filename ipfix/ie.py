@@ -117,6 +117,10 @@ def load_specfile(filename):
         for line in f:
             for_spec(line)
 
+def clear_infomodel():
+    _ieForName.clear()
+    _ieForNum.clear()
+
 def use_iana_default():
     load_specfile(os.path.join(os.path.dirname(__file__), "iana.iespec"))
     

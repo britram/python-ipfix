@@ -34,7 +34,7 @@ class Template:
     
     def decode_dict_from(self, buf, offset):
         rec = {}
-        for e in ies:
+        for e in self.ies:
             if (e.length == types.Varlen):
                 raise ValueError("no varlen support yet")
             else:
@@ -46,7 +46,7 @@ class Template:
         return (rec, offset)
 
     def encode_dict_to(self, rec, buf, offset):
-        for e in ies:
+        for e in self.ies:
             if (e.length == Varlen):
                 raise ValueError("no varlen support yet")
             else:

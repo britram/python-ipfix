@@ -60,6 +60,7 @@ class MessageStreamReader:
                 # FIXME check 
                 for (offset, setid, setlen) in self.setlist:
                     setend = offset + setlen
+                    offset += _sethdr_st.size # skip set header in decode
                     if setid == 2:
                         while offset < setend:
                             (tmpl, offset) = template.decode_from_buffer(setid, self.mbuf, offset)
