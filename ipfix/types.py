@@ -81,21 +81,21 @@ class PackedType(IpfixType):
     
     def decode_value_from(self, buf, offset, length):
         if length == self.length():
-            return self.st.unpack_from(buf, offset)
+            return self.st.unpack_from(buf, offset)[0]
         else:
             for rletype in self.rletypes:
                 if length == rletype.length():
                     return rletype.decode_value_from(buf, offset, length)
-            raise ValueError("no RLE for type " + self.name + " length " + length)
+            raise ValueError("no RLE for type " + self.name + " length " + str(length))
     
     def encode_value_to(self, val, buf, offset, length):
         if length == self.length():
-            return self.st.pack_into(buf, offset, val);
+            return self.st.pack_into(buf, offset, val)
         else:
             for rletype in self.rletypes:
                 if length == rletype.length():
                     return rletype.encode_value_to(val, buf, offset, length)
-            raise ValueError("no RLE for type " + self.name + " length " + length)
+            raise ValueError("no RLE for type " + self.name + " length " + str(length))
 
 class BooleanType(PackedType):
     """Encodes booleans using SMI conventions"""
@@ -103,14 +103,14 @@ class BooleanType(PackedType):
         super().__init__(name, num, "!B")
     
     def decode_value_from(self, buf, offset, length):
-        return super().decode_value_from(self, buf, offset, length) == 1
+        return super().decode_value_from(buf, offset, length) == 1
     
     def encode_value_to(self, val, buf, offset, length):
         if val:
             smibool = 1
         else:
             smibool = 2
-        super().encode_value_to(self, smibool, buf, offset, length)
+        super().encode_value_to(smibool, buf, offset, length)
 
 class EpochSecondsType(PackedType):
     """Encodes python datetimes as unsigned32"""
@@ -118,10 +118,10 @@ class EpochSecondsType(PackedType):
         super().__init__(name, num, "!L")
     
     def decode_value_from(self, buf, offset, length):
-        return datetime.utcfromtimestamp(super().decode_value_from(self, buf, offset, length))
+        return datetime.utcfromtimestamp(super().decode_value_from(buf, offset, length))
     
     def encode_value_to(self, val, buf, offset, length):
-        super().encode_value_to(self, val.timestamp(), buf, offset, length)
+        super().encode_value_to(val.timestamp(), buf, offset, length)
 
 
 class EpochMillisecondsType(PackedType):
@@ -130,12 +130,11 @@ class EpochMillisecondsType(PackedType):
         super().__init__(name, num, "!Q")
     
     def decode_value_from(self, buf, offset, length):
-        val = super().decode_value_from(self, buf, offset, length)
+        val = super().decode_value_from(buf, offset, length)
         return datetime.utcfromtimestamp(val/1000) + timedelta(milliseconds = val % 1000)
     
     def encode_value_to(self, val, buf, offset, length):
-         super().encode_value_to(self, 
-                 val.timestamp() * 1000 + val.microseconds / 1000, 
+         super().encode_value_to(val.timestamp() * 1000 + val.microseconds / 1000, 
                  buf, offset, length)
 
 # Builtin type registry
@@ -153,7 +152,7 @@ _Type_float32    = PackedType("float32",    0, "!f")
 _Type_float64    = PackedType("float64",    0, "!d", _Type_float32)
 _Type_boolean    = BooleanType("boolean",   0)
 _Type_dateTimeSeconds = EpochSecondsType("dateTimeSeconds", 0)
-_Type_dateTimeMilliseconds = EpochMillisecondsType("dateTimeSeconds", 0)
+_Type_dateTimeMilliseconds = EpochMillisecondsType("dateTimeMilliseconds", 0)
 _Type_dateTimeMicroseconds = IpfixType("dateTimeMicroseconds", 0)
 _Type_dateTimeNanoseconds =  IpfixType("dateTimeNanoseconds", 0)
 _Type_ipv4Address = IpAddressType("ipv4Address", 0, 4)
