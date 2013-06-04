@@ -110,7 +110,7 @@ def for_template_entry(pen, num, length):
     if ((pen, num) in _ieForNum):
         return _ieForNum[(pen, num)].for_length(length)
     
-    return _register_ie(InformationElement(None, pen, num, _TypeForName["octetArray"], length))
+    return _register_ie(InformationElement(None, pen, num, types.for_name("octetArray"), length))
 
 def load_specfile(filename):
     with open(filename) as f:

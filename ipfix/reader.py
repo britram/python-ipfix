@@ -1,3 +1,4 @@
+from warnings import warn 
 from . import template
 
 # Builtin exception
@@ -18,19 +19,19 @@ class MessageStreamReader:
         self.length = 0
         self.sequence = None
         self.export_time = None
-        self.domain_id = None
+        self.odid = None
         self.setlist = []
         self.templates = {}
     
-    """deframe message and find set offsets"""
     def deframe(self):
+        """deframe message and find set offsets"""
         # Start at the beginning
         offset = 0
         self.setlist.clear()
         
         # deframe and parse message header 
         self.mbuf[0:_msghdr_st.size] = self.stream.read(_msghdr_st.size)
-        (version, self.length, self.sequence, self.export_time, self.domain_id) = _msghdr_st.unpack_from(self.mbuf, offset)
+        (version, self.length, self.sequence, self.export_time, self.odid) = _msghdr_st.unpack_from(self.mbuf, offset)
         offset += _msghdr_st.size
         
         # verify version and length
@@ -41,7 +42,7 @@ class MessageStreamReader:
             raise IPFIXDecodeError("Illegal message length" + str(self.length))
             
         # read the rest of the message into the buffer
-        self.mbuf[offset:length-offset] = self.stream.read(length-offset)
+        self.mbuf[offset:self.length-offset] = self.stream.read(self.length-offset)
         
         # iterate over message and built setlist
         while (offset < self.length):
@@ -51,23 +52,34 @@ class MessageStreamReader:
             self.setlist.append((offset, setid, setlen))
             offset += setlen
 
-    """return an iterator over records in messages in the stream"""
     def dict_iterator(self):
-        
-        # FIXME make this work
+        """return an iterator over records in messages in the stream""" 
         try:
             while(True):
                 self.deframe()
-                for (offset, setid, setlen) in setlist:
+                # FIXME check 
+                for (offset, setid, setlen) in self.setlist:
+                    setend = offset + setlen
                     if setid == 2:
-                        pass
+                        while offset < setend:
+                            (tmpl, offset) = template.decode_from_buffer(setid, self.mbuf, offset)
+                            self.templates[(self.odid, tmpl.tid)] = tmpl
+                            print ("read template "+(self.odid, tmpl.tid)+": "+tmpl.count()+" IEs, minlen "+tmpl.minlength)
                     elif setid == 3:
-                        pass
+                        warn("skipping Options Template")
                     elif setid < 256:
-                        # FIXME warn on this instead
-                        raise IPFIXDecodeError("illegal set ID")
+                        warn("skipping illegal set id "+setid)
                     else:
-                        pass
+                        try:
+                            tmpl = self.templates[(self.odid), setid]
+                            while offset + tmpl.minlength <= setend:
+                                (rec, offset) = tmpl.decode_dict_from(self.mbuf, offset)
+                                yield rec
+                        except KeyError:
+                            warn("missing template for domain "+self.odid+" set id "+setid)
+                            
         except EOFError:
             return
-                    
+
+def from_stream(stream):
+    return MessageStreamReader(stream)          
