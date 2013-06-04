@@ -82,7 +82,7 @@ def decode_from_buffer(setid, buf, offset):
         offset += _iespec_st.size
         if num & 0x8000:
             num &= 0x7fff
-            (pen) = _iepen_st.unpack_from(buf, offset)
+            pen = _iepen_st.unpack_from(buf, offset)[0]
             offset += _iespec_st.size
         else:
             pen = 0

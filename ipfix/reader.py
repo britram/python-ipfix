@@ -64,7 +64,7 @@ class MessageStreamReader:
                         while offset < setend:
                             (tmpl, offset) = template.decode_from_buffer(setid, self.mbuf, offset)
                             self.templates[(self.odid, tmpl.tid)] = tmpl
-                            print ("read template "+(self.odid, tmpl.tid)+": "+tmpl.count()+" IEs, minlen "+tmpl.minlength)
+                            print ("read template "+repr((self.odid, tmpl.tid))+": "+str(tmpl.count())+" IEs, minlen "+str(tmpl.minlength))
                     elif setid == 3:
                         warn("skipping Options Template")
                     elif setid < 256:
@@ -76,7 +76,7 @@ class MessageStreamReader:
                                 (rec, offset) = tmpl.decode_dict_from(self.mbuf, offset)
                                 yield rec
                         except KeyError:
-                            warn("missing template for domain "+self.odid+" set id "+setid)
+                            warn("missing template for domain "+str(self.odid)+" set id "+str(setid))
                             
         except EOFError:
             return
