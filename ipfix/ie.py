@@ -28,16 +28,15 @@ class InformationElement:
         else: 
             self.name = intern("_ipfix_%u_%u" % (pen, num))
 
-        self.pen = pen
-        self.num = num
-        self.type = ietype
-        
         if length:
             self.length = length
         else:
-            self.length = self.type.length()
-        
-    
+            self.length = ietype.length
+
+        self.pen = pen
+        self.num = num
+        self.type = ietype.for_length(self.length)
+
     def __eq__(self, other):
         return ((self.pen, self.num) == (other.pen, other.num))
     
