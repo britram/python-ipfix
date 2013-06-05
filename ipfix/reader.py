@@ -22,6 +22,9 @@ class MessageStreamReader:
         self.odid = None
         self.setlist = []
         self.templates = {}
+        self.msgcount = 0
+        self.tmplcount = 0
+        self.reccount = 0
     
     def deframe(self):
         """deframe message and find set offsets"""
@@ -30,7 +33,13 @@ class MessageStreamReader:
         self.setlist.clear()
         
         # deframe and parse message header 
-        self.mbuf[0:_msghdr_st.size] = self.stream.read(_msghdr_st.size)
+        msghdr = self.stream.read(_msghdr_st.size)
+        if (len(msghdr) == 0):
+            raise EOFError()
+        elif (len(msghdr) < _msghdr_st.size):
+            raise IPFIXDecodeError("Short read in message header ("+ str(len(msghdr)) +" octets")
+
+        self.mbuf[0:_msghdr_st.size] = msghdr
         (version, self.length, self.sequence, self.export_time, self.odid) = _msghdr_st.unpack_from(self.mbuf, offset)
         offset += _msghdr_st.size
         
@@ -42,7 +51,10 @@ class MessageStreamReader:
             raise IPFIXDecodeError("Illegal message length" + str(self.length))
             
         # read the rest of the message into the buffer
-        self.mbuf[offset:self.length-offset] = self.stream.read(self.length-offset)
+        msgbody = self.stream.read(self.length-offset)
+        if len(msgbody) < self.length - offset:
+            raise IPFIXDecodeError("Short read in message body (got "+str(len(msgbody))+", expected"+(self.length - offset)+")")
+        self.mbuf[offset:self.length-offset] = msgbody
         
         # iterate over message and built setlist
         while (offset < self.length):
@@ -52,12 +64,13 @@ class MessageStreamReader:
             self.setlist.append((offset, setid, setlen))
             offset += setlen
 
+        self.msgcount += 1
+
     def dict_iterator(self):
         """return an iterator over records in messages in the stream""" 
         try:
             while(True):
                 self.deframe()
-                # FIXME check 
                 for (offset, setid, setlen) in self.setlist:
                     setend = offset + setlen
                     offset += _sethdr_st.size # skip set header in decode
@@ -65,8 +78,10 @@ class MessageStreamReader:
                         while offset < setend:
                             (tmpl, offset) = template.decode_from_buffer(setid, self.mbuf, offset)
                             self.templates[(self.odid, tmpl.tid)] = tmpl
+                            self.tmplcount += 1
                             print ("read template "+repr((self.odid, tmpl.tid))+": "+str(tmpl.count())+" IEs, minlen "+str(tmpl.minlength))
                     elif setid == 3:
+                        self.tmplcount += 1
                         warn("skipping Options Template")
                     elif setid < 256:
                         warn("skipping illegal set id "+setid)
@@ -76,6 +91,7 @@ class MessageStreamReader:
                             while offset + tmpl.minlength <= setend:
                                 (rec, offset) = tmpl.decode_dict_from(self.mbuf, offset)
                                 yield rec
+                                self.reccount += 1
                         except KeyError:
                             warn("missing template for domain "+str(self.odid)+" set id "+str(setid))
                             

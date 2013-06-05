@@ -2,6 +2,7 @@ import re
 import os.path
 from . import types
 from functools import total_ordering
+from sys import intern
 
 _iespec_re = re.compile('^([^\s\[\<\(]+)?(\(((\d+)\/)?(\d+)\))?(\<(\S+)\>)?(\[(\S+)\])?')
 
@@ -23,9 +24,9 @@ class InformationElement:
     def __init__(self, name, pen, num, ietype, length):
         
         if name:
-            self.name = name
+            self.name = intern(name)
         else: 
-            self.name = "_ipfix_%u_%u" % (pen, num)
+            self.name = intern("_ipfix_%u_%u" % (pen, num))
 
         self.pen = pen
         self.num = num
