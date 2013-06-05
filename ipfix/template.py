@@ -18,11 +18,13 @@ class NewTemplate:
     def __init__(self, tid = 0):
         self.ies = [];
         self.tid = tid;
-        self.minlength = 0;
-        self.enclength = 0;
-        self.scopecount = 0;
-        self.varlenslice = None;
+        self.minlength = 0
+        self.enclength = 0
+        self.scopecount = 0
+        self.varlenslice = None
         self.st = None
+        self.valenc = None
+        self.valdec = None
         
     def append(self, ie):
         self.ies.append(ie)
@@ -47,35 +49,67 @@ class NewTemplate:
             fixmax = self.varlenslice
 
         self.st = struct.Struct("!"+"".join((ie.type.stel for ie in ies[0:fixmax])))
+        
+        self.valdec = [ie.type.valdec for ies in [0:fixmax]]
+        self.valenc = [ie.type.valenc for ies in [0:fixmax]]
     
-    def decode_dict_from(self, buf, offset):
-        rec = {}
-        
-        # decode fixed values all at once
-        fixvals = self.st.unpack_from(buf, offset)
+    def decode_all_from(self, buf, offset):
+        """Decodes a record into a tuple containing values in template order"""
+        # decode fixed values 
+        vals = [f(v) for f, v in zip(self.valdec, self.st.unpack_from(buf, offset))]
         offset += self.st.size
+                
+        # short circuit on no varlen
+        if not self.varlenslice:
+            return (vals, offset)
         
-        # zip these together into the dict
-        for elem in zip(ies[0], fixvals):
-            rec[elem[0].name] = rec[elem[0].type.valdec(elem[1])
+        # slow iteration over remaining IEs
+        for ie in ies[self.varlenslice:]:
+            length = ie.length
+            if (length == types.Varlen):
+                (length, offset) = types.decode_varlen(buf, offset)
+            vals.append(ie.type.valdec(ie.type.decode_single_value_from(buf, offset, length)))
+            offset += length
+            
+        return (vals, offset)
+
+    def decode_dict_from(self, buf, offset):
+        (vals, offset) = self.decode_all_from(buf, offset)
+        return ({ k: v for k,v in zip((ie.name for ie in self.ies), vals)}, offset)
+        
+    def encode_all_to(self, vals, buf, offset):
+        # encode fixed values
+        self.st.pack_into(buf, offset, [f(v) for f,v in zip(self.valenc, vals)])
+        offset += self.st.size
         
         # short circuit on no varlen
         if not self.varlenslice:
-            return (rec, offset)
+            return (vals, offset)
+
+        # slow iteration over remaining IEs
         
-        #WORK POINTER
-        
-        
-    def decode_tuple_from(self, ies, buf, offset):
-        pass
-        
-    def encode_dict_to(self, rec, buf, offset):
-        pass
-        
-    def encode_tuple_to(self, ies, rec, buf, offset):
-        pass
+        # WORK POINTER
     
     
+    def encode_template_to(self, buf, offset, setid):
+        if setid == TemplateSetId:
+            _tmplhdr_st.pack_into(buf, offset, self.tid, self.count())
+            offset += _tmplhdr_st.size
+        ellf setid == OptionsTemplateSetId:
+            _otmplhdr_st.pack_into(buf, offset, self.tid, self.count(), self.scopecount)
+            offset += _otmplhdr_st.size
+            
+        for e in ies:
+            if e.pen:
+                _iespec_st.pack_into(buf, offset, e.num | 0x8000, e.length)
+                offset += _iespec_st.size
+                _iepen_st.pack_into(buf, offset, e.pen)
+                offset += _iepen_st.size
+            else: 
+                _iespec_st.pack_into(buf, offset, ie.num, e.length)
+                offset += _iespec_st.size
+        
+        return offset
     
     
     
@@ -130,20 +164,6 @@ class Template:
             
         return offset
     
-    def encode_template_to(self, buf, offset):
-        _tmplhdr_st.pack_into(buf, offset, self.tid, len(self.ies))
-            
-        for e in ies:
-            if e.pen:
-                _iespec_st.pack_into(buf, offset, e.num | 0x8000, e.length)
-                offset += _iespec_st.size
-                _iepen_st.pack_into(buf, offset, e.pen)
-                offset += _iepen_st.size
-            else: 
-                _iespec_st.pack_into(buf, offset, ie.num, e.length)
-                offset += _iespec_st.size
-        
-        return offset
 
 def decode_from_buffer(setid, buf, offset):
     (tid, count) = _tmplhdr_st.unpack_from(buf, offset);

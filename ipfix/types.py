@@ -69,8 +69,9 @@ class StructType(IpfixType):
         self.stel = stel
         self.st = struct.Struct("!"+stel)
         self.length = st.size
+        self.skipstel = str(self.length)+"x"
 
-    def for_length(self):
+    def for_length(self, length):
         if not length or length == self.length:
             return self
         else:
