@@ -16,8 +16,8 @@ ipfix.ie.use_5103_default()
 if args.spec:
     ipfix.ie.load_specfile(args.spec)
 
-prof = cProfile.Profile()
-prof.enable()
+# prof = cProfile.Profile()
+# prof.enable()
 
 r = ipfix.reader.from_stream(open(args.file, mode="rb"))
 
@@ -28,5 +28,5 @@ for rec in r.namedict_iterator():
     if r.reccount >= 100000:
         break
 
-prof.disable()
-prof.dump_stats("cprofile.out")
+# prof.disable()
+# prof.dump_stats("cprofile.out")

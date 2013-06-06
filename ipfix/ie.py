@@ -24,9 +24,9 @@ class InformationElement:
     def __init__(self, name, pen, num, ietype, length):
         
         if name:
-            self.name = intern(name)
+            self.name = name
         else: 
-            self.name = intern("_ipfix_%u_%u" % (pen, num))
+            self.name = "_ipfix_%u_%u" % (pen, num)
 
         if length:
             self.length = length
