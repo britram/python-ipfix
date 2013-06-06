@@ -51,6 +51,9 @@ class InformationElement:
     def __str__(self):
         return "%s(%u/%u)%s[%u]" % (self.name, self.pen, self.num, str(self.type), self.length)
     
+    def __hash__(self):
+        return (self.num << 16) ^ self.pen
+    
     def for_length(self, length):
         if not length or length == self.length:
             return self

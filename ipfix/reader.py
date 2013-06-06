@@ -1,10 +1,6 @@
 from warnings import warn 
 from . import template
 
-# Builtin exception
-class IPFIXDecodeError(Exception):
-    def __init__(self, *args):
-        super().__init__(args)
 
 from struct import Struct
 
@@ -15,7 +11,7 @@ class MessageStreamReader:
     """docstring for MessageStreamReader"""
     def __init__(self, stream):
         self.stream = stream
-        self.mbuf = bytearray(65536)
+        self.mbuf = memoryview(bytearray(65536))
         self.length = 0
         self.sequence = None
         self.export_time = None
@@ -37,7 +33,7 @@ class MessageStreamReader:
         if (len(msghdr) == 0):
             raise EOFError()
         elif (len(msghdr) < _msghdr_st.size):
-            raise IPFIXDecodeError("Short read in message header ("+ str(len(msghdr)) +" octets")
+            raise IpfixDecodeException("Short read in message header ("+ str(len(msghdr)) +" octets")
 
         self.mbuf[0:_msghdr_st.size] = msghdr
         (version, self.length, self.sequence, self.export_time, self.odid) = _msghdr_st.unpack_from(self.mbuf, offset)
@@ -45,10 +41,10 @@ class MessageStreamReader:
         
         # verify version and length
         if version != 10:
-            raise IPFIXDecodeError("Illegal or unsupported version " + str(version))
+            raise IpfixDecodeException("Illegal or unsupported version " + str(version))
         
         if self.length < 20:
-            raise IPFIXDecodeError("Illegal message length" + str(self.length))
+            raise IpfixDecodeException("Illegal message length" + str(self.length))
             
         # read the rest of the message into the buffer
         msgbody = self.stream.read(self.length-offset)
