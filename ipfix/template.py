@@ -1,5 +1,6 @@
 from . import ie    
 from . import types
+import struct
 
 # Builtin exceptions
 class IpfixEncodeError(Exception):
@@ -50,17 +51,18 @@ class Template:
             self.enclength += _iepen_st.size
 
     def count(self):
-        return len(ies)
+        return len(self.ies)
 
     def make_struct(self):
-        fixmax = len(ies)
         if self.varlenslice:
             fixmax = self.varlenslice
-
-        self.st = struct.Struct("!"+"".join((ie.type.stel for ie in ies[0:fixmax])))
+        else:
+            fixmax = self.count()
         
-        self.valdec = [ie.type.valdec for ies in [0:fixmax]]
-        self.valenc = [ie.type.valenc for ies in [0:fixmax]]
+        self.st = struct.Struct("!"+"".join((ie.type.stel for ie in self.ies[0:fixmax])))
+        
+        self.valdec = [ie.type.valdec for ie in self.ies[0:fixmax]]
+        self.valenc = [ie.type.valenc for ie in self.ies[0:fixmax]]
     
     def decode_all_from(self, buf, offset):
         """Decodes a record into a tuple containing values in template order"""
@@ -103,7 +105,7 @@ class Template:
         for (ie,val) in zip(ies[self.varlenslice:], vals[self.varlenslice:]):
             if ie.length == types.Varlen:
                 offset = types.encode_varlen(ie.length, buf, offset)
-            offset ie.type.encode_single_value_to(val, buf, offset)
+            offset = ie.type.encode_single_value_to(val, buf, offset)
 
         return offset
     
@@ -159,68 +161,15 @@ def decode_template_from(setid, buf, offset):
         tmpl.append(ie.for_template_entry(pen, num, length))
         count -= 1
 
-   return (tmpl, offset)
+    tmpl.make_struct()
+
+    return (tmpl, offset)
     
-def from_iespecs(tid, iespecs):
+def template_from_iespec(tid, iespecs):
     tmpl = Template(tid)
     for iespec in iespecs:
         tmpl.append(ie.for_name)
     
+    tmpl.make_struct()
+    
     return tmpl
- 
-
-
-
-class OldTemplate:
-    """Represents an ordered list of IPFIX Information Elements with an ID"""
-    def __init__(self, tid = 0):
-        super(Template, self).__init__()
-        self.ies = [];
-        self.tid = tid;
-        self.minlength = 0;
-
-    def __iter__(self):
-        return ies.__iter__()
-
-    def append(self, ie):
-        self.ies.append(ie)
-        if ie.length == types.Varlen:
-            self.minlength += 1
-        else:
-            self.minlength += ie.length
-    
-    def count(self):
-        return len(self.ies)
-    
-    # all record encode/decode stuff lives in template
-    # FIXME we probably want a callback-based interface too
-    
-    def decode_dict_from(self, buf, offset):
-        rec = {}
-        for e in self.ies:
-            if (e.length == types.Varlen):
-                raise ValueError("no varlen support yet")
-            else:
-                length = e.length
-                
-            rec[e.name] = e.type.decode_single_value_from(buf, offset, length)
-            offset += length
-        
-        return (rec, offset)
-
-    def encode_dict_to(self, rec, buf, offset):
-        for e in self.ies:
-            if (e.length == Varlen):
-                raise ValueError("no varlen support yet")
-            else:
-                length = e.length
-            
-            val = rec[ie.name]
-            e.type.encode_single_value_to(val, buf, offset, length)
-            offset += length
-            
-        return offset
-    
-
-
-        

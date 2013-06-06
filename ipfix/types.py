@@ -37,8 +37,11 @@ _stel_rle = { ('H', 1) : 'B',
 _varlen1_st = struct.Struct("!B")
 _varlen2_st = struct.Struct("!H")
 
-# Builtin type implementation
+# builtin default encode/decode function
+def _identity(x):
+    return x
 
+# Builtin type implementation
 @total_ordering
 class IpfixType:
     """
@@ -69,7 +72,7 @@ class StructType(IpfixType):
         self.stel = stel
         self.skipstel = str(self.length)+"x"
         self.st = struct.Struct("!"+stel)
-        self.length = st.size
+        self.length = self.st.size
 
     def for_length(self, length):
         if not length or length == self.length:
@@ -94,7 +97,7 @@ class OctetArrayType(IpfixType):
         super().__init__(name, num, valenc, valdec)
         self.length = Varlen
     
-    def for_length(self):
+    def for_length(self, length):
         if not length or length == self.length:
             return self
         else:
@@ -107,9 +110,6 @@ class OctetArrayType(IpfixType):
         return self.valdec(buf[offset:offset+length])
 
 # Builtin encoders/decoders
-
-def _identity(x):
-    return x
 
 def _encode_smibool(bool):
     if bool:
@@ -199,7 +199,7 @@ def _decode_ip(octets):
 
 
 _Types = [
-    OctetArrayType("octetArray", 0)
+    OctetArrayType("octetArray", 0),
     StructType("unsigned8",  1, "B"),
     StructType("unsigned16", 2, "H"),
     StructType("unsigned32", 3, "L"),
@@ -214,11 +214,11 @@ _Types = [
     StructType("macAddress", 12, "6s"),
     OctetArrayType("string", 13, _encode_utf8, _decode_utf8),
     StructType("dateTimeSeconds", 14, "L", _encode_sec, _decode_sec),
-    StructType("dateTimeSeconds", 15, "Q", _encode_msec, _decode_msec),
+    StructType("dateTimeMilliseconds", 15, "Q", _encode_msec, _decode_msec),
     StructType("dateTimeMicroseconds", 16, "Q", _encode_ntp, _decode_ntp),
     StructType("dateTimeNanoseconds", 17, "Q", _encode_ntp, _decode_ntp),
     StructType("ipv4Address", 18, "4s", _encode_ip, _decode_ip),
-    IpAddressType("ipv6Address", 19, "16s", _encode_ip, _decode_ip)
+    StructType("ipv6Address", 19, "16s", _encode_ip, _decode_ip)
 ]
 
 _TypeForName = { ietype.name: ietype for ietype in _Types }

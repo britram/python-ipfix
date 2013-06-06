@@ -21,7 +21,7 @@ prof.enable()
 
 r = ipfix.reader.from_stream(open(args.file, mode="rb"))
 
-for rec in r.dict_iterator():
+for rec in r.namedict_iterator():
     print("--- record %u in message %u ---" % (r.reccount, r.msgcount))
     for key in rec:
         print("  %30s => %s" % (key, str(rec[key])))

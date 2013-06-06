@@ -50,7 +50,7 @@ class MessageStreamReader:
         msgbody = self.stream.read(self.length-offset)
         if len(msgbody) < self.length - offset:
             raise IPFIXDecodeError("Short read in message body (got "+str(len(msgbody))+", expected"+(self.length - offset)+")")
-        self.mbuf[offset:self.length-offset] = msgbody
+        self.mbuf[offset:self.length] = msgbody
         
         # iterate over message and built setlist
         while (offset < self.length):
@@ -62,30 +62,29 @@ class MessageStreamReader:
 
         self.msgcount += 1
 
-    def dict_iterator(self):
-        """return an iterator over records in messages in the stream""" 
+    def record_iterator(self, decode_fn = template.Template.decode_namedict_from):
+        """return an iterator over records in messages in the stream
+           using a function (template, buffer, offset) => (record, offset) 
+           to decode records"""
         try:
             while(True):
                 self.deframe()
                 for (offset, setid, setlen) in self.setlist:
                     setend = offset + setlen
                     offset += _sethdr_st.size # skip set header in decode
-                    if setid == 2:
+                    if setid == 2 or setid == 3:
                         while offset < setend:
-                            (tmpl, offset) = template.decode_from_buffer(setid, self.mbuf, offset)
+                            (tmpl, offset) = template.decode_template_from(setid, self.mbuf, offset)
                             self.templates[(self.odid, tmpl.tid)] = tmpl
                             self.tmplcount += 1
                             print ("read template "+repr((self.odid, tmpl.tid))+": "+str(tmpl.count())+" IEs, minlen "+str(tmpl.minlength))
-                    elif setid == 3:
-                        self.tmplcount += 1
-                        warn("skipping Options Template")
                     elif setid < 256:
                         warn("skipping illegal set id "+setid)
                     else:
                         try:
                             tmpl = self.templates[(self.odid), setid]
                             while offset + tmpl.minlength <= setend:
-                                (rec, offset) = tmpl.decode_dict_from(self.mbuf, offset)
+                                (rec, offset) = decode_fn(tmpl, self.mbuf, offset)
                                 yield rec
                                 self.reccount += 1
                         except KeyError:
@@ -93,6 +92,13 @@ class MessageStreamReader:
                             
         except EOFError:
             return
+            
+    def namedict_iterator(self):
+        return self.record_iterator(template.Template.decode_namedict_from)
+    
+    def iedict_iterator(self):
+        return self.record_iterator(template.Template.decode_iedict_from)
+        
 
 def from_stream(stream):
     return MessageStreamReader(stream)          
