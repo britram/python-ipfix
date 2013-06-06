@@ -23,6 +23,25 @@ _otmplhdr_st = Struct("!HHH")
 _iespec_st = Struct("!HH")
 _iepen_st = Struct("!L")
 
+class TemplatePackingPlan:
+    def __init__(self, tmpl, indices):
+        self.tmpl = tmpl
+        self.indices = indices
+        self.valenc = []
+        self.valdec = []
+        
+        # FIXME this would be prettier if it were more functional
+        packstring = "!"
+        for i in range(tmpl.fixlen_count()):
+            if i in indices:
+                packstring += tmpl.ies[i].type.stel
+                self.valenc.append(tmpl.ies[i].type.valenc)
+                self.valdec.append(tmpl.ies[i].type.valdec)
+            else:
+                packstring += tmpl.ies[i].type.skipel
+
+        self.st = struct.Struct(packstring)
+
 class Template:
     """Represents an ordered list of IPFIX Information Elements with an ID"""
     def __init__(self, tid = 0):
@@ -32,9 +51,7 @@ class Template:
         self.enclength = 0
         self.scopecount = 0
         self.varlenslice = None
-        self.st = None
-        self.valenc = None
-        self.valdec = None
+        self.packplan = None
         
     def append(self, ie):
         self.ies.append(ie)
@@ -53,33 +70,37 @@ class Template:
     def count(self):
         return len(self.ies)
 
-    def make_struct(self):
+    def fixlen_count(self):
         if self.varlenslice:
-            fixmax = self.varlenslice
+            return self.varlenslice
         else:
-            fixmax = self.count()
-        
-        self.st = struct.Struct("!"+"".join((ie.type.stel for ie in self.ies[0:fixmax])))
-        
-        self.valdec = [ie.type.valdec for ie in self.ies[0:fixmax]]
-        self.valenc = [ie.type.valenc for ie in self.ies[0:fixmax]]
+            return self.count()
+
+    def finalize(self):
+        self.packplan = TemplatePackingPlan(self, range(self.fixlen_count()))
     
-    def decode_all_from(self, buf, offset):
+    def decode_all_from(self, buf, offset, packplan = None):
         """Decodes a record into a tuple containing values in template order"""
+
+        # use default packplan unless someone hacked us not to
+        if not packplan:
+            packplan = self.packplan
+            
         # decode fixed values 
-        vals = [f(v) for f, v in zip(self.valdec, self.st.unpack_from(buf, offset))]
-        offset += self.st.size
+        vals = [f(v) for f, v in zip(packplan.valdec, packplan.st.unpack_from(buf, offset))]
+        offset += packplan.st.size
                 
         # short circuit on no varlen
         if not self.varlenslice:
             return (vals, offset)
         
         # direct iteration over remaining IEs
-        for ie in ies[self.varlenslice:]:
+        for i, ie in zip(range(self.varlenslice, self.count()), self.ies[self.varlenslice:]):
             length = ie.length
             if length == types.Varlen:
                 (length, offset) = types.decode_varlen(buf, offset)
-            vals.append(ie.type.valdec(ie.type.decode_single_value_from(buf, offset, length)))
+            if i in packplan.indices:
+                vals.append(ie.type.valdec(ie.type.decode_single_value_from(buf, offset, length)))
             offset += length
             
         return (vals, offset)
@@ -91,7 +112,7 @@ class Template:
     def decode_namedict_from(self, buf, offset):
         (vals, offset) = self.decode_all_from(buf, offset)
         return ({ k: v for k,v in zip((ie.name for ie in self.ies), vals)}, offset)
-        
+
     def encode_all_to(self, vals, buf, offset):
         # encode fixed values
         self.st.pack_into(buf, offset, [f(v) for f,v in zip(self.valenc, vals)])
@@ -161,7 +182,7 @@ def decode_template_from(setid, buf, offset):
         tmpl.append(ie.for_template_entry(pen, num, length))
         count -= 1
 
-    tmpl.make_struct()
+    tmpl.finalize()
 
     return (tmpl, offset)
     
@@ -170,6 +191,6 @@ def template_from_iespec(tid, iespecs):
     for iespec in iespecs:
         tmpl.append(ie.for_name)
     
-    tmpl.make_struct()
+    tmpl.finalize()
     
     return tmpl

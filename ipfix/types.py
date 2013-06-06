@@ -70,9 +70,9 @@ class StructType(IpfixType):
     def __init__(self, name, num, stel, valenc = _identity, valdec = _identity):
         super().__init__(name, num, valenc, valdec)
         self.stel = stel
-        self.skipstel = str(self.length)+"x"
         self.st = struct.Struct("!"+stel)
         self.length = self.st.size
+        self.skipel = str(self.length)+"x"
 
     def for_length(self, length):
         if not length or length == self.length:
@@ -152,52 +152,8 @@ def _encode_ip(ipaddr):
     
 def _decode_ip(octets):
     return ip_address(octets)
-    
-# Builtin type registry
 
-# _Type_octetArray = OctetArrayType("octetArray", 0)
-# _Type_unsigned8  = StructType("unsigned8",  1, "B")
-# _Type_unsigned16 = StructType("unsigned16", 2, "H")
-# _Type_unsigned32 = StructType("unsigned32", 3, "L")
-# _Type_unsigned64 = StructType("unsigned64", 4, "Q")
-# _Type_signed8    = StructType("signed8",    5, "b")
-# _Type_signed16   = StructType("signed16",   6, "h")
-# _Type_signed32   = StructType("signed32",   7, "l")
-# _Type_signed64   = StructType("signed64",   8, "q")
-# _Type_float32    = StructType("float32",    9, "f")
-# _Type_float64    = StructType("float64",    10, "d")
-# _Type_boolean    = StructType("boolean",    11, "B", _encode_smibool, _decode_smibool)
-# _Type_macAddress = StructType("macAddress", 12, "6s")
-# _Type_string     = OctetArrayType("string", 13, _encode_utf8, _decode_utf8)
-# _Type_dateTimeSeconds =      StructType("dateTimeSeconds", 14, "L", _encode_sec, _decode_sec)
-# _Type_dateTimeMilliseconds = StructType("dateTimeSeconds", 15, "Q", _encode_msec, _decode_msec)
-# _Type_dateTimeMicroseconds = StructType("dateTimeMicroseconds", 16, "Q", _encode_ntp, _decode_ntp)
-# _Type_dateTimeNanoseconds =  StructType("dateTimeNanoseconds", 17, "Q", _encode_ntp, _decode_ntp)
-# _Type_ipv4Address = StructType("ipv4Address", 18, "4s", _encode_ip, _decode_ip)
-# _Type_ipv6Address = IpAddressType("ipv6Address", 19, "16s", _encode_ip, _decode_ip)
-
-# _TypeForName = {'octetArray':           _Type_octetArray,
-#                 'string':               _Type_string,
-#                 'unsigned8':            _Type_unsigned8,
-#                 'unsigned16':           _Type_unsigned16,
-#                 'unsigned32':           _Type_unsigned32,
-#                 'unsigned64':           _Type_unsigned64,
-#                 'signed8':              _Type_signed8,
-#                 'signed16':             _Type_signed16,
-#                 'signed32':             _Type_signed32,
-#                 'signed64':             _Type_signed64,
-#                 'float32':              _Type_float32,
-#                 'float64':              _Type_float64,
-#                 'boolean':              _Type_boolean,
-#                 'ipv4Address':          _Type_ipv4Address,
-#                 'ipv6Address':          _Type_ipv6Address,
-#                 'macAddress':           _Type_macAddress,
-#                 'dateTimeSeconds':      _Type_dateTimeSeconds,
-#                 'dateTimeMilliseconds': _Type_dateTimeMilliseconds,
-#                 'dateTimeMicroseconds': _Type_dateTimeMicroseconds,
-#                 'dateTimeNanoseconds':  _Type_dateTimeNanoseconds}
-
-
+# builtin type registry
 _Types = [
     OctetArrayType("octetArray", 0),
     StructType("unsigned8",  1, "B"),
