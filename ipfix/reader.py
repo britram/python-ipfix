@@ -21,6 +21,7 @@ class MessageStreamReader:
         self.msgcount = 0
         self.tmplcount = 0
         self.reccount = 0
+        self.setskipcount = 0
     
     def deframe(self):
         """deframe message and find set offsets"""
@@ -62,7 +63,8 @@ class MessageStreamReader:
 
         self.msgcount += 1
 
-    def record_iterator(self, decode_fn = template.Template.decode_namedict_from):
+    # FIXME needs a method to pass in a "i want records from this template" function to be applied to all new templates.
+    def record_iterator(self, decode_fn = template.Template.decode_namedict_from, recinf = None):
         """return an iterator over records in messages in the stream
            using a function (template, buffer, offset) => (record, offset) 
            to decode records"""
@@ -84,21 +86,24 @@ class MessageStreamReader:
                         try:
                             tmpl = self.templates[(self.odid), setid]
                             while offset + tmpl.minlength <= setend:
-                                (rec, offset) = decode_fn(tmpl, self.mbuf, offset)
+                                (rec, offset) = decode_fn(tmpl, self.mbuf, offset, recinf = recinf)
                                 yield rec
                                 self.reccount += 1
                         except KeyError:
-                            warn("missing template for domain "+str(self.odid)+" set id "+str(setid))
+                            #FIXME neet set buffer for sets without templates
+                            self.setskipcount += 1
                             
         except EOFError:
             return
             
     def namedict_iterator(self):
-        return self.record_iterator(template.Template.decode_namedict_from)
+        return self.record_iterator(decode_fn = template.Template.decode_namedict_from)
     
     def iedict_iterator(self):
-        return self.record_iterator(template.Template.decode_iedict_from)
+        return self.record_iterator(decode_fn = template.Template.decode_iedict_from)
+    
+    def tuple_iterator(self, ielist):
+        return self.record_iterator(decode_fn = template.Template.decode_tuple_from, recinf = ielist)
         
-
 def from_stream(stream):
     return MessageStreamReader(stream)          

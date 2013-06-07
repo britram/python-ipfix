@@ -79,7 +79,15 @@ class Template:
     def finalize(self):
         self.packplan = TemplatePackingPlan(self, range(self.fixlen_count()))
     
-    def decode_all_from(self, buf, offset, packplan = None):
+    def packplan_for_ielist(self, ielist):
+        try:
+            return self.tuple_packplans[ielist]
+        except KeyError:
+            packplan = TemplatePackingPlan(self, [self.ies.index(ie) for ie in ielist])
+            self.tuple_packplans[ielist] = packplan
+            return packplan   
+    
+    def decode_from(self, buf, offset, packplan = None):
         """Decodes a record into a tuple containing values in template order"""
 
         # use default packplan unless someone hacked us not to
@@ -105,29 +113,45 @@ class Template:
             
         return (vals, offset)
 
-    def decode_iedict_from(self, buf, offset):
-        (vals, offset) = self.decode_all_from(buf, offset)
+    def decode_iedict_from(self, buf, offset, recinf = None):
+        (vals, offset) = self.decode_from(buf, offset)
         return ({ k: v for k,v in zip((ie for ie in self.ies), vals)}, offset)
 
-    def decode_namedict_from(self, buf, offset):
-        (vals, offset) = self.decode_all_from(buf, offset)
+    def decode_namedict_from(self, buf, offset, recinf = None):
+        (vals, offset) = self.decode_from(buf, offset)
         return ({ k: v for k,v in zip((ie.name for ie in self.ies), vals)}, offset)
-
-    def encode_all_to(self, vals, buf, offset):
+        
+    def decode_tuple_from(self, buf, offset, recinf = None):
+        if recinf:
+            packplan = self.packplan_for_ielist(recinf)
+        else:
+            packplan = self.packplan
+            
+        vals = self.decode_from(buf, offset, packplan = packplan)
+        return [vals[x] for x in packplan.indices]            
+        
+    def encode_all_to(self, vals, buf, offset, packplan = None):
+        '''Encodes a record from a tuple containing values in template order'''
+        
+        # use default packplan unless someone hacked us not to
+        if not packplan:
+            packplan = self.packplan
+        
         # encode fixed values
-        self.st.pack_into(buf, offset, [f(v) for f,v in zip(self.valenc, vals)])
-        offset += self.st.size
+        packplan.st.pack_into(buf, offset, [f(v) for f,v in zip(packplan.valenc, vals)])
+        offset += packplan.st.size
         
         # short circuit on no varlen
         if not self.varlenslice:
             return offset
 
-        # slow iteration over remaining IEs
-        for (ie,val) in zip(ies[self.varlenslice:], vals[self.varlenslice:]):
-            if ie.length == types.Varlen:
-                offset = types.encode_varlen(ie.length, buf, offset)
-            offset = ie.type.encode_single_value_to(val, buf, offset)
-
+        # direct iteration over remaining IEs
+        for i, ie, val in zip(range(self.varlenslice, self.count()), ies[self.varlenslice:], vals[self.varlenslice:]):
+            if i in packplan.indices:
+                if ie.length == types.Varlen:
+                    offset = types.encode_varlen(len(val), buf, offset)
+                offset = ie.type.encode_single_value_to(val, buf, offset)
+                
         return offset
     
     def encode_iedict_to(self, rec, buf, offset):
@@ -166,6 +190,8 @@ def decode_template_from(setid, buf, offset):
     elif setid == OptionsTemplateSetId:
         (tid, count, scopecount) = _otmplhdr_st.unpack_from(buf, offset);
         offset += _otmplhdr_st.size
+    else:
+        raise IpfixDecodeException("bad template set id "+str(setid))
         
     tmpl = Template(tid)
     tmpl.scopecount = scopecount
