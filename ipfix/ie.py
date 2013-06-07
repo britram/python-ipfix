@@ -82,7 +82,7 @@ class InformationElementList:
         return "InformationElementList(" + ",".join((repr(x) for x in self.inner)) + ")"
 
     def __str__(self):
-        return "\n".join((str(x) for x in inner))
+        return "\n".join((str(x) for x in self.inner))
     
     def __hash__(self):
         if not self.hashcache:

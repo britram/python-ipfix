@@ -54,7 +54,7 @@ class Template:
         self.scopecount = 0
         self.varlenslice = None
         self.packplan = None
-        
+
     def append(self, ie):
         self.ies.append(ie)
 
@@ -83,9 +83,7 @@ class Template:
 
     @lru_cache(maxsize = 32)
     def packplan_for_ielist(self, ielist):
-        packplan = TemplatePackingPlan(self, [self.ies.index(ie) for ie in ielist])
-        self.tuple_packplans[ielist] = packplan
-        return packplan   
+        return TemplatePackingPlan(self, [self.ies.index(ie) for ie in ielist])
     
     def decode_from(self, buf, offset, packplan = None):
         """Decodes a record into a tuple containing values in template order"""
@@ -128,7 +126,9 @@ class Template:
             packplan = self.packplan
             
         vals = self.decode_from(buf, offset, packplan = packplan)
-        return [vals[x] for x in packplan.indices]            
+
+        # re-sort values in same order as packplan indices
+        return tuple(v for i,v in sorted(zip(packplan.indices, vals)))
         
     def encode_all_to(self, vals, buf, offset, packplan = None):
         '''Encodes a record from a tuple containing values in template order'''

@@ -30,7 +30,7 @@ class MessageStreamReader:
         self.notmplcount = 0
         self.setskipcount = 0
     
-    def deframe(self):
+    def deframe_ipfix(self):
         """deframe message and find set offsets"""
         # Start at the beginning
         offset = 0
@@ -80,7 +80,7 @@ class MessageStreamReader:
         
         try:
             while(True):
-                self.deframe()
+                self.deframe_ipfix()
                 for (offset, setid, setlen) in self.setlist:
                     setend = offset + setlen
                     offset += _sethdr_st.size # skip set header in decode
@@ -89,15 +89,16 @@ class MessageStreamReader:
                             (tmpl, offset) = template.decode_template_from(setid, self.mbuf, offset)
                             self.templates[(self.odid, tmpl.tid)] = tmpl
                             self.tmplcount += 1
-                            print ("read template "+repr((self.odid, tmpl.tid))+": "+str(tmpl.count())+" IEs, minlen "+str(tmpl.minlength))
                             if tmplaccept_fn(tmpl):
+                                print ("accepted template "+repr((self.odid, tmpl.tid))+": "+str(tmpl.count())+" IEs, minlen "+str(tmpl.minlength))
                                 accepted_setid.add((self.odid, tmpl.tid))
                             else:
+                                print ("rejected template "+repr((self.odid, tmpl.tid))+": "+str(tmpl.count())+" IEs, minlen "+str(tmpl.minlength))
                                 accepted_setid.discard((self.odid, tmpl.tid))
                             
                     elif setid < 256:
                         warn("skipping illegal set id "+setid)
-                    elif (self.odid, tmpl.tid) in accepted_setid:
+                    elif (self.odid, setid) in accepted_setid:
                         try:
                             tmpl = self.templates[(self.odid, setid)]
                             while offset + tmpl.minlength <= setend:
@@ -121,7 +122,7 @@ class MessageStreamReader:
     
     def tuple_iterator(self, ielist):
         tmplaccept_fn = lambda tmpl: reduce(operator.__and__, (ie in tmpl.ies for ie in ielist))
-        return self.record_iterator(decode_fn = template.Template.decode_tuple_from, recinf = ielist)
+        return self.record_iterator(decode_fn = template.Template.decode_tuple_from, tmplaccept_fn = tmplaccept_fn, recinf = ielist)
         
 def from_stream(stream):
     return MessageStreamReader(stream)          
