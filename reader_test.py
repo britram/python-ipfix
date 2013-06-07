@@ -5,6 +5,7 @@ import ipfix.ie
 import pprint
 import argparse
 import cProfile
+import sys
 
 ap = argparse.ArgumentParser(description="Dump an IPFIX file for debug purposes")
 ap.add_argument('file', metavar='file', help='ipfix file to read')
@@ -28,5 +29,7 @@ for rec in r.namedict_iterator():
     if r.reccount >= 100000:
         break
 
+sys.stderr.write("read %u templates and %u records in %u messages\n\tskipped %u sets, %u sets without template\n" %
+                 (r.tmplcount, r.reccount, r.msgcount, r.setskipcount, r.notmplcount))
 # prof.disable()
 # prof.dump_stats("cprofile.out")

@@ -1,11 +1,17 @@
 from warnings import warn 
+from functools import reduce
+import operator
 from . import template
+
 
 
 from struct import Struct
 
 _sethdr_st = Struct("!HH")
 _msghdr_st = Struct("!HHLLL")
+
+def _accept_all_templates(tmpl):
+    return True
 
 class MessageStreamReader:
     """docstring for MessageStreamReader"""
@@ -21,6 +27,7 @@ class MessageStreamReader:
         self.msgcount = 0
         self.tmplcount = 0
         self.reccount = 0
+        self.notmplcount = 0
         self.setskipcount = 0
     
     def deframe(self):
@@ -64,10 +71,13 @@ class MessageStreamReader:
         self.msgcount += 1
 
     # FIXME needs a method to pass in a "i want records from this template" function to be applied to all new templates.
-    def record_iterator(self, decode_fn = template.Template.decode_namedict_from, recinf = None):
+    def record_iterator(self, decode_fn = template.Template.decode_namedict_from, tmplaccept_fn = _accept_all_templates, recinf = None):
         """return an iterator over records in messages in the stream
            using a function (template, buffer, offset) => (record, offset) 
            to decode records"""
+           
+        accepted_setid = set()
+        
         try:
             while(True):
                 self.deframe()
@@ -80,18 +90,25 @@ class MessageStreamReader:
                             self.templates[(self.odid, tmpl.tid)] = tmpl
                             self.tmplcount += 1
                             print ("read template "+repr((self.odid, tmpl.tid))+": "+str(tmpl.count())+" IEs, minlen "+str(tmpl.minlength))
+                            if tmplaccept_fn(tmpl):
+                                accepted_setid.add((self.odid, tmpl.tid))
+                            else:
+                                accepted_setid.discard((self.odid, tmpl.tid))
+                            
                     elif setid < 256:
                         warn("skipping illegal set id "+setid)
-                    else:
+                    elif (self.odid, tmpl.tid) in accepted_setid:
                         try:
-                            tmpl = self.templates[(self.odid), setid]
+                            tmpl = self.templates[(self.odid, setid)]
                             while offset + tmpl.minlength <= setend:
                                 (rec, offset) = decode_fn(tmpl, self.mbuf, offset, recinf = recinf)
                                 yield rec
                                 self.reccount += 1
                         except KeyError:
                             #FIXME neet set buffer for sets without templates
-                            self.setskipcount += 1
+                            self.notmplcount += 1
+                    else:
+                        self.setskipcount += 1
                             
         except EOFError:
             return
@@ -103,6 +120,7 @@ class MessageStreamReader:
         return self.record_iterator(decode_fn = template.Template.decode_iedict_from)
     
     def tuple_iterator(self, ielist):
+        tmplaccept_fn = lambda tmpl: reduce(operator.__and__, (ie in tmpl.ies for ie in ielist))
         return self.record_iterator(decode_fn = template.Template.decode_tuple_from, recinf = ielist)
         
 def from_stream(stream):
