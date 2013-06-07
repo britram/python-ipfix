@@ -1,5 +1,7 @@
 from . import ie    
 from . import types
+from functools import lru_cache
+
 import struct
 
 # Builtin exceptions
@@ -44,9 +46,9 @@ class TemplatePackingPlan:
 
 class Template:
     """Represents an ordered list of IPFIX Information Elements with an ID"""
-    def __init__(self, tid = 0):
-        self.ies = [];
-        self.tid = tid;
+    def __init__(self, tid = 0, iterable = None):
+        self.ies = ie.list()
+        self.tid = tid
         self.minlength = 0
         self.enclength = 0
         self.scopecount = 0
@@ -78,14 +80,12 @@ class Template:
 
     def finalize(self):
         self.packplan = TemplatePackingPlan(self, range(self.fixlen_count()))
-    
+
+    @lru_cache(maxsize = 32)
     def packplan_for_ielist(self, ielist):
-        try:
-            return self.tuple_packplans[ielist]
-        except KeyError:
-            packplan = TemplatePackingPlan(self, [self.ies.index(ie) for ie in ielist])
-            self.tuple_packplans[ielist] = packplan
-            return packplan   
+        packplan = TemplatePackingPlan(self, [self.ies.index(ie) for ie in ielist])
+        self.tuple_packplans[ielist] = packplan
+        return packplan   
     
     def decode_from(self, buf, offset, packplan = None):
         """Decodes a record into a tuple containing values in template order"""

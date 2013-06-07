@@ -1,8 +1,8 @@
 import re
 import os.path
 from . import types
-from functools import total_ordering
-from sys import intern
+from functools import total_ordering, reduce
+import operator
 
 _iespec_re = re.compile('^([^\s\[\<\(]+)?(\(((\d+)\/)?(\d+)\))?(\<(\S+)\>)?(\[(\S+)\])?')
 
@@ -60,6 +60,49 @@ class InformationElement:
         else:
             return self.__class__(self.name, self.pen, self.num, self.type, length)
 
+@total_ordering
+class InformationElementList:
+    def __init__(self, iterable = None):
+        self.inner = []
+        
+        if iterable:
+            for x in iterable:
+                self.append(x)
+
+    def __iter__(self):
+        return iter(self.inner)
+
+    def __eq__(self, other):
+        return self.inner == other.inner
+        
+    def __lt__(self, other):
+        return self.inner < other.inner
+    
+    def __repr__(self):
+        return "InformationElementList(" + ",".join((repr(x) for x in self.inner)) + ")"
+
+    def __str__(self):
+        return "\n".join((str(x) for x in inner))
+    
+    def __hash__(self):
+        if not self.hashcache:
+            self.hashcache = reduce(operator.xor, (hash(x) for x in self.inner))
+
+        return self.hashcache
+
+    def __len__(self):
+        return len(self.inner)
+    
+    def __getitem__(self, key):
+        return self.inner[key]
+    
+    def index(self, x):
+        return self.inner.index(x)
+
+    def append(self, ie):
+        self.inner.append(ie)
+        self.hashcache = None
+
 def parse_spec(spec):
     """Parse an iespec into name, pen, number, typename, and length fields"""
     (name, pen, num, typename, length) = _iespec_re.match(spec).group(1,4,5,7,9)
@@ -83,6 +126,9 @@ def parse_spec(spec):
         typename = False
     
     return (name, pen, num, typename, length)
+    
+def list(iterable = None):
+    return InformationElementList(iterable)
 
 def for_spec(spec):
     (name, pen, num, typename, length) = parse_spec(spec)
