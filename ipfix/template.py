@@ -138,7 +138,8 @@ class Template:
             packplan = self.packplan
         
         # encode fixed values
-        packplan.st.pack_into(buf, offset, [f(v) for f,v in zip(packplan.valenc, vals)])
+        fixvals = [f(v) for f,v in zip(packplan.valenc, vals)]
+        packplan.st.pack_into(buf, offset, *fixvals)
         offset += packplan.st.size
         
         # short circuit on no varlen
@@ -178,14 +179,14 @@ class Template:
         else:
             raise IpfixEncodeError("bad template set id "+str(setid))
             
-        for e in ies:
+        for e in self.ies:
             if e.pen:
                 _iespec_st.pack_into(buf, offset, e.num | 0x8000, e.length)
                 offset += _iespec_st.size
                 _iepen_st.pack_into(buf, offset, e.pen)
                 offset += _iepen_st.size
             else: 
-                _iespec_st.pack_into(buf, offset, ie.num, e.length)
+                _iespec_st.pack_into(buf, offset, e.num, e.length)
                 offset += _iespec_st.size
         
         return offset
@@ -246,10 +247,10 @@ def decode_template_from(buf, offset, setid):
 
     return (tmpl, offset)
     
-def template_from_iespec(tid, iespecs):
+def from_iespec(tid, iespecs):
     tmpl = Template(tid)
     for iespec in iespecs:
-        tmpl.append(ie.for_name)
+        tmpl.append(ie.for_spec(iespec))
     
     tmpl.finalize()
     

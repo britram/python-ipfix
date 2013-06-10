@@ -1,14 +1,25 @@
+"""
+Provides the MessageBuffer class for encoding and decoding IPFIX messages.
+
+This interface allows direct control over Messages; for reading or writing
+records automatically, see ipfix.reader and ipfix.writer, respectively.
+
+"""
+
+
 from . import template
 
 import operator
 import functools
+import struct
 from datetime import datetime
-from struct import Struct
+from warnings import warn
 
-_sethdr_st = Struct("!HH")
-_msghdr_st = Struct("!HHLLL")
+_sethdr_st = struct.Struct("!HH")
+_msghdr_st = struct.Struct("!HHLLL")
 
 class EndOfMessage(Exception):
+    """Raised when a write operation on a Message"""
     def __init__(self, *args):
         super().__init__(args)
 
@@ -16,13 +27,14 @@ def accept_all_templates(tmpl):
     return True    
 
 class MessageBuffer:
+    """Implements a buffer for reading or writing IPFIX messages"""
     def __init__(self):
         self.mbuf = memoryview(bytearray(65536))
 
         self.length = 0
         self.sequence = None
         self.export_epoch = None
-        self.odid = None
+        self.odid = 0
         self.streamid = 0
 
         self.templates = {}
@@ -31,18 +43,20 @@ class MessageBuffer:
         
         self.setlist = []
 
+        self.auto_export_time = True
         self.cursetoff = 0
         self.cursetid = 0
         self.curtmpl = None
         
-        self.mtu = 65535
-
+        self._mtu = 65535
+            
     def get_export_time(self):
         return datetime.utcfromtimestamp(self.export_epoch)
 
     def set_export_time(self, dt=datetime.utcnow()):
         self.export_epoch = int(dt.timestamp())        
-        
+        self.auto_export_time = False
+                
     def increment_sequence(self):
         self.sequences.setdefault((self.odid, self.streamid), 0)
         self.sequences[(self.odid, self.streamid)] += 1
@@ -207,9 +221,15 @@ class MessageBuffer:
                 recinf = ielist)          
 
     def to_bytes(self):
-        # Close final set header
-        _sethdr_st.pack_into(self.mbuf, self.cursetoff, self.cursetid, 
-                             self.length - self.cursetoff)
+        # Close final set 
+        self.export_close_set()
+        
+        # Get sequence number and export time if necessary
+        self.sequences.setdefault((self.odid, self.streamid), 0) # FIXME why do we need this?
+        self.sequence = self.sequences[(self.odid, self.streamid)]
+        
+        if self.auto_export_time:
+            self.export_epoch = int(datetime.utcnow().timestamp())
         
         # Update message header in buffer
         _msghdr_st.pack_into(self.mbuf, 0, 10, self.length, 
@@ -222,7 +242,7 @@ class MessageBuffer:
         stream.write(self.to_bytes())
 
     def add_template(self, tmpl, export=True):
-        self.templates[(self.odid, tmpl.tid)] = template
+        self.templates[(self.odid, tmpl.tid)] = tmpl
         if export:
             self.export_template(tmpl)
     
@@ -242,13 +262,15 @@ class MessageBuffer:
         self.cursetoff = self.length
         self.mbuf[0:_msghdr_st.size] = bytes([0] * _msghdr_st.size)
     
-        if self.mtu <= self.length:
-            raise IpfixEncodeError("MTU too small: "+str(self.mtu))
+        if self._mtu <= self.length:
+            raise IpfixEncodeError("MTU too small: "+str(self._mtu))
     
+        # no current set
+        self.cursetid = None
+        
     def export_new_set(self, setid):
-        # close current set
-        _sethdr_st.pack_into(self.mbuf, self.cursetoff, 
-                             self.cursetid, self.length - self.cursetoff)
+        # close current set if any
+        self.export_close_set()
 
         if setid >= 256:
             # make sure we have a template for the set
@@ -258,7 +280,7 @@ class MessageBuffer:
 
             # make sure we have room to export at least one record
             tmpl = self.templates[(self.odid, setid)]
-            if self.length + _sethdr_st.size + tmpl.minlength > self.mtu:
+            if self.length + _sethdr_st.size + tmpl.minlength > self._mtu:
                 raise EndOfMessage()
         else:
             # special Set ID. no template
@@ -271,14 +293,26 @@ class MessageBuffer:
         _sethdr_st.pack_into(self.mbuf, self.length, setid, 0)
         self.length += _sethdr_st.size
         
+    def export_close_set(self):
+        if self.cursetid:
+            _sethdr_st.pack_into(self.mbuf, self.cursetoff, 
+                                 self.cursetid, self.length - self.cursetoff)
+            self.cursetid = None
+        
     def export_ensure_set(self, setid):
         if self.cursetid != setid:
             self.export_new_set(setid)
+
+    def export_needs_flush(self):
+        if not self.cursetid and self.length <= _msghdr_st.size:
+            return False
+        else:
+            return True
         
     def export_template(self, tmpl):
-        self.export_ensure_set(tmpl.native_setid)
+        self.export_ensure_set(tmpl.native_setid())
         
-        if self.length + tmpl.enclength > self.mtu:
+        if self.length + tmpl.enclength > self._mtu:
             raise EndOfMessage
         
         self.length = tmpl.encode_template_to(self.mbuf, self.length, 
@@ -287,7 +321,7 @@ class MessageBuffer:
     def export_template_withdrawal(self, setid, tid):
         self.export_ensure_set(setid)
         
-        if self.length + template.withdrawal_length(setid) > self.mtu:
+        if self.length + template.withdrawal_length(setid) > self._mtu:
             raise EndOfMessage
         
         self.length = template.encode_withdrawal_to(self.mbuf, self.length, 
@@ -299,14 +333,23 @@ class MessageBuffer:
         savelength = self.length
         
         try:
-            self.length = encode_fn(tmpl, self.mbuf, self.length, rec, recinf)
-        except ValueError: # out of bounds on the underlying mbuf 
+            self.length = encode_fn(self.curtmpl, self.mbuf, self.length, rec, recinf)
+        except struct.error: # out of bounds on the underlying mbuf 
             self.length = savelength
             raise EndOfMessage()
         
         # check for mtu overrun
-        if self.length > self.mtu:
+        if self.length > self._mtu:
             self.length = savelength
             raise EndOfMessage()
 
         self.increment_sequence()
+
+    def export_namedict(self, rec):
+        self.export_record(rec, template.Template.encode_namedict_to)
+    
+    def export_iedict(self, rec):
+        self.export_record(rec, template.Template.encode_iedict_to)
+        
+    def export_tuple(self, rec, ielist = None):
+        self.export_record(rec, template.Template.encode_tuple_to, ielist)

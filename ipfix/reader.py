@@ -1,15 +1,7 @@
-from warnings import warn 
-from functools import reduce
-import operator
 from . import message
 
-from struct import Struct
-
-_sethdr_st = Struct("!HH")
-_msghdr_st = Struct("!HHLLL")
-
 class MessageStreamReader:
-    """docstring for MessageStreamReader"""
+    """Reads records from a stream of IPFIX messages"""
     def __init__(self, stream):
         self.stream = stream
         self.msg = message.MessageBuffer()    

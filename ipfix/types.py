@@ -130,13 +130,13 @@ def _decode_utf8(octets):
     return octets.decode()
 
 def _encode_sec(dt):
-    return dt.timestamp()
+    return int(dt.timestamp())
     
 def _decode_sec(epoch):
     return datetime.utcfromtimestamp(epoch)
     
 def _encode_msec(dt):
-    return dt.timestamp() * 1000 + dt.microseconds / 1000
+    return int(dt.timestamp() * 1000 + dt.microsecond / 1000)
     
 def _decode_msec(epoch):
     return datetime.utcfromtimestamp(epoch/1000) + timedelta(milliseconds = epoch % 1000)
