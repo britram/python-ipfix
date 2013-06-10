@@ -130,7 +130,7 @@ class Template:
         # re-sort values in same order as packplan indices
         return tuple(v for i,v in sorted(zip(packplan.indices, vals)))
         
-    def encode_all_to(self, vals, buf, offset, packplan = None):
+    def encode_to(self, buf, offset, vals, packplan = None):
         '''Encodes a record from a tuple containing values in template order'''
         
         # use default packplan unless someone hacked us not to
@@ -154,11 +154,19 @@ class Template:
                 
         return offset
     
-    def encode_iedict_to(self, rec, buf, offset):
-        return self.encode_all_to([rec[ie] for ie in ies], buf, offset)
+    def encode_iedict_to(self, buf, offset, rec, recinf = None):
+        return self.encode_to(buf, offset, (rec[ie] for ie in ies))
     
-    def encode_namedict_to(self, rec, buf, offset):
-        return self.encode_all_to([rec[ie.name] for ie in ies], buf, offset)
+    def encode_namedict_to(self, buf, offset, rec, recinf = None):
+        return self.encode_to(buf, offset, (rec[ie.name] for ie in ies))
+        
+    def encode_tuple_to(self, buf, offset, rec, recinf = None):
+        if recinf:
+            sortrec = (v for i, v in sorted(zip(packplan.indices, rec))
+            return self.encode_to(buf, offset, sortrec,
+                                  self.packplan_for_ielist(recinf))
+        else:
+            return self.encode_to(buf, offset, rec)
     
     def encode_template_to(self, buf, offset, setid):
         if setid == TemplateSetId:
@@ -181,6 +189,12 @@ class Template:
                 offset += _iespec_st.size
         
         return offset
+    
+    def native_setid(self):
+        if self.scopecount:
+            return OptionsTemplateSetId
+        else:
+            return TemplateSetId
     
 def decode_template_from(setid, buf, offset):
     if setid == TemplateSetId:

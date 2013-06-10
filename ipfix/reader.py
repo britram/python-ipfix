@@ -11,7 +11,7 @@ _sethdr_st = Struct("!HH")
 _msghdr_st = Struct("!HHLLL")
 
 def _accept_all_templates(tmpl):
-    return True
+    return True    
 
 class MessageStreamReader:
     """docstring for MessageStreamReader"""
@@ -70,8 +70,7 @@ class MessageStreamReader:
 
         self.msgcount += 1
 
-    # FIXME needs a method to pass in a "i want records from this template" function to be applied to all new templates.
-    def record_iterator(self, decode_fn = template.Template.decode_namedict_from, tmplaccept_fn = _accept_all_templates, recinf = None):
+    def record_iterator(self, decode_fn=template.Template.decode_namedict_from, tmplaccept_fn=_accept_all_templates, recinf = None):
         """return an iterator over records in messages in the stream
            using a function (template, buffer, offset) => (record, offset) 
            to decode records"""
