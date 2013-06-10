@@ -16,8 +16,8 @@ class IpfixDecodeError(Exception):
 from struct import Struct
 
 # constants
-TemplateSetId = 2
-OptionsTemplateSetId = 3
+TEMPLATE_SET_ID = 2
+OPTIONS_SET_ID = 3
 
 # template encoding/decoding structs
 _tmplhdr_st = Struct("!HH")
@@ -58,7 +58,7 @@ class Template:
     def append(self, ie):
         self.ies.append(ie)
 
-        if ie.length == types.Varlen:
+        if ie.length == types.VARLEN:
             self.minlength += 1
             if not self.varlenslice:
                 self.varlenslice = len(ies) - 1
@@ -103,7 +103,7 @@ class Template:
         # direct iteration over remaining IEs
         for i, ie in zip(range(self.varlenslice, self.count()), self.ies[self.varlenslice:]):
             length = ie.length
-            if length == types.Varlen:
+            if length == types.VARLEN:
                 (length, offset) = types.decode_varlen(buf, offset)
             if i in packplan.indices:
                 vals.append(ie.type.valdec(ie.type.decode_single_value_from(buf, offset, length)))
@@ -148,7 +148,7 @@ class Template:
         # direct iteration over remaining IEs
         for i, ie, val in zip(range(self.varlenslice, self.count()), ies[self.varlenslice:], vals[self.varlenslice:]):
             if i in packplan.indices:
-                if ie.length == types.Varlen:
+                if ie.length == types.VARLEN:
                     offset = types.encode_varlen(len(val), buf, offset)
                 offset = ie.type.encode_single_value_to(val, buf, offset)
                 
@@ -162,21 +162,21 @@ class Template:
         
     def encode_tuple_to(self, buf, offset, rec, recinf = None):
         if recinf:
-            sortrec = (v for i, v in sorted(zip(packplan.indices, rec))
+            sortrec = (v for i, v in sorted(zip(packplan.indices, rec)))
             return self.encode_to(buf, offset, sortrec,
                                   self.packplan_for_ielist(recinf))
         else:
             return self.encode_to(buf, offset, rec)
     
     def encode_template_to(self, buf, offset, setid):
-        if setid == TemplateSetId:
+        if setid == TEMPLATE_SET_ID:
             _tmplhdr_st.pack_into(buf, offset, self.tid, self.count())
             offset += _tmplhdr_st.size
-        elif setid == OptionsTemplateSetId:
+        elif setid == OPTIONS_SET_ID:
             _otmplhdr_st.pack_into(buf, offset, self.tid, self.count(), self.scopecount)
             offset += _otmplhdr_st.size
         else:
-            raise IpfixEncodeException("bad template set id "+str(setid))
+            raise IpfixEncodeError("bad template set id "+str(setid))
             
         for e in ies:
             if e.pen:
@@ -192,20 +192,40 @@ class Template:
     
     def native_setid(self):
         if self.scopecount:
-            return OptionsTemplateSetId
+            return OPTIONS_SET_ID
         else:
-            return TemplateSetId
+            return TEMPLATE_SET_ID
+
+def withdrawal_length(setid):
+    if setid == TEMPLATE_SET_ID:
+        return _tmplhdr_st.size
+    elif setid == OPTIONS_SET_ID:
+        return _otmplhdr_st.size
+    else:
+        return IpfixEncodeError("bad template set id "+str(setid))
+        
+def encode_withdrawal_to(buf, offset, setid, tid):
+    if setid == TEMPLATE_SET_ID:
+        _tmplhdr_st.pack_into(buf, offset, tid, 0)
+        offset += _tmplhdr_st.size
+    elif setid == OPTIONS_SET_ID:
+        _otmplhdr_st.pack_into(buf, offset, tid, 0, 0)
+        offset += _otmplhdr_st.size
+    else:
+        raise IpfixEncodeError("bad template set id "+str(setid))
     
-def decode_template_from(setid, buf, offset):
-    if setid == TemplateSetId:
+    return offset
+    
+def decode_template_from(buf, offset, setid):
+    if setid == TEMPLATE_SET_ID:
         (tid, count) = _tmplhdr_st.unpack_from(buf, offset);
         scopecount = 0
         offset += _tmplhdr_st.size
-    elif setid == OptionsTemplateSetId:
+    elif setid == OPTIONS_SET_ID:
         (tid, count, scopecount) = _otmplhdr_st.unpack_from(buf, offset);
         offset += _otmplhdr_st.size
     else:
-        raise IpfixDecodeException("bad template set id "+str(setid))
+        raise IpfixDecodeError("bad template set id "+str(setid))
         
     tmpl = Template(tid)
     tmpl.scopecount = scopecount

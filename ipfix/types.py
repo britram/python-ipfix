@@ -11,7 +11,7 @@ from ipaddress import ip_address
 import struct
 
 # constants
-Varlen = 65535
+VARLEN = 65535
 
 # Exception
 class IpfixTypeException(Exception):
@@ -95,7 +95,7 @@ class StructType(IpfixType):
 class OctetArrayType(IpfixType):
     def __init__(self, name, num, valenc = lambda x: x, valdec = lambda x: x):
         super().__init__(name, num, valenc, valdec)
-        self.length = Varlen
+        self.length = VARLEN
     
     def for_length(self, length):
         if not length or length == self.length:
