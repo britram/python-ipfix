@@ -31,7 +31,7 @@ r = ipfix.reader.from_stream(open(args.file, mode="rb"))
 
 reccount = 0
 #for rec in r.tuple_iterator(ielist):
-for rec in r.namedict_iterator():
+for rec in r.records_as_dict():
     print("--- record %u in message %u ---" % (reccount, r.msgcount))
     reccount += 1
     for key in rec:

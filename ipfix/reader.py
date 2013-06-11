@@ -7,7 +7,7 @@ class MessageStreamReader:
         self.msg = message.MessageBuffer()    
         self.msgcount = 0
         
-    def namedict_iterator(self):
+    def records_as_dict(self):
         try:
             while(True):
                 self.msg.read_message(self.stream)
@@ -15,17 +15,8 @@ class MessageStreamReader:
                 self.msgcount += 1        
         except EOFError:
             return
-        
-    def iedict_iterator(self):
-        try:
-            while(True):
-                self.msg.read_message(self.stream)
-                yield from self.msg.namedict_iterator()           
-                self.msgcount += 1        
-        except EOFError:
-            return
-    
-    def tuple_iterator(self, ielist):
+            
+    def records_as_tuple(self, ielist):
         try:
             while(True):
                 self.msg.read_message(self.stream)
