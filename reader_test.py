@@ -22,21 +22,20 @@ if args.spec:
 
 r = ipfix.reader.from_stream(open(args.file, mode="rb"))
 
-tuplespec = """sourceIPv4Address
-               destinationIPv4Address
-               meanTcpRttMilliseconds
-               reverseMeanTcpRttMilliseconds"""
-
-ielist = ipfix.ie.list(ipfix.ie.for_spec(x) for x in tuplespec.split())
+# tuplespec = """sourceIPv4Address
+#                destinationIPv4Address
+#                meanTcpRttMilliseconds
+#                reverseMeanTcpRttMilliseconds"""
+# 
+# ielist = ipfix.ie.list(ipfix.ie.for_spec(x) for x in tuplespec.split())
 
 reccount = 0
-for rec in r.tuple_iterator(ielist):
-#for rec in r.namedict_iterator():
-    #print("--- record %u in message %u ---" % (r.reccount, r.msgcount))
-    print("%15s -> %15s (%5u ms, %5u ms)" % (str(rec[0]), str(rec[1]), rec[2], rec[3]))
+#for rec in r.tuple_iterator(ielist):
+for rec in r.namedict_iterator():
+    print("--- record %u in message %u ---" % (reccount, r.msgcount))
     reccount += 1
-    # for key in rec:
-    #     print("  %30s => %s" % (key, str(rec[key])))
+    for key in rec:
+         print("  %30s => %s" % (key, str(rec[key])))
     if reccount >= 100000:
         break
 
