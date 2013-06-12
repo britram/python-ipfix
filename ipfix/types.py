@@ -32,7 +32,6 @@ from functools import total_ordering
 from ipaddress import ip_address
 import struct
 
-"""Encoded length of variable-length information elements"""
 VARLEN = 65535
 
 class IpfixTypeError(Exception):

@@ -21,5 +21,4 @@ ipfix.ie -- iespec-based interface to IPFIX information elements,
 ipfix.type -- encoding and decoding of data items to appropriate Python types
 ipfix.ieutils -- Utilities for updating the module's information model
                  from IANA
-
 """
