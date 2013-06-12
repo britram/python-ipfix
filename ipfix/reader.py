@@ -1,3 +1,7 @@
+"""
+Iterator over records read from IPFIX messages on a stream.
+"""
+
 from . import message
 
 class MessageStreamReader:

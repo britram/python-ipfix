@@ -1,20 +1,42 @@
-#
-# ipfix/types.py
-# (c) 2013 Brian Trammell <brian@trammell.ch>
-# 
-# (Licensing information here)
-#
+"""
+Implementation of IPFIX abstract data types and mappings to Python types.
 
+Based largely on the pack and unpack facilities in the struct package. This
+module maps IPFIX types to the corresponding Python type, as below:
+
+string -- str
+octetArray -- bytes
+unsigned8 -- int
+unsigned16 -- int
+unsigned32 -- int
+unsigned64 -- int
+signed8 -- int
+signed16 -- int
+signed32 -- int
+signed64 -- int
+float32 -- float
+float64 -- float
+boolean -- bool
+macAddress -- bytes
+string -- str
+dateTimeSeconds -- datetime
+dateTimeMilliseconds -- datetime
+dateTimeMicroseconds -- datetime
+dateTimeNanoseconds -- datetime
+ipv4Address -- ipaddress
+ipv6Address -- ipaddress
+
+"""
 from datetime import datetime, timedelta
 from functools import total_ordering
 from ipaddress import ip_address
 import struct
 
-# constants
+"""Encoded length of variable-length information elements"""
 VARLEN = 65535
 
-# Exception
-class IpfixTypeException(Exception):
+class IpfixTypeError(Exception):
+    """Raised when attempting to do an unsupported operation on a type"""
     def __init__(self, *args):
         super().__init__(args)
 
@@ -44,9 +66,7 @@ def _identity(x):
 # Builtin type implementation
 @total_ordering
 class IpfixType:
-    """
-    Implements abstract interface for all IPFIX types.
-    """
+    """Abstract interface for all IPFIX types."""
     def __init__(self, name, num, valenc, valdec):
         self.name = name
         self.num = num
@@ -67,6 +87,7 @@ class IpfixType:
         return "ipfix.types.for_name(%s)" % repr(self.name)
 
 class StructType(IpfixType):
+    """Type encoded by struct packing"""
     def __init__(self, name, num, stel, valenc = _identity, valdec = _identity):
         super().__init__(name, num, valenc, valdec)
         self.stel = stel
@@ -81,7 +102,7 @@ class StructType(IpfixType):
             try:
                 return StructType(self.name, self.num, _stel_rle[(self.stel, length)], self.valenc, self.valdec)
             except KeyError:
-                raise IpfixTypeException("Reduced length encoding not supported <%s>[%u]" % (self.name, length))
+                raise IpfixTypeError("Reduced length encoding not supported <%s>[%u]" % (self.name, length))
 
     def encode_single_value_to(val, buf, offset, length):
         assert(self.length == length)
@@ -93,6 +114,7 @@ class StructType(IpfixType):
 
 
 class OctetArrayType(IpfixType):
+    """Type encoded by byte array packing"""
     def __init__(self, name, num, valenc = lambda x: x, valdec = lambda x: x):
         super().__init__(name, num, valenc, valdec)
         self.length = VARLEN
@@ -181,12 +203,14 @@ _TypeForName = { ietype.name: ietype for ietype in _Types }
 _TypeForNum = { ietype.num: ietype for ietype in _Types }
 
 def for_name(name):
+    """Return an IPFIX type for a given type name"""
     try: 
         return _TypeForName[name]
     except KeyError:
-        return None
+        raise IpfixTypeError("no such type "+name)
 
 def decode_varlen(buf, offset):
+    """Decode a IPFIX varlen encoded length; used internally by template"""
     length = _varlen1_st.unpack_from(buf, offset)
     offset += _varlen1_st.size
     if length == 255:
@@ -194,7 +218,8 @@ def decode_varlen(buf, offset):
         offset += _varlen2_st.size
     return (length, offset)
     
-def encode_varlen(length, buf, offset):
+def encode_varlen(buf, offset, length):
+    """Encode a IPFIX varlen encoded length; used internally by template"""
     if length >= 255:
         _varlen1.pack_into(buf, offset, 255)
         offset += _varlen1_st.size

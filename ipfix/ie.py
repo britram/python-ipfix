@@ -1,3 +1,47 @@
+"""
+IESpec-based interface to IPFIX information elements,
+and interface to use the default IPFIX IANA Information Model
+
+An IESpec is a string representation of an IPFIX information element,
+including all the information required to define it, as documented in
+Section 9 ofhttp://tools.ietf.org/html/draft-ietf-ipfix-ie-doctors.
+It has the format:
+
+  name(pen/num)<type>[size]
+
+To specify a new Information Element, a complete IESpec
+must be passed to for_spec():
+
+>>> import ipfix.ie
+>>> e = ipfix.ie.for_spec("myNewInformationElement(35566/1)<string>")
+>>> e
+InformationElement('myNewInformationElement', 35566, 1, ipfix.types.for_name('string'), 65535)
+
+The string representation of an InformationElement is its IESpec:
+
+>>> str(e)
+'myNewInformationElement(35566/1)<string>[65535]'
+
+To get an Information Element already specified, an incomplete specification
+can be passed; a name or number is enough:
+
+>>> ipfix.ie.use_iana_default()
+>>> str(ipfix.ie.for_spec("octetDeltaCount"))
+'octetDeltaCount(0/1)<unsigned64>[8]'
+>>> str(ipfix.ie.for_spec("(2)"))
+'packetDeltaCount(0/2)<unsigned64>[8]'
+
+Reduced-length encoding and fixed-length sequence types are supported by the
+for_length method; this is used internally by templates.
+
+>>> str(e.for_length(32))
+'myNewInformationElement(35566/1)<string>[32]'
+
+Most client code will only need the use_*_default() and load_specfile()
+functions; client code using tuple interfaces may need list_for_specs()
+as well.
+
+"""            
 import re
 import os.path
 from . import types
@@ -18,11 +62,17 @@ def _register_ie(ie):
     
 @total_ordering
 class InformationElement:
-    """An IPFIX Information Element (IE) has a name, element number (num), 
-       a private enterprise number (pen; 0 if it is an IANA registered IE,
-       a type, and a length"""
-    def __init__(self, name, pen, num, ietype, length):
-        
+    """
+    An IPFIX Information Element (IE). This is essentially a five-tuple of
+    name, element number (num), a private enterprise number (pen; 0 if it
+    is an IANA registered IE), a type, and a length.
+    
+    InformationElement instances should be obtained using the for_spec()
+    function.
+    
+    """
+    
+    def __init__(self, name, pen, num, ietype, length):    
         if name:
             self.name = name
         else: 
@@ -55,6 +105,11 @@ class InformationElement:
         return (self.num << 16) ^ self.pen
     
     def for_length(self, length):
+        """
+        Get an instance of this IE for the specified length.
+        Used to support reduced-length encoding (RLE).
+        """
+        
         if not length or length == self.length:
             return self
         else:
@@ -62,6 +117,12 @@ class InformationElement:
 
 @total_ordering
 class InformationElementList:
+    """
+    A hashable ordered list of Information Elements.
+    
+    Used internally by templates, and to specify the
+    order of tuples to the tuple append and iterator interfaces.
+    """
     def __init__(self, iterable = None):
         self.inner = []
         
@@ -104,7 +165,7 @@ class InformationElementList:
         self.hashcache = None
 
 def parse_spec(spec):
-    """Parse an iespec into name, pen, number, typename, and length fields"""
+    """Parse an IESpec into name, pen, number, typename, and length fields"""
     (name, pen, num, typename, length) = _iespec_re.match(spec).group(1,4,5,7,9)
     
     if pen: 
@@ -127,10 +188,12 @@ def parse_spec(spec):
     
     return (name, pen, num, typename, length)
     
-def list(iterable = None):
-    return InformationElementList(iterable)
-
 def for_spec(spec):
+    """
+    Get an IE from the cache of known IEs, or create a
+    new IE if not found, given an IESpec.
+    
+    """
     (name, pen, num, typename, length) = parse_spec(spec)
 
     if not name and not pen and not num and not typename and not length:
@@ -156,23 +219,52 @@ def for_spec(spec):
     return _register_ie(InformationElement(name, pen, num, ietype, length))
  
 def for_template_entry(pen, num, length):
+    """
+    Get an IE from the cache of known IEs, or create a
+    new IE if not found, given a private enterprise number,
+    element number, and length. Used internally by Templates.
+    
+    """
     if ((pen, num) in _ieForNum):
         return _ieForNum[(pen, num)].for_length(length)
     
     return _register_ie(InformationElement(None, pen, num, types.for_name("octetArray"), length))
 
+def spec_list(specs):
+    """
+    Given a list of IESpecs, return a hashable list of IEs.
+    Pass this as the ielist argument to the tuple export
+    and iterator functions.
+    
+    """
+    InformationElementList(for_spec(spec) for spec in specs)    
+
 def load_specfile(filename):
+    """Load a file listing IESpecs into the cache of known IEs"""
     with open(filename) as f:
         for line in f:
             for_spec(line)
 
 def clear_infomodel():
+    """Reset the cache of known Information Elements."""
     _ieForName.clear()
     _ieForNum.clear()
 
 def use_iana_default():
+    """
+    Load the module internal list of IANA registered IEs into the
+    cache of known IEs. Normally, client code should call this before
+    using any other part of this module.
+
+    """ 
     load_specfile(os.path.join(os.path.dirname(__file__), "iana.iespec"))
     
 def use_5103_default():
+    """
+    Load the module internal list of RFC 5103 reverse IEs for IANA
+    registered IEs into the cache of known IEs. Normally, biflow-aware
+    client code should call this just after use_iana_default().
+
+    """
     load_specfile(os.path.join(os.path.dirname(__file__), "rfc5103.iespec"))
     

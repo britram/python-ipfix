@@ -47,7 +47,7 @@ class TemplatePackingPlan:
 class Template:
     """Represents an ordered list of IPFIX Information Elements with an ID"""
     def __init__(self, tid = 0, iterable = None):
-        self.ies = ie.list()
+        self.ies = ie.InformationElementList()
         self.tid = tid
         self.minlength = 0
         self.enclength = 0
@@ -147,10 +147,12 @@ class Template:
             return offset
 
         # direct iteration over remaining IEs
-        for i, ie, val in zip(range(self.varlenslice, self.count()), ies[self.varlenslice:], vals[self.varlenslice:]):
+        for i, ie, val in zip(range(self.varlenslice, self.count()),
+                              ies[self.varlenslice:],
+                              vals[self.varlenslice:]):
             if i in packplan.indices:
                 if ie.length == types.VARLEN:
-                    offset = types.encode_varlen(len(val), buf, offset)
+                    offset = types.encode_varlen(buf, offset, len(val))
                 offset = ie.type.encode_single_value_to(val, buf, offset)
                 
         return offset

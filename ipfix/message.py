@@ -2,10 +2,10 @@
 Provides the MessageBuffer class for encoding and decoding IPFIX messages.
 
 This interface allows direct control over Messages; for reading or writing
-records automatically, see ipfix.reader and ipfix.writer, respectively.
+records automatically from/to streams, see ipfix.reader and ipfix.writer,
+respectively.
 
 """
-
 
 from . import template
 
@@ -19,7 +19,11 @@ _sethdr_st = struct.Struct("!HH")
 _msghdr_st = struct.Struct("!HHLLL")
 
 class EndOfMessage(Exception):
-    """Raised when a write operation on a Message"""
+    """
+    Exception raised when a write operation on a Message
+    fails because there is not enough space in the message.
+    
+    """
     def __init__(self, *args):
         super().__init__(args)
 

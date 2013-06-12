@@ -31,13 +31,7 @@ class MessageStreamWriter:
                                self.msg, self.curtid)
         self.retry_after_flush(message.MessageBuffer.export_namedict, 
                                self.msg, rec)
-    
-    def export_iedict(self, rec):
-        self.retry_after_flush(message.MessageBuffer.export_ensure_set, 
-                               self.msg, self.curtid)
-        self.retry_after_flush(message.MessageBuffer.export_iedict, 
-                               self.msg, rec)
-        
+            
     def export_tuple(self, rec, ielist = None):
         self.retry_after_flush(message.MessageBuffer.export_ensure_set, 
                                self.msg, self.curtid)
