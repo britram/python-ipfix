@@ -237,7 +237,7 @@ def spec_list(specs):
     and iterator functions.
     
     """
-    InformationElementList(for_spec(spec) for spec in specs)    
+    return InformationElementList(for_spec(spec) for spec in specs)    
 
 def load_specfile(filename):
     """Load a file listing IESpecs into the cache of known IEs"""
@@ -267,4 +267,3 @@ def use_5103_default():
 
     """
     load_specfile(os.path.join(os.path.dirname(__file__), "rfc5103.iespec"))
-    
