@@ -206,7 +206,14 @@ _TypeForName = { ietype.name: ietype for ietype in _Types }
 _TypeForNum = { ietype.num: ietype for ietype in _Types }
 
 def for_name(name):
-    """Return an IPFIX type for a given type name"""
+    """
+    Return an IPFIX type for a given type name"
+    
+    :param name: the name of the type to look up
+    :returns: IpfixType: type instance for that name
+    :raises: IpfixTypeError
+    
+    """
     try: 
         return _TypeForName[name]
     except KeyError:
