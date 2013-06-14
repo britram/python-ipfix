@@ -4,27 +4,31 @@ Implementation of IPFIX abstract data types and mappings to Python types.
 Based largely on the pack and unpack facilities in the struct package. This
 module maps IPFIX types to the corresponding Python type, as below:
 
-string -- str
-octetArray -- bytes
-unsigned8 -- int
-unsigned16 -- int
-unsigned32 -- int
-unsigned64 -- int
-signed8 -- int
-signed16 -- int
-signed32 -- int
-signed64 -- int
-float32 -- float
-float64 -- float
-boolean -- bool
-macAddress -- bytes
-string -- str
-dateTimeSeconds -- datetime
-dateTimeMilliseconds -- datetime
-dateTimeMicroseconds -- datetime
-dateTimeNanoseconds -- datetime
-ipv4Address -- ipaddress
-ipv6Address -- ipaddress
+======================= =============
+       IPFIX Type        Python Type
+======================= =============
+octetArray              bytes
+unsigned8               int
+unsigned16              int
+unsigned32              int
+unsigned64              int
+signed8                 int
+signed16                int
+signed32                int
+signed64                int
+float32                 float
+float64                 float
+boolean                 bool
+macAddress              bytes
+string                  str
+dateTimeSeconds         datetime
+dateTimeMilliseconds    datetime
+dateTimeMicroseconds    datetime
+dateTimeNanoseconds     datetime
+ipv4Address             ipaddress
+ipv6Address             ipaddress
+======================= =============
+
 
 """
 from datetime import datetime, timedelta
@@ -65,7 +69,7 @@ def _identity(x):
 # Builtin type implementation
 @total_ordering
 class IpfixType:
-    """Abstract interface for all IPFIX types."""
+    """Abstract interface for all IPFIX types. Used internally. """
     def __init__(self, name, num, valenc, valdec):
         self.name = name
         self.num = num
@@ -86,7 +90,7 @@ class IpfixType:
         return "ipfix.types.for_name(%s)" % repr(self.name)
 
 class StructType(IpfixType):
-    """Type encoded by struct packing"""
+    """Type encoded by struct packing. Used internally."""
     def __init__(self, name, num, stel, valenc = _identity, valdec = _identity):
         super().__init__(name, num, valenc, valdec)
         self.stel = stel
@@ -113,7 +117,7 @@ class StructType(IpfixType):
 
 
 class OctetArrayType(IpfixType):
-    """Type encoded by byte array packing"""
+    """Type encoded by byte array packing. Used internally."""
     def __init__(self, name, num, valenc = lambda x: x, valdec = lambda x: x):
         super().__init__(name, num, valenc, valdec)
         self.length = VARLEN

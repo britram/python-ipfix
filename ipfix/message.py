@@ -8,6 +8,7 @@ respectively.
 """
 
 from . import template
+from .template import IpfixEncodeError, IpfixDecodeError
 
 import operator
 import functools
@@ -115,8 +116,8 @@ class MessageBuffer:
         msgbody = stream.read(self.length-_msghdr_st.size)
         if len(msgbody) < self.length - _msghdr_st.size:
             raise IpfixDecodeError("Short read in message body (got "+
-                                   str(len(msgbody))+", expected"+
-                                   (self.length - _msghdr_st.size)+")")
+                                   str(len(msgbody))+", expected "+
+                                   str(self.length - _msghdr_st.size)+")")
         self.mbuf[_msghdr_st.size:self.length] = msgbody
         
         # populate setlist
@@ -138,7 +139,8 @@ class MessageBuffer:
         if (len(bytes) < _msghdr_st.size):
             raise IpfixDecodeError("Message too short ("+str(len(msghdr)) +")")
 
-        (version, self.length, self.sequence, self.export_epoch, self.odid) = _msghdr_st.unpack_from(self.mbuf, 0)
+        (version, self.length, self.sequence, self.export_epoch, self.odid) = \
+                _msghdr_st.unpack_from(self.mbuf, 0)
         
         # verify version and length
         if version != 10:
