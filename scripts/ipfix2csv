@@ -12,7 +12,7 @@ def init_ipfix(specfiles = None):
     
     if specfiles:
         for sf in specfiles:
-            ipfix.ie.load_specfile(sf)
+            ipfix.ie.use_specfile(sf)
 
 def stream_to_csv(instream, ienames):
     cols = ipfix.ie.spec_list(ienames)

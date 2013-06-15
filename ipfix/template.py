@@ -2,13 +2,13 @@
 Representation of IPFIX templates.
 Provides template-based packing and unpacking of data in IPFIX messages.
 
-See ipfix.message for examples.
+For reading, templates are handled internally. For writing, use 
+:func:`from_ielist` to create a template. See :mod:`message` for examples.
 
 """
 from . import ie    
 from . import types
 from functools import lru_cache
-
 import struct
 
 # Builtin exceptions
@@ -22,17 +22,15 @@ class IpfixDecodeError(Exception):
     def __init__(self, *args):
         super().__init__(args)
 
-from struct import Struct
-
 # constants
 TEMPLATE_SET_ID = 2
 OPTIONS_SET_ID = 3
 
 # template encoding/decoding structs
-_tmplhdr_st = Struct("!HH")
-_otmplhdr_st = Struct("!HHH")
-_iespec_st = Struct("!HH")
-_iepen_st = Struct("!L")
+_tmplhdr_st = struct.Struct("!HH")
+_otmplhdr_st = struct.Struct("!HHH")
+_iespec_st = struct.Struct("!HH")
+_iepen_st = struct.Struct("!L")
 
 class TemplatePackingPlan:
     """
@@ -74,14 +72,25 @@ class Template:
     
     """
     def __init__(self, tid = 0, iterable = None):
-        self.ies = ie.InformationElementList()
+        if isinstance(iterable, ie.InformationElementList):
+            self.ies = iterable
+        else:
+            self.ies = ie.InformationElementList(iterable)
+        
+        if tid < 256 or tid > 65535:
+            raise ValueError("bad template ID "+str(tid))
+        
         self.tid = tid
         self.minlength = 0
         self.enclength = 0
         self.scopecount = 0
         self.varlenslice = None
         self.packplan = None
-
+        
+    def __repr__(self):
+        return "<Template ID "+str(self.tid)+" count "+ \
+               str(len(self.ies))+" scope "+str(self.scopecount)+">"
+        
     def append(self, ie):
         """Append an IE to this Template"""
         self.ies.append(ie)
@@ -207,11 +216,11 @@ class Template:
     
     def encode_iedict_to(self, buf, offset, rec, recinf = None):
         """Encodes a record from a dict containing values keyed by IE"""
-        return self.encode_to(buf, offset, (rec[ie] for ie in ies))
+        return self.encode_to(buf, offset, (rec[ie] for ie in self.ies))
     
     def encode_namedict_to(self, buf, offset, rec, recinf = None):
         """Encodes a record from a dict containing values keyed by IE name"""
-        return self.encode_to(buf, offset, (rec[ie.name] for ie in ies))
+        return self.encode_to(buf, offset, (rec[ie.name] for ie in self.ies))
         
     def encode_tuple_to(self, buf, offset, rec, recinf = None):
         """
@@ -318,10 +327,19 @@ def decode_template_from(buf, offset, setid):
 
     return (tmpl, offset)
     
-def from_iespec(tid, iespecs):
-    tmpl = Template(tid)
-    for iespec in iespecs:
-        tmpl.append(ie.for_spec(iespec))
+def from_ielist(tid, ielist):
+    """
+    Create a template from a template ID and an information element list
+    (itself available from :func:`ipfix.ie.spec_list`).
+    
+    :param tid: Template ID, must be between 256 and 65535.
+    :param ielist: List of Information Elements for the Template, see
+                   :func:`ipfix.ie.spec_list`.
+    :return: A new Template, ready to use for writing to a Message
+              
+    """
+    
+    tmpl = Template(tid, ielist)
     
     tmpl.finalize()
     

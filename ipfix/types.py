@@ -38,7 +38,7 @@ import struct
 
 VARLEN = 65535
 
-class IpfixTypeError(Exception):
+class IpfixTypeError(ValueError):
     """Raised when attempting to do an unsupported operation on a type"""
     def __init__(self, *args):
         super().__init__(args)
@@ -173,7 +173,7 @@ def _decode_ntp(ntp):
     raise NotImplementedError()
 
 def _encode_ip(ipaddr):
-    return ipaddr.packed()
+    return ipaddr.packed
     
 def _decode_ip(octets):
     return ip_address(octets)
@@ -207,10 +207,10 @@ _TypeForNum = { ietype.num: ietype for ietype in _Types }
 
 def for_name(name):
     """
-    Return an IPFIX type for a given type name"
+    Return an IPFIX type for a given type name
     
     :param name: the name of the type to look up
-    :returns: IpfixType: type instance for that name
+    :returns: IpfixType -- type instance for that name
     :raises: IpfixTypeError
     
     """

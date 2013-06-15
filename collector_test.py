@@ -13,7 +13,7 @@ args = ap.parse_args()
 ipfix.ie.use_iana_default()
 ipfix.ie.use_5103_default()
 if args.spec:
-    ipfix.ie.load_specfile(args.spec)
+    ipfix.ie.use_specfile(args.spec)
 
 
 class CollectorDictHandler(socketserver.StreamRequestHandler):

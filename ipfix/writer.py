@@ -1,9 +1,10 @@
 from . import message
 
 class MessageStreamWriter:
-    def __init__(self, stream):
+    def __init__(self, stream, mtu=65535):
         self.stream = stream
         self.msg = message.MessageBuffer()    
+        self.msg.mtu = mtu
         self.msgcount = 0
         
     def retry_after_flush(self, fn, *args, **kwargs):
