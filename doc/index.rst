@@ -3,26 +3,29 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-Welcome to python-ipfix's documentation!
-========================================
+python-ipfix
+============
 
-Contents:
+.. automodule:: ipfix
+   :members:
 
-.. toctree::
-   :maxdepth: 2
+module ipfix.types
+------------------
+.. automodule:: ipfix.types
+   :members:
 
-Information Elements
---------------------
+module ipfix.ie
+---------------
 .. automodule:: ipfix.ie
    :members:
 
-Templates
----------
+module ipfix.template
+---------------------
 .. automodule:: ipfix.template
    :members:
 
-Messages
---------
+module ipfix.message
+--------------------
 .. automodule:: ipfix.message
    :members:
 

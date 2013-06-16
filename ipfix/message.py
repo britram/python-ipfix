@@ -220,7 +220,7 @@ class MessageBuffer:
         :meth:`writeMessage` or :meth:`to_bytes`. Disables automatic export 
         time updates. By default, sets the export time to the current time.
         
-        :param dt: :cls:`datetime.datetime` export time to set
+        :param dt: export time to set, as a datetime
         
         """
         
@@ -328,25 +328,25 @@ class MessageBuffer:
                         decode_fn=template.Template.decode_namedict_from, 
                         tmplaccept_fn=accept_all_templates, 
                         recinf = None):
-        """Low-level interface to record iteration.
+        """
+        Low-level interface to record iteration.
         
         Iterate over records in an IPFIX message previously read with 
-        :meth:read_message() or from_bytes(). Automatically handles templates in
-        set order. By default, iterates over each record in the stream as a
-        dictionary mapping information element name to value.
+        :meth:`read_message()` or :meth:`from_bytes()`. Automatically handles 
+        templates in set order. By default, iterates over each record in the 
+        stream as a dictionary mapping IE name to value 
+        (i.e., the same as :meth:`namedict_iterator`)
         
-        Keyword arguments:
-        decode_fn -- Decode function, with signature f(template, buffer, 
-                     offset, recinf) -> record. This is generally an instance
-                     method of the Template class providing the type of record 
-                     desired. Default is Template.decode_namedict_from.
-        tmplaccept_fn -- Template acceptance function, with signature 
-                         f(template) -> boolean. Passed a template after the
-                         template is decoded, returns True if the caller wants
-                         to receive records in data sets for that template.
-                         Default is to accept every template.
-        recinf -- Record information, opaquely passed to decode function; see
-                  recinf on each decode function for more.
+        :param decode_fn: Function used to decode a record; 
+                          must be an (unbound) instance method of the 
+                          :cls:`ipfix.template.Template` class.
+        :param tmplaccept_fn: Function returning True if the given template
+                              is of interest to the caller, False if not.
+                              Default accepts all templates. Sets described by
+                              templates for which this function returns False
+                              will be skipped.
+        :param recinf: Record information opaquely passed to decode function
+        :returns: an iterator over records decoded by decode_fn.
 
         """        
         for (offset, setid, setlen) in self.setlist:
@@ -381,10 +381,27 @@ class MessageBuffer:
                 pass
 
     def namedict_iterator(self):
+        """
+        Iterate over all records in the Message, as dicts mapping IE names
+        to values.
+        
+        :returns: a name dictionary iterator
+        
+        """
+        
         return self.record_iterator(
                 decode_fn = template.Template.decode_namedict_from)
     
     def tuple_iterator(self, ielist):
+        """
+        Iterate over all records in the Message containing all the IEs in 
+        the given ielist. Records are returned as tuples in ielist order.
+        
+        :param ielist: an instance of :cls:`ipfix.ie.InformationElementList`
+                       listing IEs to return as a tuple
+        :returns: a tuple iterator for tuples as in the list
+        
+        """
         tmplaccept_fn = lambda tmpl: \
                 functools.reduce(operator.__and__, 
                                  (ie in tmpl.ies for ie in ielist))
