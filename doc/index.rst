@@ -9,6 +9,8 @@ python-ipfix
 .. automodule:: ipfix
    :members:
 
+.. warning:: This revision of the documentation is not yet ready for release.
+
 module ipfix.types
 ------------------
 .. automodule:: ipfix.types
@@ -28,6 +30,21 @@ module ipfix.message
 --------------------
 .. automodule:: ipfix.message
    :members:
+   
+module ipfix.reader
+--------------------
+.. automodule:: ipfix.reader
+  :members:
+
+module ipfix.writer
+--------------------
+.. automodule:: ipfix.writer
+  :members:   
+
+module ipfix.ieutils
+--------------------
+.. automodule:: ipfix.ieutils
+  :members:   
 
 Indices and tables
 ==================

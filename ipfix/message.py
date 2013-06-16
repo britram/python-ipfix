@@ -112,7 +112,7 @@ The tuple interface for reading messages is designed for applications with a
 specific internal data model. It can be much faster than the dictionary
 interface, as it skips decoding of IEs not requested by the caller, and can
 skip entire sets not containing all the requested IEs. Requested IEs are
-specified as an :cls:`InformationElementList` instance, from 
+specified as an :class:`ipfix.ie.InformationElementList` instance, from 
 :func:`ie.spec_list()`:
 
 >>> msg = ipfix.message.MessageBuffer()
@@ -128,11 +128,10 @@ Traceback (most recent call last):
   File "<stdin>", line 1, in <module>
 StopIteration
 
-.. warning::
-
-A MessageBuffer using the tuple interface can *only* be used for a single
-IE list; changing lists, or switching between the dictionary and tuple
-interfaces on a given MessageBuffer, will result in undefined behavior.
+.. warning:: A MessageBuffer using the tuple interface can *only* be used for 
+             a single IE list; changing lists, or switching between the 
+             dictionary and tuple interfaces on a given MessageBuffer, 
+             will result in undefined behavior.
 
 """
 
@@ -205,7 +204,7 @@ class MessageBuffer:
         """
         Return the export time of this message. When reading, returns the 
         export time as read from the message header. When writing, this is 
-        the argument of the last call to :meth:`setExportTime`, or, if 
+        the argument of the last call to :meth:`set_export_time`, or, if 
         :attr:auto_export_time is True, the time of the last message
         export.
         
@@ -214,16 +213,17 @@ class MessageBuffer:
         """
         return datetime.utcfromtimestamp(self.export_epoch)
 
-    def set_export_time(self, dt=datetime.utcnow()):
+    def set_export_time(self, dt=None):
         """
         Set the export time for the next message written with 
-        :meth:`writeMessage` or :meth:`to_bytes`. Disables automatic export 
+        :meth:`write_message` or :meth:`to_bytes`. Disables automatic export 
         time updates. By default, sets the export time to the current time.
         
         :param dt: export time to set, as a datetime
         
         """
-        
+        if not dt:
+            dt = datetime.utcnow()
         self.export_epoch = int(dt.timestamp())        
         self.auto_export_time = False
                 
@@ -339,7 +339,7 @@ class MessageBuffer:
         
         :param decode_fn: Function used to decode a record; 
                           must be an (unbound) instance method of the 
-                          :cls:`ipfix.template.Template` class.
+                          :class:`ipfix.template.Template` class.
         :param tmplaccept_fn: Function returning True if the given template
                               is of interest to the caller, False if not.
                               Default accepts all templates. Sets described by
@@ -397,7 +397,7 @@ class MessageBuffer:
         Iterate over all records in the Message containing all the IEs in 
         the given ielist. Records are returned as tuples in ielist order.
         
-        :param ielist: an instance of :cls:`ipfix.ie.InformationElementList`
+        :param ielist: an instance of :class:`ipfix.ie.InformationElementList`
                        listing IEs to return as a tuple
         :returns: a tuple iterator for tuples as in the list
         
@@ -411,13 +411,19 @@ class MessageBuffer:
                 recinf = ielist)          
 
     def to_bytes(self):
+        """
+        Convert this MessageBuffer to a byte array, suitable for writing
+        to a binary file, socket, or datagram. Finalizes the message by
+        rewriting the message header with current length, and export time. 
+        
+        :returns: message as a byte array
+        
+        """
+
         # Close final set 
         self.export_close_set()
         
-        # Get sequence number and export time if necessary
-        self.sequences.setdefault((self.odid, self.streamid), 0) # FIXME why do we need this?
-        self.sequence = self.sequences[(self.odid, self.streamid)]
-        
+        # Update export time if necessary
         if self.auto_export_time:
             self.export_epoch = int(datetime.utcnow().timestamp())
         
@@ -429,9 +435,20 @@ class MessageBuffer:
         return self.mbuf[0:self.length].tobytes()
 
     def write_message(self, stream):
+        """
+        Convenience method to write a message to a stream; see :meth:`to_bytes`.
+        """
         stream.write(self.to_bytes())
 
     def add_template(self, tmpl, export=True):
+        """
+        Add a template to this MessageBuffer. Adding a template makes it 
+        available for use for exporting records; see :meth:`export_new_set`. 
+        
+        :param tmpl: the template to add
+        :param export: If True, export this template to the MessageBuffer
+                       after adding it.
+        """
         self.templates[(self.odid, tmpl.tid)] = tmpl
         if export:
             self.export_template(tmpl)
@@ -442,9 +459,13 @@ class MessageBuffer:
         if export:
             self.export_template_withdrawal(setid, tid)
     
-    def begin_export(self, odid = None):
+    def begin_export(self, odid=None):
         # We're exporting. Clear setlist from any previously read message.
         self.setlist.clear()
+        
+        # Set sequence number
+        self.sequences.setdefault((self.odid, self.streamid), 0) # FIXME why do we need this?
+        self.sequence = self.sequences[(self.odid, self.streamid)]
         
         # set new domain if necessary
         if odid:
@@ -519,7 +540,10 @@ class MessageBuffer:
         
         self.length = template.encode_withdrawal_to(self.mbuf, self.length, 
                                                     setid, tid)
-        
+    
+    def export_all_templates(self):
+        pass
+    
     def export_record(self, rec, 
                       encode_fn=template.Template.encode_namedict_to, 
                       recinf = None):

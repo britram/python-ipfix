@@ -3,7 +3,7 @@ Representation of IPFIX templates.
 Provides template-based packing and unpacking of data in IPFIX messages.
 
 For reading, templates are handled internally. For writing, use 
-:func:`from_ielist` to create a template. See :mod:`message` for examples.
+:func:`from_ielist` to create a template. See :mod:`ipfix.message` for examples.
 
 """
 from . import ie    
