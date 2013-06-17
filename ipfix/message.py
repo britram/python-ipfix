@@ -338,7 +338,7 @@ class MessageBuffer:
         (i.e., the same as :meth:`namedict_iterator`)
         
         :param decode_fn: Function used to decode a record; 
-                          must be an (unbound) instance method of the 
+                          must be an (unbound) "decode" instance method of the 
                           :class:`ipfix.template.Template` class.
         :param tmplaccept_fn: Function returning True if the given template
                               is of interest to the caller, False if not.
@@ -421,7 +421,7 @@ class MessageBuffer:
         """
 
         # Close final set 
-        self.export_close_set()
+        self._export_close_set()
         
         # Update export time if necessary
         if self.auto_export_time:
@@ -448,18 +448,64 @@ class MessageBuffer:
         :param tmpl: the template to add
         :param export: If True, export this template to the MessageBuffer
                        after adding it.
+        :raises: EndOfMessage
         """
         self.templates[(self.odid, tmpl.tid)] = tmpl
         if export:
-            self.export_template(tmpl)
+            self.export_template(tid)
     
     def delete_template(self, tid, export=True):
+        """
+        Delete a template by ID from this MessageBuffer.
+        
+        :param tid: ID of the template to delete
+        :param export: if True, export a Template Withdrawal for this
+                       Template after deleting it
+        :raises: EndOfMessage
+        
+        """
         setid = self.templates[self.odid, tid].native_setid()
         del(self.templates[self.odid, tid])
         if export:
             self.export_template_withdrawal(setid, tid)
+
+    def active_template_ids(self):
+        """
+        Get an iterator over all active template IDs in the current domain.
+        Provided to allow callers to export some or all active Templates across
+        multiple Messages.
+        
+        :returns: a template ID iterator
+        
+        """
+        for tk in filter(lambda k: k[0] is self.odid, self.templates):
+            yield tk[1]  
+    
+    def template_for_id(self, tid):
+        """
+        Retrieve a Template for a given ID in the current domain.
+        
+        :param tid: template ID to get
+        :returns: the template
+        :raises: KeyError
+        
+        """
+        return self.templates[(self.odid, tid)]    
+    
     
     def begin_export(self, odid=None):
+        """
+        Start exporting a new message. Clears any previous message content,
+        but keeps template information intact. Sets the message sequence number.
+        
+        :param odid: Observation domain ID to use for export. By default, uses
+                     the observation domain ID of the previous message. Note
+                     that templates are scoped to observation domain, so
+                     templates will need to be added after switching to a new
+                     observation domain ID.
+        :raises: IpfixEncodeError
+        
+        """
         # We're exporting. Clear setlist from any previously read message.
         self.setlist.clear()
         
@@ -483,8 +529,20 @@ class MessageBuffer:
         self.cursetid = None
         
     def export_new_set(self, setid):
+        """
+        Start exporting a new Set with the given set ID. Creates a new set
+        even if the current Set has the given set ID; client code should in most
+        cases use :meth:`export_ensure_set` instead.
+        
+        :param setid: Set ID of the new Set; corresponds to the Template ID of
+                      the Template that will be used to encode records into the
+                      Set. The require Template must have already been added
+                      to the MessageBuffer, see :meth:`add_template`.
+        :raises: IpfixEncodeError, EndOfMessage
+        
+        """
         # close current set if any
-        self.export_close_set()
+        self._export_close_set()
 
         if setid >= 256:
             # make sure we have a template for the set
@@ -507,23 +565,50 @@ class MessageBuffer:
         _sethdr_st.pack_into(self.mbuf, self.length, setid, 0)
         self.length += _sethdr_st.size
         
-    def export_close_set(self):
-        if self.cursetid:
-            _sethdr_st.pack_into(self.mbuf, self.cursetoff, 
-                                 self.cursetid, self.length - self.cursetoff)
-            self.cursetid = None
-        
     def export_ensure_set(self, setid):
+        """
+        Ensure that the current set for export has the given Set ID.
+        Starts a new set if not using :meth:`export_new_set`
+        
+        :param setid: Set ID of the new Set; corresponds to the Template ID of
+                      the Template that will be used to encode records into the
+                      Set. The require Template must have already been added
+                      to the MessageBuffer, see :meth:`add_template`.
+        :raises: IpfixEncodeError, EndOfMessage
+        
+        """
         if self.cursetid != setid:
             self.export_new_set(setid)
 
     def export_needs_flush(self):
+        """
+        True if content has been written to this MessageBuffer since the
+        last call to :meth:`begin_export`
+        
+        """
         if not self.cursetid and self.length <= _msghdr_st.size:
             return False
         else:
             return True
+
+    def _export_close_set(self):
+        if self.cursetid:
+            _sethdr_st.pack_into(self.mbuf, self.cursetoff, 
+                                 self.cursetid, self.length - self.cursetoff)
+            self.cursetid = None
+   
+    def export_template(self, tid):
+        """
+        Export a template to this Message given its template ID.
         
-    def export_template(self, tmpl):
+        :param tid: ID of template to export; must have been added to this
+                    message previously with :meth:`add_template`.
+        :raises: EndOfMessage, KeyError
+        
+        """
+        
+        tmpl = self.templates[(self.odid, tid)]
+        
         self.export_ensure_set(tmpl.native_setid())
         
         if self.length + tmpl.enclength > self.mtu:
@@ -532,7 +617,7 @@ class MessageBuffer:
         self.length = tmpl.encode_template_to(self.mbuf, self.length, 
                                               tmpl.native_setid())
 
-    def export_template_withdrawal(self, setid, tid):
+    def _export_template_withdrawal(self, setid, tid):
         self.export_ensure_set(setid)
         
         if self.length + template.withdrawal_length(setid) > self.mtu:
@@ -541,12 +626,25 @@ class MessageBuffer:
         self.length = template.encode_withdrawal_to(self.mbuf, self.length, 
                                                     setid, tid)
     
-    def export_all_templates(self):
-        pass
-    
     def export_record(self, rec, 
                       encode_fn=template.Template.encode_namedict_to, 
                       recinf = None):
+        """
+        Low-level interface to record export.
+        
+        Export a record to a MessageBuffer, using the template associated with
+        the Set ID given to the most recent :meth:`export_new_set` or
+        :meth:`export_ensure_set` call, and the given encode function. By
+        default, the record is assumed to be a dictionary mapping IE names
+        to values (i.e., the same as :meth:`export_namedict`).
+        
+        :param encode_fn: Function used to encode a record; 
+                          must be an (unbound) "encode" instance method of the 
+                          :class:`ipfix.template.Template` class.
+        :param recinf: Record information opaquely passed to decode function
+        :raises: EndOfMessage
+
+        """
         savelength = self.length
         
         try:
@@ -563,7 +661,30 @@ class MessageBuffer:
         self._increment_sequence()
 
     def export_namedict(self, rec):
+        """
+        Export a record to the message, using the template for the current Set
+        ID. The record is a dictionary mapping IE names to values. The
+        dictionary must contain a value for each IE in the template. Keys in the
+        dictionary not in the template will be ignored.
+        
+        :param rec: the record to export, as a dictionary
+        :raises: EndOfMessage
+        
+        """
         self.export_record(rec, template.Template.encode_namedict_to)
     
     def export_tuple(self, rec, ielist = None):
+        """
+        Export a record to the message, using the template for the current Set
+        ID. The record is a tuple of values, in template order by default.
+        If ielist is given, the tuple is in the order if IEs in that list
+        instead. The tuple must contain one value for each IE in the template;
+        values for IEs in the ielist not in the template will be ignored.
+        
+        :param rec: the record to export, as a tuple
+        :param ielist: optional information element list describing the order
+                       of the rec tuple
+        :raises: EndOfMessage
+        
+        """       
         self.export_record(rec, template.Template.encode_tuple_to, ielist)
