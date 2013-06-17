@@ -452,7 +452,7 @@ class MessageBuffer:
         """
         self.templates[(self.odid, tmpl.tid)] = tmpl
         if export:
-            self.export_template(tid)
+            self.export_template(tmpl.tid)
     
     def delete_template(self, tid, export=True):
         """
