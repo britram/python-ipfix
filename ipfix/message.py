@@ -399,7 +399,7 @@ class MessageBuffer:
         
         :param ielist: an instance of :class:`ipfix.ie.InformationElementList`
                        listing IEs to return as a tuple
-        :returns: a tuple iterator for tuples as in the list
+        :returns: a tuple iterator for tuples as in ielist order
         
         """
         tmplaccept_fn = lambda tmpl: \

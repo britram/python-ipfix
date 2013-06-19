@@ -29,7 +29,6 @@ ipv4Address             ipaddress
 ipv6Address             ipaddress
 ======================= =============
 
-
 """
 from datetime import datetime, timedelta
 from functools import total_ordering
