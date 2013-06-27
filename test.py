@@ -1,4 +1,6 @@
 import doctest
+
+import ipfix.types
 import ipfix.ie
 import ipfix.message
 
