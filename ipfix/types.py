@@ -1,8 +1,7 @@
 """
-Implementation of IPFIX abstract data types and mappings to Python types.
+Implementation of IPFIX abstract data types (ADT) and mappings to Python types.
 
-Based largely on the pack and unpack facilities in the struct package. This
-module maps IPFIX types to the corresponding Python type, as below:
+Maps each IPFIX ADT to the corresponding Python type, as below:
 
 ======================= =============
        IPFIX Type        Python Type
@@ -28,6 +27,41 @@ dateTimeNanoseconds     datetime
 ipv4Address             ipaddress
 ipv6Address             ipaddress
 ======================= =============
+
+Though client code generally will not use this module directly, it defines how
+each IPFIX abstract data type will be represented in Python, and the concrete
+IPFIX representation of each type. Type methods operate on buffers, as used
+internally by the :class:`ipfix.message.MessageBuffer` class, so we'll create 
+one to illustrate encoding and decoding:
+
+>>> import ipfix.types
+>>> buf = memoryview(bytearray(16))
+
+Integers are represented by the python int type:
+
+>>> uint32 = ipfix.types.for_name("unsigned32")
+>>> uint32.encode_single_value_to(42, buf, 0)
+>>> buf[0:4].tobytes()
+b'\x00\x00\x00*'
+>>> uint32.decode_single_value_from(buf, 0, 4)
+42
+
+...strings by the str type, encoded as UTF-8:
+
+>>> string = ipfix.types.for_name("string")
+>>> string.encode_single_value_to("Grüezi", buf, 0)
+>>> buf[0:7].tobytes()
+b'Gr\xc3\xbcezi'
+>>> string.decode_single_value_from(buf, 0, 7)
+'Grüezi'
+
+...addresses as the IPv4Address and IPv6Address types in the ipaddress module:
+
+[TODO]
+
+...and the various timestamps as a python datetime, encoded as per RFC5101bis:
+
+[TODO]
 
 """
 from datetime import datetime, timedelta
@@ -106,13 +140,12 @@ class StructType(IpfixType):
             except KeyError:
                 raise IpfixTypeError("Reduced length encoding not supported <%s>[%u]" % (self.name, length))
 
-    def encode_single_value_to(val, buf, offset, length):
-        assert(self.length == length)
+    def encode_single_value_to(self, val, buf, offset):
         self.st.pack_into(buf, offset, self.valenc(val))
     
-    def decode_single_value_from(buf, offset, length):
+    def decode_single_value_from(self, buf, offset, length):
         assert(self.length == length)
-        return self.valdec(self.st.unpack_from(buf, offset))
+        return self.valdec(self.st.unpack_from(buf, offset)[0])
 
 
 class OctetArrayType(IpfixType):
@@ -127,11 +160,12 @@ class OctetArrayType(IpfixType):
         else:
             return StructType(self.name, self.num, str(length)+"s", self.valenc, self.valdec)
 
-    def encode_single_value_to(val, buf, offset, length):
-        buf[offset:offset+length] = self.valenc(val)
+    def encode_single_value_to(self, val, buf, offset):
+        enc = self.valenc(val)
+        buf[offset:offset+len(enc)] = enc
 
-    def decode_single_value_from(buf, offset, length):
-        return self.valdec(buf[offset:offset+length])
+    def decode_single_value_from(self, buf, offset, length):
+        return self.valdec(buf[offset:offset+length].tobytes())
 
 # Builtin encoders/decoders
 
@@ -166,10 +200,13 @@ def _decode_msec(epoch):
     return datetime.utcfromtimestamp(epoch/1000) + timedelta(milliseconds = epoch % 1000)
     
 def _encode_ntp(dt):
-    raise NotImplementedError()
+    (tsf, tsi) = math.modf(dt.timestamp())
+    return (tsi << 32) + (tsf * 2**32)
 
 def _decode_ntp(ntp):
-    raise NotImplementedError()
+    tsf = ntp & (2**32 - 1)
+    tsi = ntp >> 32
+    return tsi + tsf / 2**32
 
 def _encode_ip(ipaddr):
     return ipaddr.packed
