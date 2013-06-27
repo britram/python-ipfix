@@ -63,5 +63,6 @@ def from_stream(stream):
     
     :param stream: stream to read
     :return: a :class:`MessageStreamReader` wrapped around the stream.
+
     """
     return MessageStreamReader(stream)          

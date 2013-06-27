@@ -39,35 +39,92 @@ one to illustrate encoding and decoding:
 
 Integers are represented by the python int type:
 
->>> uint32 = ipfix.types.for_name("unsigned32")
->>> uint32.encode_single_value_to(42, buf, 0)
->>> buf[0:4].tobytes()
-b'\x00\x00\x00*'
->>> uint32.decode_single_value_from(buf, 0, 4)
+>>> unsigned32 = ipfix.types.for_name("unsigned32")
+>>> unsigned32.encode_single_value_to(42, buf, 0)
+>>> buf[0:4].tolist()
+[0, 0, 0, 42]
+>>> unsigned32.decode_single_value_from(buf, 0, 4)
 42
+
+...floats by the float type, with the usual caveats about precision:
+
+>>> float32 = ipfix.types.for_name("float32")
+>>> float32.encode_single_value_to(42.03579, buf, 0)
+>>> buf[0:4].tolist()
+[66, 40, 36, 166]
+>>> float32.decode_single_value_from(buf, 0, 4)
+42.035789489746094
 
 ...strings by the str type, encoded as UTF-8:
 
 >>> string = ipfix.types.for_name("string")
 >>> string.encode_single_value_to("Grüezi", buf, 0)
->>> buf[0:7].tobytes()
-b'Gr\xc3\xbcezi'
+>>> buf[0:7].tolist()
+[71, 114, 195, 188, 101, 122, 105]
 >>> string.decode_single_value_from(buf, 0, 7)
 'Grüezi'
 
 ...addresses as the IPv4Address and IPv6Address types in the ipaddress module:
 
-[TODO]
+>>> from ipaddress import ip_address
+>>> ipv4Address = ipfix.types.for_name("ipv4Address")
+>>> ipv4Address.encode_single_value_to(ip_address("198.51.100.27"), buf, 0)
+>>> buf[0:4].tolist()
+[198, 51, 100, 27]
+>>> ipv4Address.decode_single_value_from(buf, 0, 4)
+IPv4Address('198.51.100.27')
+>>> ipv6Address = ipfix.types.for_name("ipv6Address")
+>>> ipv6Address.encode_single_value_to(ip_address("2001:db8::c0:ffee"), buf, 0)
+>>> buf[0:16].tolist()
+[32, 1, 13, 184, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 255, 238]
+>>> ipv6Address.decode_single_value_from(buf, 0, 16)
+IPv6Address('2001:db8::c0:ffee')
 
-...and the various timestamps as a python datetime, encoded as per RFC5101bis:
+...and the timestamps of various precision as a python datetime, 
+encoded as per RFC5101bis:
 
-[TODO]
+>>> from datetime import datetime
+>>> dtfmt_in = "%Y-%m-%d %H:%M:%S.%f %z"
+>>> dtfmt_out = "%Y-%m-%d %H:%M:%S.%f"
+>>> dt = datetime.strptime("2013-06-21 14:00:03.456789 +0000", dtfmt_in)
+
+dateTimeSeconds truncates microseconds:
+
+>>> dateTimeSeconds = ipfix.types.for_name("dateTimeSeconds")
+>>> dateTimeSeconds.encode_single_value_to(dt, buf, 0)
+>>> buf[0:4].tolist()
+[81, 196, 92, 99]
+>>> dateTimeSeconds.decode_single_value_from(buf, 0, 4).strftime(dtfmt_out)
+'2013-06-21 14:00:03.000000'
+
+dateTimeMilliseconds truncates microseconds to the nearest millisecond:
+
+>>> dateTimeMilliseconds = ipfix.types.for_name("dateTimeMilliseconds")
+>>> dateTimeMilliseconds.encode_single_value_to(dt, buf, 0)
+>>> buf[0:8].tolist()
+[0, 0, 1, 63, 103, 8, 228, 128]
+>>> dateTimeMilliseconds.decode_single_value_from(buf, 0, 8).strftime(dtfmt_out)
+'2013-06-21 14:00:03.456000'
+
+dateTimeMicroseconds exports microseconds fully in NTP format:
+
+>>> dateTimeMicroseconds = ipfix.types.for_name("dateTimeMicroseconds")
+>>> dateTimeMicroseconds.encode_single_value_to(dt, buf, 0)
+>>> buf[0:8].tolist()
+[81, 196, 92, 99, 116, 240, 32, 0]
+>>> dateTimeMicroseconds.decode_single_value_from(buf, 0, 8).strftime(dtfmt_out)
+'2013-06-21 14:00:03.456789'
+
+dateTimeNanoseconds is also supported, but is identical to
+dateTimeMicroseconds, as the datetime class in Python only supports
+microsecond-level timing.
 
 """
 from datetime import datetime, timedelta
 from functools import total_ordering
 from ipaddress import ip_address
 import struct
+import math
 
 VARLEN = 65535
 
@@ -194,19 +251,19 @@ def _decode_sec(epoch):
     return datetime.utcfromtimestamp(epoch)
     
 def _encode_msec(dt):
-    return int(dt.timestamp() * 1000 + dt.microsecond / 1000)
+    return int(dt.timestamp() * 1000)
     
 def _decode_msec(epoch):
-    return datetime.utcfromtimestamp(epoch/1000) + timedelta(milliseconds = epoch % 1000)
+    return datetime.utcfromtimestamp(epoch/1000)
     
 def _encode_ntp(dt):
     (tsf, tsi) = math.modf(dt.timestamp())
-    return (tsi << 32) + (tsf * 2**32)
+    return int((int(tsi) << 32) + (tsf * 2**32))
 
 def _decode_ntp(ntp):
     tsf = ntp & (2**32 - 1)
     tsi = ntp >> 32
-    return tsi + tsf / 2**32
+    return datetime.utcfromtimestamp(tsi + tsf / 2**32)
 
 def _encode_ip(ipaddr):
     return ipaddr.packed

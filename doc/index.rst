@@ -9,7 +9,12 @@ python-ipfix
 .. automodule:: ipfix
    :members:
 
-.. warning:: This revision of the documentation is not yet ready for release.
+.. .. warning:: This revision of the documentation is not yet ready for release.
+
+.. warning:: Variable-length IEs are ostensibly supported by this module, 
+             but have not been tested as of this release.
+
+Reference documentation for each module is found in the subsections below.
 
 module ipfix.types
 ------------------

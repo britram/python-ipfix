@@ -1,9 +1,9 @@
 """
-Provides the MessageBuffer class for encoding and decoding IPFIX messages.
+Provides the MessageBuffer class for encoding and decoding IPFIX Messages.
 
 This interface allows direct control over Messages; for reading or writing
-records automatically from/to streams, see :mod:`reader` and :mod:`writer`,
-respectively.
+records automatically from/to streams, see :mod:`ipfix.reader` and
+:mod:`ipfix.writer`, respectively.
 
 To create a message buffer:
 
@@ -586,7 +586,7 @@ class MessageBuffer:
         last call to :meth:`begin_export`
         
         """
-        if not self.cursetid and self.length <= _msghdr_st.size:
+        if self.length <= _msghdr_st.size + _sethdr_st.size:
             return False
         else:
             return True
