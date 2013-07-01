@@ -198,7 +198,9 @@ class StructType(IpfixType):
                 raise IpfixTypeError("Reduced length encoding not supported <%s>[%u]" % (self.name, length))
 
     def encode_single_value_to(self, val, buf, offset):
-        self.st.pack_into(buf, offset, self.valenc(val))
+        enc = self.valenc(val)
+        self.st.pack_into(buf, offset, enc)
+        return offset + len(enc)
     
     def decode_single_value_from(self, buf, offset, length):
         assert(self.length == length)
@@ -220,6 +222,7 @@ class OctetArrayType(IpfixType):
     def encode_single_value_to(self, val, buf, offset):
         enc = self.valenc(val)
         buf[offset:offset+len(enc)] = enc
+        return offset + len(enc)
 
     def decode_single_value_from(self, buf, offset, length):
         return self.valdec(buf[offset:offset+length].tobytes())
@@ -324,12 +327,12 @@ def decode_varlen(buf, offset):
 def encode_varlen(buf, offset, length):
     """Encode a IPFIX varlen encoded length; used internally by template"""
     if length >= 255:
-        _varlen1.pack_into(buf, offset, 255)
+        _varlen1_st.pack_into(buf, offset, 255)
         offset += _varlen1_st.size
-        _varlen2.pack_into(buf, offset, length)
+        _varlen2_st.pack_into(buf, offset, length)
         offset += _varlen2_st.size
     else:
-        _varlen1.pack_into(buf, offset, length)
+        _varlen1_st.pack_into(buf, offset, length)
         offset += _varlen1_st.size
     return offset
     

@@ -46,7 +46,7 @@ Now, a set must be created to add records to the message; the set ID must match
 the ID of the template. MessageBuffer automatically uses the template matching
 the set ID for record encoding.
 
->>> msg.export_new_set(256)
+>>> msg.export_ensure_set(256)
 >>> msg
 <MessageBuffer domain 8304 length 44 (writing set 256)>
 
@@ -70,6 +70,23 @@ or as tuples in template order:
 >>> msg.export_tuple(rec)
 >>> msg
 <MessageBuffer domain 8304 length 92 (writing set 256)>
+
+Variable-length information elements will be encoded using the native length
+of the passed value:
+
+>>> ipfix.ie.for_spec("myNewInformationElement(35566/1)<string>")
+InformationElement('myNewInformationElement', 35566, 1, ipfix.types.for_name('string'), 65535)
+>>> tmpl = ipfix.template.from_ielist(257, 
+...        ipfix.ie.spec_list(("flowStartMilliseconds",
+...                            "myNewInformationElement")))
+<Template ID 257 count 2 scope 0>
+>>> msg.add_template(tmpl)
+>>> msg.export_ensure_set(257)
+>>> rec = { "flowStartMilliseconds" : datetime.strptime("2013-06-21 14:00:00", 
+...                                   "%Y-%m-%d %H:%M:%S"),
+...         "myNewInformationElement" : "Grüezi, Welt") }
+>>> msg.export_namedict(rec)
+>>> msg
 
 Attempts to write past the end of the message (set via the mtu parameter, 
 default 65535) result in :exc:`EndOfMessage` being raised.

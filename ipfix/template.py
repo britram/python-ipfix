@@ -45,26 +45,24 @@ class TemplatePackingPlan:
         self.indices = indices
         self.valenc = []
         self.valdec = []
-        
+                
         packstring = "!"
         for i, t in enumerate(e.type for e in tmpl.ies):
+            if i >= tmpl.fixlen_count():
+                break
             if i in indices:
                 packstring += t.stel
                 self.valenc.append(t.valenc)
                 self.valdec.append(t.valdec)
             else:
                 packstring += t.skipel           
-        
-        # old less pretty revision here
-        #for i in range(tmpl.fixlen_count()):
-        #    if i in indices:
-        #        packstring += tmpl.ies[i].type.stel
-        #        self.valenc.append(tmpl.ies[i].type.valenc)
-        #        self.valdec.append(tmpl.ies[i].type.valdec)
-        #    else:
-        #        packstring += tmpl.ies[i].type.skipel
-        
+
         self.st = struct.Struct(packstring)
+
+    def __repr__(self):
+        return "<TemplatePackingPlan "+repr(self.tmpl) +\
+                " pack " + str(self.st.format) +\
+                " indices " + " ".join(str(i) for i in self.indices)+">"
 
 class Template:
     """
@@ -74,11 +72,6 @@ class Template:
     
     """
     def __init__(self, tid = 0, iterable = None):
-        if isinstance(iterable, ie.InformationElementList):
-            self.ies = iterable
-        else:
-            self.ies = ie.InformationElementList(iterable)
-        
         if tid < 256 or tid > 65535:
             raise ValueError("bad template ID "+str(tid))
         
@@ -88,6 +81,13 @@ class Template:
         self.scopecount = 0
         self.varlenslice = None
         self.packplan = None
+        
+        self.ies = []
+        if iterable:
+            if not isinstance(iterable, ie.InformationElementList):
+                iterable = ie.InformationElementList(iterable)
+            for elem in iterable:
+                self.append(elem)
         
     def __repr__(self):
         return "<Template ID "+str(self.tid)+" count "+ \
@@ -100,7 +100,7 @@ class Template:
         if ie.length == types.VARLEN:
             self.minlength += 1
             if not self.varlenslice:
-                self.varlenslice = len(ies) - 1
+                self.varlenslice = len(self.ies) - 1
         else:
             self.minlength += ie.length
 
@@ -126,7 +126,7 @@ class Template:
 
     def finalize(self):
         """Compile a default packing plan. Called after append()ing all IEs."""
-        self.packplan = TemplatePackingPlan(self, range(self.fixlen_count()))
+        self.packplan = TemplatePackingPlan(self, range(self.count()))
 
     @lru_cache(maxsize = 32)
     def packplan_for_ielist(self, ielist):
@@ -153,12 +153,14 @@ class Template:
             return (vals, offset)
         
         # direct iteration over remaining IEs
-        for i, ie in zip(range(self.varlenslice, self.count()), self.ies[self.varlenslice:]):
+        for i, ie in zip(range(self.varlenslice, self.count()), 
+                         self.ies[self.varlenslice:]):
             length = ie.length
             if length == types.VARLEN:
                 (length, offset) = types.decode_varlen(buf, offset)
             if i in packplan.indices:
-                vals.append(ie.type.valdec(ie.type.decode_single_value_from(buf, offset, length)))
+                vals.append(ie.type.valdec(ie.type.decode_single_value_from(
+                                           buf, offset, length)))
             offset += length
             
         return (vals, offset)
@@ -192,37 +194,48 @@ class Template:
     def encode_to(self, buf, offset, vals, packplan = None):
         """Encodes a record from a tuple containing values in template order"""
         
+        print(repr(self) + " encoding to offset "+str(offset))
+        
         # use default packplan unless someone hacked us not to
         if not packplan:
             packplan = self.packplan
+        
+        print("    using packplan "+repr(packplan))
+        
         
         # encode fixed values
         fixvals = [f(v) for f,v in zip(packplan.valenc, vals)]
         packplan.st.pack_into(buf, offset, *fixvals)
         offset += packplan.st.size
-        
+        print("    fixed values complete, offset now "+str(offset))        
         # short circuit on no varlen
         if not self.varlenslice:
             return offset
 
+        print("    varlen section has "+str(self.count() - self.varlenslice)+
+              " elements")
+
         # direct iteration over remaining IEs
         for i, ie, val in zip(range(self.varlenslice, self.count()),
-                              ies[self.varlenslice:],
+                              self.ies[self.varlenslice:],
                               vals[self.varlenslice:]):
             if i in packplan.indices:
+                print("    encoding "+str(ie))
                 if ie.length == types.VARLEN:
                     offset = types.encode_varlen(buf, offset, len(val))
+                    print("    encoded length, offset now "+str(offset))
                 offset = ie.type.encode_single_value_to(val, buf, offset)
+                print("    encoded value, offset now "+str(offset))
                 
         return offset
     
     def encode_iedict_to(self, buf, offset, rec, recinf = None):
         """Encodes a record from a dict containing values keyed by IE"""
-        return self.encode_to(buf, offset, (rec[ie] for ie in self.ies))
+        return self.encode_to(buf, offset, [rec[ie] for ie in self.ies])
     
     def encode_namedict_to(self, buf, offset, rec, recinf = None):
         """Encodes a record from a dict containing values keyed by IE name"""
-        return self.encode_to(buf, offset, (rec[ie.name] for ie in self.ies))
+        return self.encode_to(buf, offset, [rec[ie.name] for ie in self.ies])
         
     def encode_tuple_to(self, buf, offset, rec, recinf = None):
         """
