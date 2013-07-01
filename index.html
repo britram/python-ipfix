@@ -58,7 +58,8 @@ the information model with Information Elements.
 Element Registry shipped with the module; this is the current registry as of
 release time. <a class="reference internal" href="#ipfix.ie.use_5103_default" title="ipfix.ie.use_5103_default"><tt class="xref py py-func docutils literal"><span class="pre">ipfix.ie.use_5103_default()</span></tt></a> populates the reverse
 counterpart IEs as in <span class="target" id="index-0"></span><a class="rfc reference external" href="http://tools.ietf.org/html/rfc5103.html"><strong>RFC 5103</strong></a>. The module also supports the definition of 
-enterpr <a class="reference internal" href="#module-ipfix.ie" title="ipfix.ie"><tt class="xref py py-mod docutils literal"><span class="pre">ipfix.ie</span></tt></a> for more.</p>
+enterprise-specific Information Elements via <a class="reference internal" href="#ipfix.ie.for_spec" title="ipfix.ie.for_spec"><tt class="xref py py-func docutils literal"><span class="pre">ipfix.ie.for_spec()</span></tt></a> and 
+<tt class="xref py py-func docutils literal"><span class="pre">ipfix.ie</span> <span class="pre">:mod:`ipfix.ie()</span></tt> for more.</p>
 <p>For reading and writing of records to IPFIX message streams with automatic
 message boundary management, see the <a class="reference internal" href="#module-ipfix.reader" title="ipfix.reader"><tt class="xref py py-mod docutils literal"><span class="pre">ipfix.reader</span></tt></a> and
 <a class="reference internal" href="#module-ipfix.writer" title="ipfix.writer"><tt class="xref py py-mod docutils literal"><span class="pre">ipfix.writer</span></tt></a> modules, respectively. For manual reading and writing of
@@ -255,13 +256,13 @@ microsecond-level timing.</p>
 
 <dl class="class">
 <dt id="ipfix.types.OctetArrayType">
-<em class="property">class </em><tt class="descclassname">ipfix.types.</tt><tt class="descname">OctetArrayType</tt><big>(</big><em>name</em>, <em>num</em>, <em>valenc=&lt;function _identity at 0x104319cb0&gt;</em>, <em>valdec=&lt;function _identity at 0x104319cb0&gt;</em><big>)</big><a class="reference internal" href="_modules/ipfix/types.html#OctetArrayType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.types.OctetArrayType" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descclassname">ipfix.types.</tt><tt class="descname">OctetArrayType</tt><big>(</big><em>name</em>, <em>num</em>, <em>valenc=&lt;function _identity at 0x103a46c20&gt;</em>, <em>valdec=&lt;function _identity at 0x103a46c20&gt;</em><big>)</big><a class="reference internal" href="_modules/ipfix/types.html#OctetArrayType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.types.OctetArrayType" title="Permalink to this definition">¶</a></dt>
 <dd><p>Type encoded by byte array packing. Used internally.</p>
 </dd></dl>
 
 <dl class="class">
 <dt id="ipfix.types.StructType">
-<em class="property">class </em><tt class="descclassname">ipfix.types.</tt><tt class="descname">StructType</tt><big>(</big><em>name</em>, <em>num</em>, <em>stel</em>, <em>valenc=&lt;function _identity at 0x104319cb0&gt;</em>, <em>valdec=&lt;function _identity at 0x104319cb0&gt;</em><big>)</big><a class="reference internal" href="_modules/ipfix/types.html#StructType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.types.StructType" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descclassname">ipfix.types.</tt><tt class="descname">StructType</tt><big>(</big><em>name</em>, <em>num</em>, <em>stel</em>, <em>valenc=&lt;function _identity at 0x103a46c20&gt;</em>, <em>valdec=&lt;function _identity at 0x103a46c20&gt;</em><big>)</big><a class="reference internal" href="_modules/ipfix/types.html#StructType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.types.StructType" title="Permalink to this definition">¶</a></dt>
 <dd><p>Type encoded by struct packing. Used internally.</p>
 </dd></dl>
 
@@ -954,7 +955,7 @@ to the MessageBuffer, see <a class="reference internal" href="#ipfix.message.Mes
 
 <dl class="method">
 <dt id="ipfix.message.MessageBuffer.export_record">
-<tt class="descname">export_record</tt><big>(</big><em>rec</em>, <em>encode_fn=&lt;function Template.encode_namedict_to at 0x104348c20&gt;</em>, <em>recinf=None</em><big>)</big><a class="reference internal" href="_modules/ipfix/message.html#MessageBuffer.export_record"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.message.MessageBuffer.export_record" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">export_record</tt><big>(</big><em>rec</em>, <em>encode_fn=&lt;function Template.encode_namedict_to at 0x103a7ab90&gt;</em>, <em>recinf=None</em><big>)</big><a class="reference internal" href="_modules/ipfix/message.html#MessageBuffer.export_record"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.message.MessageBuffer.export_record" title="Permalink to this definition">¶</a></dt>
 <dd><p>Low-level interface to record export.</p>
 <p>Export a record to a MessageBuffer, using the template associated with
 the Set ID given to the most recent <a class="reference internal" href="#ipfix.message.MessageBuffer.export_new_set" title="ipfix.message.MessageBuffer.export_new_set"><tt class="xref py py-meth docutils literal"><span class="pre">export_new_set()</span></tt></a> or
@@ -1096,7 +1097,7 @@ from a stream.</p>
 
 <dl class="method">
 <dt id="ipfix.message.MessageBuffer.record_iterator">
-<tt class="descname">record_iterator</tt><big>(</big><em>decode_fn=&lt;function Template.decode_namedict_from at 0x1043489e0&gt;</em>, <em>tmplaccept_fn=&lt;function accept_all_templates at 0x104356320&gt;</em>, <em>recinf=None</em><big>)</big><a class="reference internal" href="_modules/ipfix/message.html#MessageBuffer.record_iterator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.message.MessageBuffer.record_iterator" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">record_iterator</tt><big>(</big><em>decode_fn=&lt;function Template.decode_namedict_from at 0x103a7a950&gt;</em>, <em>tmplaccept_fn=&lt;function accept_all_templates at 0x103a82290&gt;</em>, <em>recinf=None</em><big>)</big><a class="reference internal" href="_modules/ipfix/message.html#MessageBuffer.record_iterator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.message.MessageBuffer.record_iterator" title="Permalink to this definition">¶</a></dt>
 <dd><p>Low-level interface to record iteration.</p>
 <p>Iterate over records in an IPFIX message previously read with 
 <a class="reference internal" href="#ipfix.message.MessageBuffer.read_message" title="ipfix.message.MessageBuffer.read_message"><tt class="xref py py-meth docutils literal"><span class="pre">read_message()</span></tt></a> or <a class="reference internal" href="#ipfix.message.MessageBuffer.from_bytes" title="ipfix.message.MessageBuffer.from_bytes"><tt class="xref py py-meth docutils literal"><span class="pre">from_bytes()</span></tt></a>. Automatically handles 
