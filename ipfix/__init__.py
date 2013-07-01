@@ -16,7 +16,7 @@ Element Registry shipped with the module; this is the current registry as of
 release time. :func:`ipfix.ie.use_5103_default` populates the reverse
 counterpart IEs as in :rfc:`5103`. The module also supports the definition of 
 enterprise-specific Information Elements via :func:`ipfix.ie.for_spec()` and 
-:func:`ipfix.ie :mod:`ipfix.ie` for more.
+:func:`ipfix.ie.use_specfile()`; see :mod:`ipfix.ie` for more.
 
 For reading and writing of records to IPFIX message streams with automatic
 message boundary management, see the :mod:`ipfix.reader` and
