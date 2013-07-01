@@ -509,7 +509,7 @@ class MessageBuffer:
         :returns: a template ID iterator
         
         """
-        for tk in filter(lambda k: k[0] is self.odid, self.templates):
+        for tk in filter(lambda k: k[0] == self.odid, self.templates):
             yield tk[1]  
     
     def template_for_id(self, tid):
