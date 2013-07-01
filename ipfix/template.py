@@ -143,11 +143,11 @@ class Template:
         # use default packplan unless someone hacked us not to
         if not packplan:
             packplan = self.packplan
-            
+        
         # decode fixed values 
         vals = [f(v) for f, v in zip(packplan.valdec, packplan.st.unpack_from(buf, offset))]
         offset += packplan.st.size
-                
+        
         # short circuit on no varlen
         if not self.varlenslice:
             return (vals, offset)
@@ -159,8 +159,8 @@ class Template:
             if length == types.VARLEN:
                 (length, offset) = types.decode_varlen(buf, offset)
             if i in packplan.indices:
-                vals.append(ie.type.valdec(ie.type.decode_single_value_from(
-                                           buf, offset, length)))
+                vals.append(ie.type.decode_single_value_from(
+                                    buf, offset, length))
             offset += length
             
         return (vals, offset)
@@ -186,46 +186,42 @@ class Template:
         else:
             packplan = self.packplan
             
-        vals = self.decode_from(buf, offset, packplan = packplan)
+        (vals, offset) = self.decode_from(buf, offset, packplan = packplan)
 
         # re-sort values in same order as packplan indices
-        return tuple(v for i,v in sorted(zip(packplan.indices, vals)))
+        return (tuple(v for i,v in sorted(zip(packplan.indices, vals))), offset)
         
     def encode_to(self, buf, offset, vals, packplan = None):
         """Encodes a record from a tuple containing values in template order"""
-        
-        print(repr(self) + " encoding to offset "+str(offset))
-        
+                
         # use default packplan unless someone hacked us not to
         if not packplan:
             packplan = self.packplan
-        
-        print("    using packplan "+repr(packplan))
-        
         
         # encode fixed values
         fixvals = [f(v) for f,v in zip(packplan.valenc, vals)]
         packplan.st.pack_into(buf, offset, *fixvals)
         offset += packplan.st.size
-        print("    fixed values complete, offset now "+str(offset))        
-        # short circuit on no varlen
+
+        # shortcircuit no varlen
         if not self.varlenslice:
             return offset
-
-        print("    varlen section has "+str(self.count() - self.varlenslice)+
-              " elements")
 
         # direct iteration over remaining IEs
         for i, ie, val in zip(range(self.varlenslice, self.count()),
                               self.ies[self.varlenslice:],
                               vals[self.varlenslice:]):
             if i in packplan.indices:
-                print("    encoding "+str(ie))
+                #print("    encoding "+str(ie))
                 if ie.length == types.VARLEN:
-                    offset = types.encode_varlen(buf, offset, len(val))
-                    print("    encoded length, offset now "+str(offset))
+                    # FIXME this arrangement requires double-encode of varlen
+                    # values, one to get the length, one to do the encode. 
+                    # Fixing this requires a rearrangement of type encoding
+                    # though. For now we'll just say that if you're exporting
+                    # varlen you get to put up with some inefficiency. :)
+                    offset = types.encode_varlen(buf, offset, 
+                                                 len(ie.type.valenc(val)))
                 offset = ie.type.encode_single_value_to(val, buf, offset)
-                print("    encoded value, offset now "+str(offset))
                 
         return offset
     

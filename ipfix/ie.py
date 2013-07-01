@@ -267,6 +267,9 @@ def clear_infomodel():
     _ieForName.clear()
     _ieForNum.clear()
 
+def dump_infomodel():
+    return sorted([_ieForNum[x] for x in _ieForNum])
+
 def use_specfile(filename):
     """
     Load a file listing IESpecs into the cache of known IEs

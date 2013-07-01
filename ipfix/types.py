@@ -209,7 +209,7 @@ class StructType(IpfixType):
 
 class OctetArrayType(IpfixType):
     """Type encoded by byte array packing. Used internally."""
-    def __init__(self, name, num, valenc = lambda x: x, valdec = lambda x: x):
+    def __init__(self, name, num, valenc = _identity, valdec = _identity):
         super().__init__(name, num, valenc, valdec)
         self.length = VARLEN
     
@@ -317,10 +317,10 @@ def for_name(name):
 
 def decode_varlen(buf, offset):
     """Decode a IPFIX varlen encoded length; used internally by template"""
-    length = _varlen1_st.unpack_from(buf, offset)
+    length = _varlen1_st.unpack_from(buf, offset)[0]
     offset += _varlen1_st.size
     if length == 255:
-        length = _varlen2_st.unpack_from(buf, offset)
+        length = _varlen2_st.unpack_from(buf, offset)[0]
         offset += _varlen2_st.size
     return (length, offset)
     

@@ -79,14 +79,16 @@ InformationElement('myNewInformationElement', 35566, 1, ipfix.types.for_name('st
 >>> tmpl = ipfix.template.from_ielist(257, 
 ...        ipfix.ie.spec_list(("flowStartMilliseconds",
 ...                            "myNewInformationElement")))
-<Template ID 257 count 2 scope 0>
 >>> msg.add_template(tmpl)
 >>> msg.export_ensure_set(257)
->>> rec = { "flowStartMilliseconds" : datetime.strptime("2013-06-21 14:00:00", 
+>>> msg
+<MessageBuffer domain 8304 length 116 (writing set 257)>
+>>> rec = { "flowStartMilliseconds" : datetime.strptime("2013-06-21 14:00:04", 
 ...                                   "%Y-%m-%d %H:%M:%S"),
-...         "myNewInformationElement" : "Grüezi, Welt") }
+...         "myNewInformationElement" : "Grüezi, Y'all" }
 >>> msg.export_namedict(rec)
 >>> msg
+<MessageBuffer domain 8304 length 139 (writing set 257)>
 
 Attempts to write past the end of the message (set via the mtu parameter, 
 default 65535) result in :exc:`EndOfMessage` being raised.
@@ -106,24 +108,21 @@ byte array using :meth:`MessageBuffer.from_bytes`, or from a stream using
 
 >>> msg.from_bytes(b)
 >>> msg
-<MessageBuffer domain 8304 length 92 (deframed 2 sets)>
+<MessageBuffer domain 8304 length 139 (deframed 4 sets)>
 
 Both of these methods scan the message in advance to find the sets within
 the message. The records within these sets can then be accessed by iterating
 over the message. As with export, the records can be accessed as a dictionary 
 mapping IE names to values or as tuples. The dictionary interface is
 designed for general IPFIX processing applications, such as collectors 
-accepting many types of data, or diagnostic tools for debugging IPFIX export. 
+accepting many types of data, or diagnostic tools for debugging IPFIX export:
 
->>> iter = msg.namedict_iterator()
->>> sorted(next(iter).items())
+>>> for rec in msg.namedict_iterator():
+...    print(sorted(rec.items()))
+...
 [('destinationIPv4Address', IPv4Address('10.5.6.7')), ('flowStartMilliseconds', datetime.datetime(2013, 6, 21, 12, 0)), ('packetDeltaCount', 27), ('sourceIPv4Address', IPv4Address('10.1.2.3'))]
->>> sorted(next(iter).items())
 [('destinationIPv4Address', IPv4Address('10.12.13.14')), ('flowStartMilliseconds', datetime.datetime(2013, 6, 21, 12, 0, 2)), ('packetDeltaCount', 33), ('sourceIPv4Address', IPv4Address('10.8.9.11'))]
->>> next(iter)
-Traceback (most recent call last):
-  File "<stdin>", line 1, in <module>
-StopIteration
+[('flowStartMilliseconds', datetime.datetime(2013, 6, 21, 12, 0)), ('myNewInformationElement', 'Grüezi, Y'all')]
 
 The tuple interface for reading messages is designed for applications with a
 specific internal data model. It can be much faster than the dictionary
@@ -132,23 +131,22 @@ skip entire sets not containing all the requested IEs. Requested IEs are
 specified as an :class:`ipfix.ie.InformationElementList` instance, from 
 :func:`ie.spec_list()`:
 
->>> msg = ipfix.message.MessageBuffer()
->>> msg.from_bytes(b)
->>> ielist = ipfix.ie.spec_list(("flowStartMilliseconds", "packetDeltaCount"))
->>> iter = msg.tuple_iterator(ielist)
->>> next(iter)
-[datetime.datetime(2013, 6, 21, 12, 0), 27]
->>> next(iter)
-[datetime.datetime(2013, 6, 21, 12, 0, 2), 33]
->>> next(iter)
-Traceback (most recent call last):
-  File "<stdin>", line 1, in <module>
-StopIteration
+>>> ielist = ipfix.ie.spec_list(["flowStartMilliseconds", "packetDeltaCount"])
+>>> for rec in msg.tuple_iterator(ielist):
+...     print(rec)
+...
+(datetime.datetime(2013, 6, 21, 12, 0), 27)
+(datetime.datetime(2013, 6, 21, 12, 0, 2), 33)
 
-.. warning:: A MessageBuffer using the tuple interface can *only* be used for 
-             a single IE list; changing lists, or switching between the 
-             dictionary and tuple interfaces on a given MessageBuffer, 
-             will result in undefined behavior.
+Notice that the variable-length record written to the message are not returned 
+by this iterator, since that record doesn't include a packetDeltaCount IE. 
+The record is, however, still there:
+
+>>> ielist = ipfix.ie.spec_list(["myNewInformationElement"])
+>>> for rec in msg.tuple_iterator(ielist):
+...     print(rec)
+...
+("Grüezi, Y'all",)
 
 """
 
@@ -201,6 +199,8 @@ class MessageBuffer:
         self.cursetoff = 0
         self.cursetid = None
         self.curtmpl = None
+        
+        self.last_tuple_iterator_ielist = None
         
         self.mtu = 65535
         
@@ -264,7 +264,7 @@ class MessageBuffer:
                 raise IPFIXDecodeError("Set too long for message")
             self.setlist.append((offset, setid, setlen))
             offset += setlen
-        
+    
     def read_message(self, stream):
         """Read a IPFIX message from a stream.
         
@@ -344,7 +344,7 @@ class MessageBuffer:
     def record_iterator(self, 
                         decode_fn=template.Template.decode_namedict_from, 
                         tmplaccept_fn=accept_all_templates, 
-                        recinf = None):
+                        recinf=None):
         """
         Low-level interface to record iteration.
         
@@ -409,6 +409,13 @@ class MessageBuffer:
         return self.record_iterator(
                 decode_fn = template.Template.decode_namedict_from)
     
+    def _recache_accepted_tids(self, tmplaccept_fn):
+        for tid in self.active_template_ids():
+            if tmplaccept_fn(self.templates[(self.odid, tid)]):
+                self.accepted_tids.add((self.odid, tid))
+            else:
+                self.accepted_tids.discard((self.odid, tid))
+
     def tuple_iterator(self, ielist):
         """
         Iterate over all records in the Message containing all the IEs in 
@@ -419,9 +426,16 @@ class MessageBuffer:
         :returns: a tuple iterator for tuples as in ielist order
         
         """
+        
         tmplaccept_fn = lambda tmpl: \
                 functools.reduce(operator.__and__, 
-                                 (ie in tmpl.ies for ie in ielist))
+                                 (ie in tmpl.ies for ie in ielist))        
+
+        if ((not self.last_tuple_iterator_ielist) or
+            (ielist is not self.last_tuple_iterator_ielist)):
+                self._recache_accepted_tids(tmplaccept_fn)
+        self.last_tuple_iterator_ielist = ielist
+
         return self.record_iterator(
                 decode_fn = template.Template.decode_tuple_from, 
                 tmplaccept_fn = tmplaccept_fn, 
