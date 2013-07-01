@@ -1,8 +1,7 @@
 python-ipfix
 ============
 
-IPFIX implementation for Python 3.x. Under heavy construction;
-watch this space.
+IPFIX implementation for Python 3.3.
 
 This module provides a Python interface to IPFIX message streams, and
 provides tools for building IPFIX Exporting and Collecting Processes.
