@@ -37,47 +37,52 @@ one to illustrate encoding and decoding:
 >>> import ipfix.types
 >>> buf = memoryview(bytearray(16))
 
+Each of the encoding methods returns the offset into the buffer of the first
+byte after the encoded value; since we're always encoding to the beginning
+of the buffer in this example, this is equivalent to the length. 
+We use this to bound the encoded value on subsequent decode.
+
 Integers are represented by the python int type:
 
 >>> unsigned32 = ipfix.types.for_name("unsigned32")
->>> unsigned32.encode_single_value_to(42, buf, 0)
->>> buf[0:4].tolist()
+>>> length = unsigned32.encode_single_value_to(42, buf, 0)
+>>> buf[0:length].tolist()
 [0, 0, 0, 42]
->>> unsigned32.decode_single_value_from(buf, 0, 4)
+>>> unsigned32.decode_single_value_from(buf, 0, length)
 42
 
 ...floats by the float type, with the usual caveats about precision:
 
 >>> float32 = ipfix.types.for_name("float32")
->>> float32.encode_single_value_to(42.03579, buf, 0)
->>> buf[0:4].tolist()
+>>> length = float32.encode_single_value_to(42.03579, buf, 0)
+>>> buf[0:length].tolist()
 [66, 40, 36, 166]
->>> float32.decode_single_value_from(buf, 0, 4)
+>>> float32.decode_single_value_from(buf, 0, length)
 42.035789489746094
 
 ...strings by the str type, encoded as UTF-8:
 
 >>> string = ipfix.types.for_name("string")
->>> string.encode_single_value_to("Grüezi", buf, 0)
->>> buf[0:7].tolist()
+>>> length = string.encode_single_value_to("Grüezi", buf, 0)
+>>> buf[0:length].tolist()
 [71, 114, 195, 188, 101, 122, 105]
->>> string.decode_single_value_from(buf, 0, 7)
+>>> string.decode_single_value_from(buf, 0, length)
 'Grüezi'
 
 ...addresses as the IPv4Address and IPv6Address types in the ipaddress module:
 
 >>> from ipaddress import ip_address
 >>> ipv4Address = ipfix.types.for_name("ipv4Address")
->>> ipv4Address.encode_single_value_to(ip_address("198.51.100.27"), buf, 0)
->>> buf[0:4].tolist()
+>>> length = ipv4Address.encode_single_value_to(ip_address("198.51.100.27"), buf, 0)
+>>> buf[0:length].tolist()
 [198, 51, 100, 27]
->>> ipv4Address.decode_single_value_from(buf, 0, 4)
+>>> ipv4Address.decode_single_value_from(buf, 0, length)
 IPv4Address('198.51.100.27')
 >>> ipv6Address = ipfix.types.for_name("ipv6Address")
->>> ipv6Address.encode_single_value_to(ip_address("2001:db8::c0:ffee"), buf, 0)
->>> buf[0:16].tolist()
+>>> length = ipv6Address.encode_single_value_to(ip_address("2001:db8::c0:ffee"), buf, 0)
+>>> buf[0:length].tolist()
 [32, 1, 13, 184, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 255, 238]
->>> ipv6Address.decode_single_value_from(buf, 0, 16)
+>>> ipv6Address.decode_single_value_from(buf, 0, length)
 IPv6Address('2001:db8::c0:ffee')
 
 ...and the timestamps of various precision as a python datetime, 
@@ -91,28 +96,28 @@ encoded as per RFC5101bis:
 dateTimeSeconds truncates microseconds:
 
 >>> dateTimeSeconds = ipfix.types.for_name("dateTimeSeconds")
->>> dateTimeSeconds.encode_single_value_to(dt, buf, 0)
->>> buf[0:4].tolist()
+>>> length = dateTimeSeconds.encode_single_value_to(dt, buf, 0)
+>>> buf[0:length].tolist()
 [81, 196, 92, 99]
->>> dateTimeSeconds.decode_single_value_from(buf, 0, 4).strftime(dtfmt_out)
+>>> dateTimeSeconds.decode_single_value_from(buf, 0, length).strftime(dtfmt_out)
 '2013-06-21 14:00:03.000000'
 
 dateTimeMilliseconds truncates microseconds to the nearest millisecond:
 
 >>> dateTimeMilliseconds = ipfix.types.for_name("dateTimeMilliseconds")
->>> dateTimeMilliseconds.encode_single_value_to(dt, buf, 0)
->>> buf[0:8].tolist()
+>>> length = dateTimeMilliseconds.encode_single_value_to(dt, buf, 0)
+>>> buf[0:length].tolist()
 [0, 0, 1, 63, 103, 8, 228, 128]
->>> dateTimeMilliseconds.decode_single_value_from(buf, 0, 8).strftime(dtfmt_out)
+>>> dateTimeMilliseconds.decode_single_value_from(buf, 0, length).strftime(dtfmt_out)
 '2013-06-21 14:00:03.456000'
 
 dateTimeMicroseconds exports microseconds fully in NTP format:
 
 >>> dateTimeMicroseconds = ipfix.types.for_name("dateTimeMicroseconds")
->>> dateTimeMicroseconds.encode_single_value_to(dt, buf, 0)
->>> buf[0:8].tolist()
+>>> length = dateTimeMicroseconds.encode_single_value_to(dt, buf, 0)
+>>> buf[0:length].tolist()
 [81, 196, 92, 99, 116, 240, 32, 0]
->>> dateTimeMicroseconds.decode_single_value_from(buf, 0, 8).strftime(dtfmt_out)
+>>> dateTimeMicroseconds.decode_single_value_from(buf, 0, length).strftime(dtfmt_out)
 '2013-06-21 14:00:03.456789'
 
 dateTimeNanoseconds is also supported, but is identical to
@@ -198,9 +203,8 @@ class StructType(IpfixType):
                 raise IpfixTypeError("Reduced length encoding not supported <%s>[%u]" % (self.name, length))
 
     def encode_single_value_to(self, val, buf, offset):
-        enc = self.valenc(val)
-        self.st.pack_into(buf, offset, enc)
-        return offset + len(enc)
+        self.st.pack_into(buf, offset, self.valenc(val))
+        return offset + self.length
     
     def decode_single_value_from(self, buf, offset, length):
         assert(self.length == length)
