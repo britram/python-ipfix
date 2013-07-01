@@ -122,7 +122,7 @@ accepting many types of data, or diagnostic tools for debugging IPFIX export:
 ...
 [('destinationIPv4Address', IPv4Address('10.5.6.7')), ('flowStartMilliseconds', datetime.datetime(2013, 6, 21, 12, 0)), ('packetDeltaCount', 27), ('sourceIPv4Address', IPv4Address('10.1.2.3'))]
 [('destinationIPv4Address', IPv4Address('10.12.13.14')), ('flowStartMilliseconds', datetime.datetime(2013, 6, 21, 12, 0, 2)), ('packetDeltaCount', 33), ('sourceIPv4Address', IPv4Address('10.8.9.11'))]
-[('flowStartMilliseconds', datetime.datetime(2013, 6, 21, 12, 0)), ('myNewInformationElement', 'Grüezi, Y'all')]
+[('flowStartMilliseconds', datetime.datetime(2013, 6, 21, 12, 0, 4)), ('myNewInformationElement', "Grüezi, Y'all")]
 
 The tuple interface for reading messages is designed for applications with a
 specific internal data model. It can be much faster than the dictionary
