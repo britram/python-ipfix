@@ -1,0 +1,393 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>ipfix.ie &mdash; python-ipfix 0.9 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.9',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="python-ipfix 0.9 documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">python-ipfix 0.9 documentation</a> &raquo;</li>
+          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for ipfix.ie</h1><div class="highlight"><pre>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">IESpec-based interface to IPFIX information elements,</span>
+<span class="sd">and interface to use the default IPFIX IANA Information Model</span>
+
+<span class="sd">An IESpec is a string representation of an IPFIX information element,</span>
+<span class="sd">including all the information required to define it, as documented in</span>
+<span class="sd">Section 9 of http://tools.ietf.org/html/draft-ietf-ipfix-ie-doctors.</span>
+<span class="sd">It has the format:</span>
+
+<span class="sd">  name(pen/num)&lt;type&gt;[size]</span>
+
+<span class="sd">To specify a new Information Element, a complete IESpec</span>
+<span class="sd">must be passed to for_spec():</span>
+
+<span class="sd">&gt;&gt;&gt; import ipfix.ie</span>
+<span class="sd">&gt;&gt;&gt; e = ipfix.ie.for_spec(&quot;myNewInformationElement(35566/1)&lt;string&gt;&quot;)</span>
+<span class="sd">&gt;&gt;&gt; e</span>
+<span class="sd">InformationElement(&#39;myNewInformationElement&#39;, 35566, 1, ipfix.types.for_name(&#39;string&#39;), 65535)</span>
+
+<span class="sd">The string representation of an InformationElement is its IESpec:</span>
+
+<span class="sd">&gt;&gt;&gt; str(e)</span>
+<span class="sd">&#39;myNewInformationElement(35566/1)&lt;string&gt;[65535]&#39;</span>
+
+<span class="sd">To get an Information Element already specified, an incomplete specification</span>
+<span class="sd">can be passed; a name or number is enough:</span>
+
+<span class="sd">&gt;&gt;&gt; ipfix.ie.use_iana_default()</span>
+<span class="sd">&gt;&gt;&gt; str(ipfix.ie.for_spec(&quot;octetDeltaCount&quot;))</span>
+<span class="sd">&#39;octetDeltaCount(0/1)&lt;unsigned64&gt;[8]&#39;</span>
+<span class="sd">&gt;&gt;&gt; str(ipfix.ie.for_spec(&quot;(2)&quot;))</span>
+<span class="sd">&#39;packetDeltaCount(0/2)&lt;unsigned64&gt;[8]&#39;</span>
+
+<span class="sd">Reduced-length encoding and fixed-length sequence types are supported by the</span>
+<span class="sd">for_length method; this is used internally by templates.</span>
+
+<span class="sd">&gt;&gt;&gt; str(e.for_length(32))</span>
+<span class="sd">&#39;myNewInformationElement(35566/1)&lt;string&gt;[32]&#39;</span>
+
+<span class="sd">Most client code will only need the :func:`use_iana_default`, </span>
+<span class="sd">:func:`use_5103_default`, and :func:`use_specfile` functions; </span>
+<span class="sd">client code using tuple interfaces will need :func:`spec_list` as well.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>            
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">os.path</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">types</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">total_ordering</span><span class="p">,</span> <span class="nb">reduce</span>
+<span class="kn">import</span> <span class="nn">operator</span>
+
+<span class="n">_iespec_re</span> <span class="o">=</span> <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="s">&#39;^([^\s\[\&lt;\(]+)?(\(((\d+)\/)?(\d+)\))?&#39;</span>
+                        <span class="s">&#39;(\&lt;(\S+)\&gt;)?(\[(\S+)\])?&#39;</span><span class="p">)</span>
+
+<span class="c"># Internal information element registry</span>
+<span class="n">_ieForName</span> <span class="o">=</span> <span class="p">{}</span>
+<span class="n">_ieForNum</span> <span class="o">=</span> <span class="p">{}</span>
+
+<span class="k">def</span> <span class="nf">_register_ie</span><span class="p">(</span><span class="n">ie</span><span class="p">):</span>
+    <span class="n">_ieForName</span><span class="p">[</span><span class="n">ie</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">ie</span>
+    <span class="n">_ieForNum</span><span class="p">[(</span><span class="n">ie</span><span class="o">.</span><span class="n">pen</span><span class="p">,</span> <span class="n">ie</span><span class="o">.</span><span class="n">num</span><span class="p">)]</span> <span class="o">=</span> <span class="n">ie</span>
+    
+    <span class="k">return</span> <span class="n">ie</span>
+    
+<span class="nd">@total_ordering</span>
+<div class="viewcode-block" id="InformationElement"><a class="viewcode-back" href="../../index.html#ipfix.ie.InformationElement">[docs]</a><span class="k">class</span> <span class="nc">InformationElement</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    An IPFIX Information Element (IE). This is essentially a five-tuple of</span>
+<span class="sd">    name, element number (num), a private enterprise number (pen; 0 if it</span>
+<span class="sd">    is an IANA registered IE), a type, and a length.</span>
+<span class="sd">    </span>
+<span class="sd">    InformationElement instances should be obtained using the :func:`for_spec`</span>
+<span class="sd">    or :func:`for_template_entry` functions.</span>
+<span class="sd">    </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">pen</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">ietype</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>    
+        <span class="k">if</span> <span class="n">name</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
+        <span class="k">else</span><span class="p">:</span> 
+            <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="s">&quot;_ipfix_</span><span class="si">%u</span><span class="s">_</span><span class="si">%u</span><span class="s">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">pen</span><span class="p">,</span> <span class="n">num</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">length</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">=</span> <span class="n">length</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">=</span> <span class="n">ietype</span><span class="o">.</span><span class="n">length</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">pen</span> <span class="o">=</span> <span class="n">pen</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">num</span> <span class="o">=</span> <span class="n">num</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">type</span> <span class="o">=</span> <span class="n">ietype</span><span class="o">.</span><span class="n">for_length</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">pen</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num</span><span class="p">)</span> <span class="o">==</span> <span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">pen</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">num</span><span class="p">))</span>
+    
+    <span class="k">def</span> <span class="nf">__lt__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">pen</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num</span><span class="p">)</span> <span class="o">&lt;</span> <span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">pen</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">num</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s">&quot;InformationElement(</span><span class="si">%s</span><span class="s">, </span><span class="si">%s</span><span class="s">, </span><span class="si">%s</span><span class="s">, </span><span class="si">%s</span><span class="s">, </span><span class="si">%s</span><span class="s">)&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">),</span> 
+               <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pen</span><span class="p">),</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num</span><span class="p">),</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">),</span> 
+               <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">))</span>
+
+    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s">&quot;</span><span class="si">%s</span><span class="s">(</span><span class="si">%u</span><span class="s">/</span><span class="si">%u</span><span class="s">)</span><span class="si">%s</span><span class="s">[</span><span class="si">%u</span><span class="s">]&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pen</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">),</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="nf">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num</span> <span class="o">&lt;&lt;</span> <span class="mi">16</span><span class="p">)</span> <span class="o">^</span> <span class="bp">self</span><span class="o">.</span><span class="n">pen</span>
+    
+<div class="viewcode-block" id="InformationElement.for_length"><a class="viewcode-back" href="../../index.html#ipfix.ie.InformationElement.for_length">[docs]</a>    <span class="k">def</span> <span class="nf">for_length</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Get an instance of this IE for the specified length.</span>
+<span class="sd">        Used to support reduced-length encoding (RLE).</span>
+<span class="sd">        </span>
+<span class="sd">        :param length: length of the new IE</span>
+<span class="sd">        :returns: this IE if length matches, or a new IE for the length</span>
+<span class="sd">        :raises: ValueError</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">length</span> <span class="ow">or</span> <span class="n">length</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">__class__</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">pen</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">type</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span>
+</div></div>
+<span class="nd">@total_ordering</span>
+<div class="viewcode-block" id="InformationElementList"><a class="viewcode-back" href="../../index.html#ipfix.ie.InformationElementList">[docs]</a><span class="k">class</span> <span class="nc">InformationElementList</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A hashable ordered list of Information Elements.</span>
+<span class="sd">    </span>
+<span class="sd">    Used internally by templates, and to specify the</span>
+<span class="sd">    order of tuples to the tuple append and iterator interfaces. Get an</span>
+<span class="sd">    instance by calling :func:`spec_list`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">iterable</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inner</span> <span class="o">=</span> <span class="p">[]</span>
+        
+        <span class="k">if</span> <span class="n">iterable</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">iterable</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__iter__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">iter</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">inner</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">inner</span> <span class="o">==</span> <span class="n">other</span><span class="o">.</span><span class="n">inner</span>
+        
+    <span class="k">def</span> <span class="nf">__lt__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">inner</span> <span class="o">&lt;</span> <span class="n">other</span><span class="o">.</span><span class="n">inner</span>
+    
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s">&quot;InformationElementList(&quot;</span> <span class="o">+</span> <span class="s">&quot;,&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">((</span><span class="nb">repr</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">inner</span><span class="p">))</span> <span class="o">+</span> <span class="s">&quot;)&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s">&quot;</span><span class="se">\n</span><span class="s">&quot;</span><span class="o">.</span><span class="n">join</span><span class="p">((</span><span class="nb">str</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">inner</span><span class="p">))</span>
+    
+    <span class="k">def</span> <span class="nf">__hash__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">hashcache</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">hashcache</span> <span class="o">=</span> <span class="nb">reduce</span><span class="p">(</span><span class="n">operator</span><span class="o">.</span><span class="n">xor</span><span class="p">,</span> <span class="p">(</span><span class="nb">hash</span><span class="p">(</span><span class="n">x</span><span class="p">)</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">inner</span><span class="p">))</span>
+
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">hashcache</span>
+
+    <span class="k">def</span> <span class="nf">__len__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">inner</span><span class="p">)</span>
+    
+    <span class="k">def</span> <span class="nf">__getitem__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">key</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">inner</span><span class="p">[</span><span class="n">key</span><span class="p">]</span>
+    
+    <span class="k">def</span> <span class="nf">index</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">x</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">inner</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">x</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">append</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ie</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">inner</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ie</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">hashcache</span> <span class="o">=</span> <span class="bp">None</span>
+</div>
+<div class="viewcode-block" id="parse_spec"><a class="viewcode-back" href="../../index.html#ipfix.ie.parse_spec">[docs]</a><span class="k">def</span> <span class="nf">parse_spec</span><span class="p">(</span><span class="n">spec</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Parse an IESpec into name, pen, number, typename, and length fields&quot;&quot;&quot;</span>
+    <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">pen</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">typename</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span> <span class="o">=</span> <span class="n">_iespec_re</span><span class="o">.</span><span class="n">match</span><span class="p">(</span><span class="n">spec</span><span class="p">)</span><span class="o">.</span><span class="n">group</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span><span class="mi">4</span><span class="p">,</span><span class="mi">5</span><span class="p">,</span><span class="mi">7</span><span class="p">,</span><span class="mi">9</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">pen</span><span class="p">:</span> 
+        <span class="n">pen</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">pen</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">pen</span> <span class="o">=</span> <span class="mi">0</span>
+    
+    <span class="k">if</span> <span class="n">num</span><span class="p">:</span>
+        <span class="n">num</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">num</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">num</span> <span class="o">=</span> <span class="mi">0</span>
+    
+    <span class="k">if</span> <span class="n">length</span><span class="p">:</span>
+        <span class="n">length</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">length</span><span class="p">)</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="n">length</span> <span class="o">=</span> <span class="mi">0</span>
+        
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">typename</span><span class="p">:</span>
+        <span class="n">typename</span> <span class="o">=</span> <span class="bp">False</span>
+    
+    <span class="k">return</span> <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">pen</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">typename</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span>
+    </div>
+<div class="viewcode-block" id="for_spec"><a class="viewcode-back" href="../../index.html#ipfix.ie.for_spec">[docs]</a><span class="k">def</span> <span class="nf">for_spec</span><span class="p">(</span><span class="n">spec</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get an IE from the cache of known IEs, or create a</span>
+<span class="sd">    new IE if not found, given an IESpec.</span>
+<span class="sd">    </span>
+<span class="sd">    :param spec: IEspec, as in draft-ietf-ipfix-ie-doctors, of the </span>
+<span class="sd">                 form name(pen/num)&lt;type&gt;[size]; some fields may be</span>
+<span class="sd">                 omitted unless creating a new IE in the cache.</span>
+<span class="sd">    :returns: an IE for the name</span>
+<span class="sd">    :raises: ValueError</span>
+<span class="sd">                 </span>
+<span class="sd">    </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">pen</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">typename</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span> <span class="o">=</span> <span class="n">parse_spec</span><span class="p">(</span><span class="n">spec</span><span class="p">)</span>
+
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">name</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">pen</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">num</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">typename</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">length</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;unrecognized IE spec &quot;</span><span class="o">+</span><span class="n">spec</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">name</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">pen</span> <span class="ow">and</span> <span class="ow">not</span> <span class="n">num</span> <span class="ow">and</span> <span class="n">name</span> <span class="ow">in</span> <span class="n">_ieForName</span><span class="p">:</span>
+            <span class="c"># lookup in name registry</span>
+            <span class="k">return</span> <span class="n">_ieForName</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">for_length</span><span class="p">(</span><span class="n">length</span><span class="p">)</span>
+    
+    <span class="k">if</span> <span class="n">num</span> <span class="ow">and</span> <span class="p">(</span><span class="n">pen</span><span class="p">,</span> <span class="n">num</span><span class="p">)</span> <span class="ow">in</span> <span class="n">_ieForNum</span><span class="p">:</span>
+            <span class="c"># lookup in number registry</span>
+            <span class="k">return</span> <span class="n">_ieForNum</span><span class="p">[(</span><span class="n">pen</span><span class="p">,</span> <span class="n">num</span><span class="p">)]</span><span class="o">.</span><span class="n">for_length</span><span class="p">(</span><span class="n">length</span><span class="p">)</span>
+    
+    <span class="c"># try to create new registered IE</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">typename</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;Cannot create new IE &quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">spec</span><span class="p">)</span><span class="o">+</span>
+                         <span class="s">&quot; without valid type&quot;</span><span class="p">)</span>
+    
+    <span class="n">ietype</span> <span class="o">=</span> <span class="n">types</span><span class="o">.</span><span class="n">for_name</span><span class="p">(</span><span class="n">typename</span><span class="p">)</span>
+        
+    <span class="k">return</span> <span class="n">_register_ie</span><span class="p">(</span><span class="n">InformationElement</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">pen</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">ietype</span><span class="p">,</span> <span class="n">length</span><span class="p">))</span>
+ </div>
+<div class="viewcode-block" id="for_template_entry"><a class="viewcode-back" href="../../index.html#ipfix.ie.for_template_entry">[docs]</a><span class="k">def</span> <span class="nf">for_template_entry</span><span class="p">(</span><span class="n">pen</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get an IE from the cache of known IEs, or create a</span>
+<span class="sd">    new IE if not found, given a private enterprise number,</span>
+<span class="sd">    element number, and length. Used internally by Templates.</span>
+<span class="sd">    </span>
+<span class="sd">    :param pen: private enterprise number, or 0 for an IANA IE</span>
+<span class="sd">    :param num: IE number (Element ID)</span>
+<span class="sd">    :param length: length of the IE in bytes</span>
+<span class="sd">    :returns: an IE for the given pen, num, and length. If the IE has not</span>
+<span class="sd">             been previously added to the cache of known IEs, the IE will be </span>
+<span class="sd">             named _ipfix_pen_num, and have octetArray as a type.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="p">((</span><span class="n">pen</span><span class="p">,</span> <span class="n">num</span><span class="p">)</span> <span class="ow">in</span> <span class="n">_ieForNum</span><span class="p">):</span>
+        <span class="k">return</span> <span class="n">_ieForNum</span><span class="p">[(</span><span class="n">pen</span><span class="p">,</span> <span class="n">num</span><span class="p">)]</span><span class="o">.</span><span class="n">for_length</span><span class="p">(</span><span class="n">length</span><span class="p">)</span>
+    
+    <span class="k">return</span> <span class="n">_register_ie</span><span class="p">(</span><span class="n">InformationElement</span><span class="p">(</span><span class="bp">None</span><span class="p">,</span> <span class="n">pen</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">types</span><span class="o">.</span><span class="n">for_name</span><span class="p">(</span><span class="s">&quot;octetArray&quot;</span><span class="p">),</span> <span class="n">length</span><span class="p">))</span>
+</div>
+<div class="viewcode-block" id="spec_list"><a class="viewcode-back" href="../../index.html#ipfix.ie.spec_list">[docs]</a><span class="k">def</span> <span class="nf">spec_list</span><span class="p">(</span><span class="n">specs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Given a list or iterable of IESpecs, return a hashable list of IEs.</span>
+<span class="sd">    Pass this as the ielist argument to the tuple export</span>
+<span class="sd">    and iterator functions.</span>
+<span class="sd">    </span>
+<span class="sd">    :param specs: list of IESpecs</span>
+<span class="sd">    :returns: a new Information Element List, suitable for use with the tuple</span>
+<span class="sd">              export and iterator functions in :mod:`message`</span>
+<span class="sd">    :raises: ValueError</span>
+<span class="sd">    </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">InformationElementList</span><span class="p">(</span><span class="n">for_spec</span><span class="p">(</span><span class="n">spec</span><span class="p">)</span> <span class="k">for</span> <span class="n">spec</span> <span class="ow">in</span> <span class="n">specs</span><span class="p">)</span>    
+</div>
+<div class="viewcode-block" id="clear_infomodel"><a class="viewcode-back" href="../../index.html#ipfix.ie.clear_infomodel">[docs]</a><span class="k">def</span> <span class="nf">clear_infomodel</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;Reset the cache of known Information Elements.&quot;&quot;&quot;</span>
+    <span class="n">_ieForName</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+    <span class="n">_ieForNum</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
+</div>
+<span class="k">def</span> <span class="nf">dump_infomodel</span><span class="p">():</span>
+    <span class="k">return</span> <span class="nb">sorted</span><span class="p">([</span><span class="n">_ieForNum</span><span class="p">[</span><span class="n">x</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">_ieForNum</span><span class="p">])</span>
+
+<div class="viewcode-block" id="use_specfile"><a class="viewcode-back" href="../../index.html#ipfix.ie.use_specfile">[docs]</a><span class="k">def</span> <span class="nf">use_specfile</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load a file listing IESpecs into the cache of known IEs</span>
+<span class="sd">    </span>
+<span class="sd">    :param filename: name of file containing IESpecs to open</span>
+<span class="sd">    :raises: ValueError</span>
+<span class="sd">    </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">with</span> <span class="nb">open</span><span class="p">(</span><span class="n">filename</span><span class="p">)</span> <span class="k">as</span> <span class="n">f</span><span class="p">:</span>
+        <span class="k">for</span> <span class="n">line</span> <span class="ow">in</span> <span class="n">f</span><span class="p">:</span>
+            <span class="n">for_spec</span><span class="p">(</span><span class="n">line</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="use_iana_default"><a class="viewcode-back" href="../../index.html#ipfix.ie.use_iana_default">[docs]</a><span class="k">def</span> <span class="nf">use_iana_default</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load the module internal list of IANA registered IEs into the</span>
+<span class="sd">    cache of known IEs. Normally, client code should call this before</span>
+<span class="sd">    using any other part of this module.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span> 
+    <span class="n">use_specfile</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">__file__</span><span class="p">),</span> <span class="s">&quot;iana.iespec&quot;</span><span class="p">))</span>
+    </div>
+<div class="viewcode-block" id="use_5103_default"><a class="viewcode-back" href="../../index.html#ipfix.ie.use_5103_default">[docs]</a><span class="k">def</span> <span class="nf">use_5103_default</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Load the module internal list of RFC 5103 reverse IEs for IANA</span>
+<span class="sd">    registered IEs into the cache of known IEs. Normally, biflow-aware</span>
+<span class="sd">    client code should call this just after use_iana_default().</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">use_specfile</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">__file__</span><span class="p">),</span> <span class="s">&quot;rfc5103.iespec&quot;</span><span class="p">))</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">python-ipfix 0.9 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Brian Trammell.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2b1.
+    </div>
+  </body>
+</html>

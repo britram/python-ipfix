@@ -1,0 +1,210 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>ipfix.writer &mdash; python-ipfix 0.9 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.9',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="python-ipfix 0.9 documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">python-ipfix 0.9 documentation</a> &raquo;</li>
+          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for ipfix.writer</h1><div class="highlight"><pre>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">message</span>
+
+<div class="viewcode-block" id="MessageStreamWriter"><a class="viewcode-back" href="../../index.html#ipfix.writer.MessageStreamWriter">[docs]</a><span class="k">class</span> <span class="nc">MessageStreamWriter</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Writes records to a stream of IPFIX messages.</span>
+<span class="sd">    </span>
+<span class="sd">    Uses an :class:`ipfix.message.MessageBuffer` internally, and continually</span>
+<span class="sd">    writes records into messages, exporting messages to the stream each time the </span>
+<span class="sd">    maximum message size (MTU) is reached. Use :func:`to_stream` to get an</span>
+<span class="sd">    instance.</span>
+<span class="sd">    </span>
+<span class="sd">    Suitable for writing to IPFIX files (see :rfc:`5655`) as well as to TCP </span>
+<span class="sd">    sockets. When writing a stream to a file, use mode=&#39;wb&#39;.</span>
+<span class="sd">    </span>
+<span class="sd">    ..warning: This class is not yet suitable for UDP export; this is an open</span>
+<span class="sd">               issue to be fixed in a subsequent release.</span>
+<span class="sd">    </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stream</span><span class="p">,</span> <span class="n">mtu</span><span class="o">=</span><span class="mi">65535</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stream</span> <span class="o">=</span> <span class="n">stream</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">msg</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">MessageBuffer</span><span class="p">()</span>    
+        <span class="bp">self</span><span class="o">.</span><span class="n">msg</span><span class="o">.</span><span class="n">mtu</span> <span class="o">=</span> <span class="n">mtu</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">msgcount</span> <span class="o">=</span> <span class="mi">0</span>
+        
+    <span class="k">def</span> <span class="nf">_retry_after_flush</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fn</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">fn</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+        <span class="k">except</span> <span class="n">message</span><span class="o">.</span><span class="n">EndOfMessage</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">flush</span><span class="p">()</span>
+            <span class="k">return</span> <span class="n">fn</span><span class="p">(</span><span class="o">*</span><span class="n">args</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+    
+<div class="viewcode-block" id="MessageStreamWriter.set_domain"><a class="viewcode-back" href="../../index.html#ipfix.writer.MessageStreamWriter.set_domain">[docs]</a>    <span class="k">def</span> <span class="nf">set_domain</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">odid</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Sets the observation domain for subsequent messages sent with </span>
+<span class="sd">        this Writer.</span>
+<span class="sd">        </span>
+<span class="sd">        :param odid: Observation domain ID to use for export. Note that</span>
+<span class="sd">                     templates are scoped to observation domain, so </span>
+<span class="sd">                     templates will need to be added after switching to a </span>
+<span class="sd">                     new observation domain ID.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">msg</span><span class="o">.</span><span class="n">export_needs_flush</span><span class="p">():</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">msg</span><span class="o">.</span><span class="n">write_message</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stream</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">msg</span><span class="o">.</span><span class="n">begin_export</span><span class="p">(</span><span class="n">odid</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="MessageStreamWriter.add_template"><a class="viewcode-back" href="../../index.html#ipfix.writer.MessageStreamWriter.add_template">[docs]</a>    <span class="k">def</span> <span class="nf">add_template</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tmpl</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Add a template to this Writer. Adding a template makes it </span>
+<span class="sd">        available for use for exporting records; see :meth:`set_export_template`. </span>
+<span class="sd">        </span>
+<span class="sd">        :param tmpl: the template to add</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">msg</span><span class="o">.</span><span class="n">add_template</span><span class="p">(</span><span class="n">tmpl</span><span class="p">)</span>
+    </div>
+<div class="viewcode-block" id="MessageStreamWriter.set_export_template"><a class="viewcode-back" href="../../index.html#ipfix.writer.MessageStreamWriter.set_export_template">[docs]</a>    <span class="k">def</span> <span class="nf">set_export_template</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tid</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Set the template to be used for export by subsequent calls to</span>
+<span class="sd">        :meth:`export_namedict` and :meth:`export_tuple`.</span>
+
+<span class="sd">        :param tid: Template ID of the Template that will be used to encode </span>
+<span class="sd">                    records to the Writer. The corresponding Template must </span>
+<span class="sd">                    have already been added to the Writer, see </span>
+<span class="sd">                    :meth:`add_template`.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">curtid</span> <span class="o">=</span> <span class="n">tid</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_retry_after_flush</span><span class="p">(</span><span class="n">message</span><span class="o">.</span><span class="n">MessageBuffer</span><span class="o">.</span><span class="n">export_ensure_set</span><span class="p">,</span> 
+                               <span class="bp">self</span><span class="o">.</span><span class="n">msg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">curtid</span><span class="p">)</span>
+        </div>
+<div class="viewcode-block" id="MessageStreamWriter.export_namedict"><a class="viewcode-back" href="../../index.html#ipfix.writer.MessageStreamWriter.export_namedict">[docs]</a>    <span class="k">def</span> <span class="nf">export_namedict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rec</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Export a record to the message, using the current template</span>
+<span class="sd">        The record is a dictionary mapping IE names to values. The</span>
+<span class="sd">        dictionary must contain a value for each IE in the template. Keys in the</span>
+<span class="sd">        dictionary not in the template will be ignored.</span>
+<span class="sd">        </span>
+<span class="sd">        :param rec: the record to export, as a dictionary</span>
+<span class="sd">        </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_retry_after_flush</span><span class="p">(</span><span class="n">message</span><span class="o">.</span><span class="n">MessageBuffer</span><span class="o">.</span><span class="n">export_ensure_set</span><span class="p">,</span> 
+                               <span class="bp">self</span><span class="o">.</span><span class="n">msg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">curtid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_retry_after_flush</span><span class="p">(</span><span class="n">message</span><span class="o">.</span><span class="n">MessageBuffer</span><span class="o">.</span><span class="n">export_namedict</span><span class="p">,</span> 
+                               <span class="bp">self</span><span class="o">.</span><span class="n">msg</span><span class="p">,</span> <span class="n">rec</span><span class="p">)</span>
+            </div>
+    <span class="k">def</span> <span class="nf">export_tuple</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rec</span><span class="p">,</span> <span class="n">ielist</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_retry_after_flush</span><span class="p">(</span><span class="n">message</span><span class="o">.</span><span class="n">MessageBuffer</span><span class="o">.</span><span class="n">export_ensure_set</span><span class="p">,</span> 
+                                <span class="bp">self</span><span class="o">.</span><span class="n">msg</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">curtid</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_retry_after_flush</span><span class="p">(</span><span class="n">message</span><span class="o">.</span><span class="n">MessageBuffer</span><span class="o">.</span><span class="n">export_tuple</span><span class="p">,</span> 
+                                <span class="bp">self</span><span class="o">.</span><span class="n">msg</span><span class="p">,</span> <span class="n">rec</span><span class="p">,</span> <span class="n">ielist</span><span class="p">)</span>
+    
+<div class="viewcode-block" id="MessageStreamWriter.flush"><a class="viewcode-back" href="../../index.html#ipfix.writer.MessageStreamWriter.flush">[docs]</a>    <span class="k">def</span> <span class="nf">flush</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Export an in-progress Message immediately.</span>
+<span class="sd">        </span>
+<span class="sd">        Used internally to manage message boundaries, but</span>
+<span class="sd">        can also be used to force immediate export (e.g. to reduce delay</span>
+<span class="sd">        due to buffer dwell time), as well as to finish write operations on</span>
+<span class="sd">        a Writer before closing the underlying stream.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        
+        <span class="n">setid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">msg</span><span class="o">.</span><span class="n">cursetid</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">msg</span><span class="o">.</span><span class="n">write_message</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stream</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">msgcount</span> <span class="o">+=</span> <span class="mi">1</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">msg</span><span class="o">.</span><span class="n">begin_export</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">msg</span><span class="o">.</span><span class="n">export_ensure_set</span><span class="p">(</span><span class="n">setid</span><span class="p">)</span>
+</div></div>
+<div class="viewcode-block" id="to_stream"><a class="viewcode-back" href="../../index.html#ipfix.writer.to_stream">[docs]</a><span class="k">def</span> <span class="nf">to_stream</span><span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="n">mtu</span><span class="o">=</span><span class="mi">65535</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get a MessageStreamWriter for a given stream</span>
+<span class="sd">    </span>
+<span class="sd">    :param stream: stream to write</span>
+<span class="sd">    :param mtu: maximum message size in bytes; defaults to 65535,</span>
+<span class="sd">                the largest possible ipfix message.</span>
+<span class="sd">    :return: a :class:`MessageStreamWriter` wrapped around the stream.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">MessageStreamWriter</span><span class="p">(</span><span class="n">stream</span><span class="p">,</span> <span class="n">mtu</span><span class="p">)</span>          </div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">python-ipfix 0.9 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Brian Trammell.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2b1.
+    </div>
+  </body>
+</html>

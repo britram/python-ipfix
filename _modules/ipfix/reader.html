@@ -1,0 +1,160 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>ipfix.reader &mdash; python-ipfix 0.9 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.9',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="python-ipfix 0.9 documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">python-ipfix 0.9 documentation</a> &raquo;</li>
+          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for ipfix.reader</h1><div class="highlight"><pre>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Interface to read IPFIX Messages from a stream. </span>
+
+
+<span class="sd">&quot;&quot;&quot;</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">message</span>
+
+<div class="viewcode-block" id="MessageStreamReader"><a class="viewcode-back" href="../../index.html#ipfix.reader.MessageStreamReader">[docs]</a><span class="k">class</span> <span class="nc">MessageStreamReader</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Reads records from a stream of IPFIX messages. </span>
+<span class="sd">    </span>
+<span class="sd">    Uses an :class:`ipfix.message.MessageBuffer` internally, and continually reads</span>
+<span class="sd">    messages from the given stream into the buffer, iterating over records,</span>
+<span class="sd">    until the end of the stream. Use :func:`from_stream` to get an instance.</span>
+<span class="sd">    </span>
+<span class="sd">    Suitable for reading from IPFIX files (see :rfc:`5655`) as well as from</span>
+<span class="sd">    UDP or TCP sockets with :class:`socketserver.StreamRequestHandler`. </span>
+<span class="sd">    When opening a stream from a file, use mode=&#39;rb&#39;.</span>
+<span class="sd">    </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stream</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">stream</span> <span class="o">=</span> <span class="n">stream</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">msg</span> <span class="o">=</span> <span class="n">message</span><span class="o">.</span><span class="n">MessageBuffer</span><span class="p">()</span>    
+        <span class="bp">self</span><span class="o">.</span><span class="n">msgcount</span> <span class="o">=</span> <span class="mi">0</span>
+        
+<div class="viewcode-block" id="MessageStreamReader.records_as_dict"><a class="viewcode-back" href="../../index.html#ipfix.reader.MessageStreamReader.records_as_dict">[docs]</a>    <span class="k">def</span> <span class="nf">records_as_dict</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Iterate over all records in the stream, as dicts mapping IE names</span>
+<span class="sd">        to values.</span>
+<span class="sd">        </span>
+<span class="sd">        :returns: a name dictionary iterator</span>
+<span class="sd">        </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">while</span><span class="p">(</span><span class="bp">True</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">msg</span><span class="o">.</span><span class="n">read_message</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stream</span><span class="p">)</span>
+                <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">msg</span><span class="o">.</span><span class="n">namedict_iterator</span><span class="p">()</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">msgcount</span> <span class="o">+=</span> <span class="mi">1</span>        
+        <span class="k">except</span> <span class="ne">EOFError</span><span class="p">:</span>
+            <span class="k">return</span>
+            </div>
+<div class="viewcode-block" id="MessageStreamReader.records_as_tuple"><a class="viewcode-back" href="../../index.html#ipfix.reader.MessageStreamReader.records_as_tuple">[docs]</a>    <span class="k">def</span> <span class="nf">records_as_tuple</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ielist</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Iterate over all records in the stream containing all the IEs in </span>
+<span class="sd">        the given ielist. Records are returned as tuples in ielist order.</span>
+<span class="sd">        </span>
+<span class="sd">        :param ielist: an instance of :class:`ipfix.ie.InformationElementList`</span>
+<span class="sd">                       listing IEs to return as a tuple</span>
+<span class="sd">        :returns: a tuple iterator for tuples in ielist order</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">try</span><span class="p">:</span>
+            <span class="k">while</span><span class="p">(</span><span class="bp">True</span><span class="p">):</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">msg</span><span class="o">.</span><span class="n">read_message</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">stream</span><span class="p">)</span>
+                <span class="k">yield from</span> <span class="bp">self</span><span class="o">.</span><span class="n">msg</span><span class="o">.</span><span class="n">tuple_iterator</span><span class="p">(</span><span class="n">ielist</span><span class="p">)</span>           
+                <span class="bp">self</span><span class="o">.</span><span class="n">msgcount</span> <span class="o">+=</span> <span class="mi">1</span>        
+        <span class="k">except</span> <span class="ne">EOFError</span><span class="p">:</span>
+            <span class="k">return</span>
+        </div></div>
+<div class="viewcode-block" id="from_stream"><a class="viewcode-back" href="../../index.html#ipfix.reader.from_stream">[docs]</a><span class="k">def</span> <span class="nf">from_stream</span><span class="p">(</span><span class="n">stream</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Get a MessageStreamReader for a given stream</span>
+<span class="sd">    </span>
+<span class="sd">    :param stream: stream to read</span>
+<span class="sd">    :return: a :class:`MessageStreamReader` wrapped around the stream.</span>
+
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">MessageStreamReader</span><span class="p">(</span><span class="n">stream</span><span class="p">)</span>          </div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">python-ipfix 0.9 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Brian Trammell.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2b1.
+    </div>
+  </body>
+</html>

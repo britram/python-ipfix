@@ -1,0 +1,449 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>ipfix.template &mdash; python-ipfix 0.9 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.9',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="python-ipfix 0.9 documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">python-ipfix 0.9 documentation</a> &raquo;</li>
+          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for ipfix.template</h1><div class="highlight"><pre>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Representation of IPFIX templates.</span>
+<span class="sd">Provides template-based packing and unpacking of data in IPFIX messages.</span>
+
+<span class="sd">For reading, templates are handled internally. For writing, use </span>
+<span class="sd">:func:`from_ielist` to create a template. </span>
+
+<span class="sd">See :mod:`ipfix.message` for examples.</span>
+
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">ie</span>    
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">types</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">lru_cache</span>
+<span class="kn">import</span> <span class="nn">struct</span>
+
+<span class="c"># Builtin exceptions</span>
+<div class="viewcode-block" id="IpfixEncodeError"><a class="viewcode-back" href="../../index.html#ipfix.template.IpfixEncodeError">[docs]</a><span class="k">class</span> <span class="nc">IpfixEncodeError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Raised on internal encoding errors, or if message MTU is too small&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="IpfixDecodeError"><a class="viewcode-back" href="../../index.html#ipfix.template.IpfixDecodeError">[docs]</a><span class="k">class</span> <span class="nc">IpfixDecodeError</span><span class="p">(</span><span class="ne">Exception</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;Raised when decoding a malformed IPFIX message&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+
+<span class="c"># constants</span></div>
+<span class="n">TEMPLATE_SET_ID</span> <span class="o">=</span> <span class="mi">2</span>
+<span class="n">OPTIONS_SET_ID</span> <span class="o">=</span> <span class="mi">3</span>
+
+<span class="c"># template encoding/decoding structs</span>
+<span class="n">_tmplhdr_st</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">Struct</span><span class="p">(</span><span class="s">&quot;!HH&quot;</span><span class="p">)</span>
+<span class="n">_otmplhdr_st</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">Struct</span><span class="p">(</span><span class="s">&quot;!HHH&quot;</span><span class="p">)</span>
+<span class="n">_iespec_st</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">Struct</span><span class="p">(</span><span class="s">&quot;!HH&quot;</span><span class="p">)</span>
+<span class="n">_iepen_st</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">Struct</span><span class="p">(</span><span class="s">&quot;!L&quot;</span><span class="p">)</span>
+
+<div class="viewcode-block" id="TemplatePackingPlan"><a class="viewcode-back" href="../../index.html#ipfix.template.TemplatePackingPlan">[docs]</a><span class="k">class</span> <span class="nc">TemplatePackingPlan</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Plan to pack/unpack a specific set of indices for a template.</span>
+<span class="sd">    Used internally by Templates for efficient encoding and decoding.</span>
+<span class="sd">    </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tmpl</span><span class="p">,</span> <span class="n">indices</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">tmpl</span> <span class="o">=</span> <span class="n">tmpl</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">indices</span> <span class="o">=</span> <span class="n">indices</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span> <span class="o">=</span> <span class="p">[]</span>
+                
+        <span class="n">packstring</span> <span class="o">=</span> <span class="s">&quot;!&quot;</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">t</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">e</span><span class="o">.</span><span class="n">type</span> <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="n">tmpl</span><span class="o">.</span><span class="n">ies</span><span class="p">):</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="o">&gt;=</span> <span class="n">tmpl</span><span class="o">.</span><span class="n">fixlen_count</span><span class="p">():</span>
+                <span class="k">break</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">indices</span><span class="p">:</span>
+                <span class="n">packstring</span> <span class="o">+=</span> <span class="n">t</span><span class="o">.</span><span class="n">stel</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">valenc</span><span class="p">)</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">t</span><span class="o">.</span><span class="n">valdec</span><span class="p">)</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">packstring</span> <span class="o">+=</span> <span class="n">t</span><span class="o">.</span><span class="n">skipel</span>           
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">st</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">Struct</span><span class="p">(</span><span class="n">packstring</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s">&quot;&lt;TemplatePackingPlan &quot;</span><span class="o">+</span><span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tmpl</span><span class="p">)</span> <span class="o">+</span>\
+                <span class="s">&quot; pack &quot;</span> <span class="o">+</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">st</span><span class="o">.</span><span class="n">format</span><span class="p">)</span> <span class="o">+</span>\
+                <span class="s">&quot; indices &quot;</span> <span class="o">+</span> <span class="s">&quot; &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">str</span><span class="p">(</span><span class="n">i</span><span class="p">)</span> <span class="k">for</span> <span class="n">i</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">indices</span><span class="p">)</span><span class="o">+</span><span class="s">&quot;&gt;&quot;</span>
+</div>
+<div class="viewcode-block" id="Template"><a class="viewcode-back" href="../../index.html#ipfix.template.Template">[docs]</a><span class="k">class</span> <span class="nc">Template</span><span class="p">:</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    An IPFIX Template.</span>
+<span class="sd">    </span>
+<span class="sd">    A template is an ordered list of IPFIX Information Elements with an ID.</span>
+<span class="sd">    </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tid</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">iterable</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="n">tid</span> <span class="o">&lt;</span> <span class="mi">256</span> <span class="ow">or</span> <span class="n">tid</span> <span class="o">&gt;</span> <span class="mi">65535</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&quot;bad template ID &quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">tid</span><span class="p">))</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">tid</span> <span class="o">=</span> <span class="n">tid</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">minlength</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">enclength</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">scopecount</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">varlenslice</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">packplan</span> <span class="o">=</span> <span class="bp">None</span>
+        
+        <span class="bp">self</span><span class="o">.</span><span class="n">ies</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="n">iterable</span><span class="p">:</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">iterable</span><span class="p">,</span> <span class="n">ie</span><span class="o">.</span><span class="n">InformationElementList</span><span class="p">):</span>
+                <span class="n">iterable</span> <span class="o">=</span> <span class="n">ie</span><span class="o">.</span><span class="n">InformationElementList</span><span class="p">(</span><span class="n">iterable</span><span class="p">)</span>
+            <span class="k">for</span> <span class="n">elem</span> <span class="ow">in</span> <span class="n">iterable</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">elem</span><span class="p">)</span>
+        
+    <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">return</span> <span class="s">&quot;&lt;Template ID &quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">tid</span><span class="p">)</span><span class="o">+</span><span class="s">&quot; count &quot;</span><span class="o">+</span> \
+               <span class="nb">str</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ies</span><span class="p">))</span><span class="o">+</span><span class="s">&quot; scope &quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">scopecount</span><span class="p">)</span><span class="o">+</span><span class="s">&quot;&gt;&quot;</span>
+        
+<div class="viewcode-block" id="Template.append"><a class="viewcode-back" href="../../index.html#ipfix.template.Template.append">[docs]</a>    <span class="k">def</span> <span class="nf">append</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ie</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Append an IE to this Template&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ies</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ie</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="n">ie</span><span class="o">.</span><span class="n">length</span> <span class="o">==</span> <span class="n">types</span><span class="o">.</span><span class="n">VARLEN</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">minlength</span> <span class="o">+=</span> <span class="mi">1</span>
+            <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">varlenslice</span><span class="p">:</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">varlenslice</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ies</span><span class="p">)</span> <span class="o">-</span> <span class="mi">1</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">minlength</span> <span class="o">+=</span> <span class="n">ie</span><span class="o">.</span><span class="n">length</span>
+
+        <span class="bp">self</span><span class="o">.</span><span class="n">enclength</span> <span class="o">+=</span> <span class="n">_iespec_st</span><span class="o">.</span><span class="n">size</span>
+        <span class="k">if</span> <span class="p">(</span><span class="n">ie</span><span class="o">.</span><span class="n">pen</span><span class="p">):</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">enclength</span> <span class="o">+=</span> <span class="n">_iepen_st</span><span class="o">.</span><span class="n">size</span>
+</div>
+<div class="viewcode-block" id="Template.count"><a class="viewcode-back" href="../../index.html#ipfix.template.Template.count">[docs]</a>    <span class="k">def</span> <span class="nf">count</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Count IEs in this template&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="nb">len</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">ies</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="Template.fixlen_count"><a class="viewcode-back" href="../../index.html#ipfix.template.Template.fixlen_count">[docs]</a>    <span class="k">def</span> <span class="nf">fixlen_count</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Count of fixed-length IEs in this template before the first</span>
+<span class="sd">        variable-length IE; this is the size of the portion of the template</span>
+<span class="sd">        which can be encoded/decoded efficiently.</span>
+<span class="sd">        </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">varlenslice</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">varlenslice</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">count</span><span class="p">()</span>
+</div>
+<div class="viewcode-block" id="Template.finalize"><a class="viewcode-back" href="../../index.html#ipfix.template.Template.finalize">[docs]</a>    <span class="k">def</span> <span class="nf">finalize</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Compile a default packing plan. Called after append()ing all IEs.&quot;&quot;&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">packplan</span> <span class="o">=</span> <span class="n">TemplatePackingPlan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">count</span><span class="p">()))</span>
+</div>
+    <span class="nd">@lru_cache</span><span class="p">(</span><span class="n">maxsize</span> <span class="o">=</span> <span class="mi">32</span><span class="p">)</span>
+<div class="viewcode-block" id="Template.packplan_for_ielist"><a class="viewcode-back" href="../../index.html#ipfix.template.Template.packplan_for_ielist">[docs]</a>    <span class="k">def</span> <span class="nf">packplan_for_ielist</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ielist</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Given a list of IEs, devise and cache a packing plan.</span>
+<span class="sd">        Used by the tuple interfaces.</span>
+<span class="sd">        </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="n">TemplatePackingPlan</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">ies</span><span class="o">.</span><span class="n">index</span><span class="p">(</span><span class="n">ie</span><span class="p">)</span> <span class="k">for</span> <span class="n">ie</span> <span class="ow">in</span> <span class="n">ielist</span><span class="p">])</span>
+    </div>
+<div class="viewcode-block" id="Template.decode_from"><a class="viewcode-back" href="../../index.html#ipfix.template.Template.decode_from">[docs]</a>    <span class="k">def</span> <span class="nf">decode_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">packplan</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Decodes a record into a tuple containing values in template order&quot;&quot;&quot;</span>
+
+        <span class="c"># use default packplan unless someone hacked us not to</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">packplan</span><span class="p">:</span>
+            <span class="n">packplan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">packplan</span>
+        
+        <span class="c"># decode fixed values </span>
+        <span class="n">vals</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">packplan</span><span class="o">.</span><span class="n">valdec</span><span class="p">,</span> <span class="n">packplan</span><span class="o">.</span><span class="n">st</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">))]</span>
+        <span class="n">offset</span> <span class="o">+=</span> <span class="n">packplan</span><span class="o">.</span><span class="n">st</span><span class="o">.</span><span class="n">size</span>
+        
+        <span class="c"># short circuit on no varlen</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">varlenslice</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">(</span><span class="n">vals</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
+        
+        <span class="c"># direct iteration over remaining IEs</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">ie</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">varlenslice</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">count</span><span class="p">()),</span> 
+                         <span class="bp">self</span><span class="o">.</span><span class="n">ies</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">varlenslice</span><span class="p">:]):</span>
+            <span class="n">length</span> <span class="o">=</span> <span class="n">ie</span><span class="o">.</span><span class="n">length</span>
+            <span class="k">if</span> <span class="n">length</span> <span class="o">==</span> <span class="n">types</span><span class="o">.</span><span class="n">VARLEN</span><span class="p">:</span>
+                <span class="p">(</span><span class="n">length</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span> <span class="o">=</span> <span class="n">types</span><span class="o">.</span><span class="n">decode_varlen</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">packplan</span><span class="o">.</span><span class="n">indices</span><span class="p">:</span>
+                <span class="n">vals</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ie</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">decode_single_value_from</span><span class="p">(</span>
+                                    <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">))</span>
+            <span class="n">offset</span> <span class="o">+=</span> <span class="n">length</span>
+            
+        <span class="k">return</span> <span class="p">(</span><span class="n">vals</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="Template.decode_iedict_from"><a class="viewcode-back" href="../../index.html#ipfix.template.Template.decode_iedict_from">[docs]</a>    <span class="k">def</span> <span class="nf">decode_iedict_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">recinf</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Decodes a record from a buffer into a dict keyed by IE&quot;&quot;&quot;</span>
+        <span class="p">(</span><span class="n">vals</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">decode_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">({</span> <span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span><span class="n">v</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">((</span><span class="n">ie</span> <span class="k">for</span> <span class="n">ie</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ies</span><span class="p">),</span> <span class="n">vals</span><span class="p">)},</span> <span class="n">offset</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="Template.decode_namedict_from"><a class="viewcode-back" href="../../index.html#ipfix.template.Template.decode_namedict_from">[docs]</a>    <span class="k">def</span> <span class="nf">decode_namedict_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">recinf</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Decodes a record from a buffer into a dict keyed by IE name.&quot;&quot;&quot;</span>
+        <span class="p">(</span><span class="n">vals</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">decode_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">({</span> <span class="n">k</span><span class="p">:</span> <span class="n">v</span> <span class="k">for</span> <span class="n">k</span><span class="p">,</span><span class="n">v</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">((</span><span class="n">ie</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">ie</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ies</span><span class="p">),</span> <span class="n">vals</span><span class="p">)},</span> <span class="n">offset</span><span class="p">)</span>
+        </div>
+<div class="viewcode-block" id="Template.decode_tuple_from"><a class="viewcode-back" href="../../index.html#ipfix.template.Template.decode_tuple_from">[docs]</a>    <span class="k">def</span> <span class="nf">decode_tuple_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">recinf</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Decodes a record from a buffer into a tuple,</span>
+<span class="sd">        ordered as the IEs in the InformationElementList given as recinf.</span>
+
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">recinf</span><span class="p">:</span>
+            <span class="n">packplan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">packplan_for_ielist</span><span class="p">(</span><span class="n">recinf</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">packplan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">packplan</span>
+            
+        <span class="p">(</span><span class="n">vals</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">decode_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">packplan</span> <span class="o">=</span> <span class="n">packplan</span><span class="p">)</span>
+
+        <span class="c"># re-sort values in same order as packplan indices</span>
+        <span class="k">return</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">v</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span><span class="n">v</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">packplan</span><span class="o">.</span><span class="n">indices</span><span class="p">,</span> <span class="n">vals</span><span class="p">))),</span> <span class="n">offset</span><span class="p">)</span>
+        </div>
+<div class="viewcode-block" id="Template.encode_to"><a class="viewcode-back" href="../../index.html#ipfix.template.Template.encode_to">[docs]</a>    <span class="k">def</span> <span class="nf">encode_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">vals</span><span class="p">,</span> <span class="n">packplan</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Encodes a record from a tuple containing values in template order&quot;&quot;&quot;</span>
+                
+        <span class="c"># use default packplan unless someone hacked us not to</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="n">packplan</span><span class="p">:</span>
+            <span class="n">packplan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">packplan</span>
+        
+        <span class="c"># encode fixed values</span>
+        <span class="n">fixvals</span> <span class="o">=</span> <span class="p">[</span><span class="n">f</span><span class="p">(</span><span class="n">v</span><span class="p">)</span> <span class="k">for</span> <span class="n">f</span><span class="p">,</span><span class="n">v</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">packplan</span><span class="o">.</span><span class="n">valenc</span><span class="p">,</span> <span class="n">vals</span><span class="p">)]</span>
+        <span class="n">packplan</span><span class="o">.</span><span class="n">st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="o">*</span><span class="n">fixvals</span><span class="p">)</span>
+        <span class="n">offset</span> <span class="o">+=</span> <span class="n">packplan</span><span class="o">.</span><span class="n">st</span><span class="o">.</span><span class="n">size</span>
+
+        <span class="c"># shortcircuit no varlen</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">varlenslice</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">offset</span>
+
+        <span class="c"># direct iteration over remaining IEs</span>
+        <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">ie</span><span class="p">,</span> <span class="n">val</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">varlenslice</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">count</span><span class="p">()),</span>
+                              <span class="bp">self</span><span class="o">.</span><span class="n">ies</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">varlenslice</span><span class="p">:],</span>
+                              <span class="n">vals</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">varlenslice</span><span class="p">:]):</span>
+            <span class="k">if</span> <span class="n">i</span> <span class="ow">in</span> <span class="n">packplan</span><span class="o">.</span><span class="n">indices</span><span class="p">:</span>
+                <span class="c">#print(&quot;    encoding &quot;+str(ie))</span>
+                <span class="k">if</span> <span class="n">ie</span><span class="o">.</span><span class="n">length</span> <span class="o">==</span> <span class="n">types</span><span class="o">.</span><span class="n">VARLEN</span><span class="p">:</span>
+                    <span class="c"># FIXME this arrangement requires double-encode of varlen</span>
+                    <span class="c"># values, one to get the length, one to do the encode. </span>
+                    <span class="c"># Fixing this requires a rearrangement of type encoding</span>
+                    <span class="c"># though. For now we&#39;ll just say that if you&#39;re exporting</span>
+                    <span class="c"># varlen you get to put up with some inefficiency. :)</span>
+                    <span class="n">offset</span> <span class="o">=</span> <span class="n">types</span><span class="o">.</span><span class="n">encode_varlen</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> 
+                                                 <span class="nb">len</span><span class="p">(</span><span class="n">ie</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">valenc</span><span class="p">(</span><span class="n">val</span><span class="p">)))</span>
+                <span class="n">offset</span> <span class="o">=</span> <span class="n">ie</span><span class="o">.</span><span class="n">type</span><span class="o">.</span><span class="n">encode_single_value_to</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
+                
+        <span class="k">return</span> <span class="n">offset</span>
+    </div>
+<div class="viewcode-block" id="Template.encode_iedict_to"><a class="viewcode-back" href="../../index.html#ipfix.template.Template.encode_iedict_to">[docs]</a>    <span class="k">def</span> <span class="nf">encode_iedict_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">rec</span><span class="p">,</span> <span class="n">recinf</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Encodes a record from a dict containing values keyed by IE&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">encode_to</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="p">[</span><span class="n">rec</span><span class="p">[</span><span class="n">ie</span><span class="p">]</span> <span class="k">for</span> <span class="n">ie</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ies</span><span class="p">])</span>
+    </div>
+<div class="viewcode-block" id="Template.encode_namedict_to"><a class="viewcode-back" href="../../index.html#ipfix.template.Template.encode_namedict_to">[docs]</a>    <span class="k">def</span> <span class="nf">encode_namedict_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">rec</span><span class="p">,</span> <span class="n">recinf</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Encodes a record from a dict containing values keyed by IE name&quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">encode_to</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="p">[</span><span class="n">rec</span><span class="p">[</span><span class="n">ie</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="k">for</span> <span class="n">ie</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ies</span><span class="p">])</span>
+        </div>
+<div class="viewcode-block" id="Template.encode_tuple_to"><a class="viewcode-back" href="../../index.html#ipfix.template.Template.encode_tuple_to">[docs]</a>    <span class="k">def</span> <span class="nf">encode_tuple_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">rec</span><span class="p">,</span> <span class="n">recinf</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Encodes a record from a tuple containing values</span>
+<span class="sd">        ordered as the IEs in the InformationElementList given as recinf.</span>
+<span class="sd">        If recinf is not given, assumes the tuple contains all</span>
+<span class="sd">        IEs in the template in template order.</span>
+<span class="sd">         </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">recinf</span><span class="p">:</span>
+            <span class="n">sortrec</span> <span class="o">=</span> <span class="p">(</span><span class="n">v</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">packplan</span><span class="o">.</span><span class="n">indices</span><span class="p">,</span> <span class="n">rec</span><span class="p">)))</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">encode_to</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">sortrec</span><span class="p">,</span>
+                                  <span class="bp">self</span><span class="o">.</span><span class="n">packplan_for_ielist</span><span class="p">(</span><span class="n">recinf</span><span class="p">))</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">encode_to</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">rec</span><span class="p">)</span>
+    </div>
+<div class="viewcode-block" id="Template.encode_template_to"><a class="viewcode-back" href="../../index.html#ipfix.template.Template.encode_template_to">[docs]</a>    <span class="k">def</span> <span class="nf">encode_template_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">setid</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Encodes the template to a buffer.</span>
+<span class="sd">        Encodes as a Template if setid is TEMPLATE_SET_ID,</span>
+<span class="sd">        as an Options Template if setid is OPTIONS_SET_ID.</span>
+<span class="sd">        </span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">if</span> <span class="n">setid</span> <span class="o">==</span> <span class="n">TEMPLATE_SET_ID</span><span class="p">:</span>
+            <span class="n">_tmplhdr_st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">tid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">count</span><span class="p">())</span>
+            <span class="n">offset</span> <span class="o">+=</span> <span class="n">_tmplhdr_st</span><span class="o">.</span><span class="n">size</span>
+        <span class="k">elif</span> <span class="n">setid</span> <span class="o">==</span> <span class="n">OPTIONS_SET_ID</span><span class="p">:</span>
+            <span class="n">_otmplhdr_st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">tid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">count</span><span class="p">(),</span> <span class="bp">self</span><span class="o">.</span><span class="n">scopecount</span><span class="p">)</span>
+            <span class="n">offset</span> <span class="o">+=</span> <span class="n">_otmplhdr_st</span><span class="o">.</span><span class="n">size</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">raise</span> <span class="n">IpfixEncodeError</span><span class="p">(</span><span class="s">&quot;bad template set id &quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">setid</span><span class="p">))</span>
+            
+        <span class="k">for</span> <span class="n">e</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">ies</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">e</span><span class="o">.</span><span class="n">pen</span><span class="p">:</span>
+                <span class="n">_iespec_st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">num</span> <span class="o">|</span> <span class="mh">0x8000</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">length</span><span class="p">)</span>
+                <span class="n">offset</span> <span class="o">+=</span> <span class="n">_iespec_st</span><span class="o">.</span><span class="n">size</span>
+                <span class="n">_iepen_st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">pen</span><span class="p">)</span>
+                <span class="n">offset</span> <span class="o">+=</span> <span class="n">_iepen_st</span><span class="o">.</span><span class="n">size</span>
+            <span class="k">else</span><span class="p">:</span> 
+                <span class="n">_iespec_st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">num</span><span class="p">,</span> <span class="n">e</span><span class="o">.</span><span class="n">length</span><span class="p">)</span>
+                <span class="n">offset</span> <span class="o">+=</span> <span class="n">_iespec_st</span><span class="o">.</span><span class="n">size</span>
+        
+        <span class="k">return</span> <span class="n">offset</span>
+    </div>
+    <span class="k">def</span> <span class="nf">native_setid</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">scopecount</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">OPTIONS_SET_ID</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">TEMPLATE_SET_ID</span>
+</div>
+<span class="k">def</span> <span class="nf">withdrawal_length</span><span class="p">(</span><span class="n">setid</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">setid</span> <span class="o">==</span> <span class="n">TEMPLATE_SET_ID</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_tmplhdr_st</span><span class="o">.</span><span class="n">size</span>
+    <span class="k">elif</span> <span class="n">setid</span> <span class="o">==</span> <span class="n">OPTIONS_SET_ID</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">_otmplhdr_st</span><span class="o">.</span><span class="n">size</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">IpfixEncodeError</span><span class="p">(</span><span class="s">&quot;bad template set id &quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">setid</span><span class="p">))</span>
+        
+<span class="k">def</span> <span class="nf">encode_withdrawal_to</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">setid</span><span class="p">,</span> <span class="n">tid</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">setid</span> <span class="o">==</span> <span class="n">TEMPLATE_SET_ID</span><span class="p">:</span>
+        <span class="n">_tmplhdr_st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">tid</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">offset</span> <span class="o">+=</span> <span class="n">_tmplhdr_st</span><span class="o">.</span><span class="n">size</span>
+    <span class="k">elif</span> <span class="n">setid</span> <span class="o">==</span> <span class="n">OPTIONS_SET_ID</span><span class="p">:</span>
+        <span class="n">_otmplhdr_st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">tid</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
+        <span class="n">offset</span> <span class="o">+=</span> <span class="n">_otmplhdr_st</span><span class="o">.</span><span class="n">size</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">IpfixEncodeError</span><span class="p">(</span><span class="s">&quot;bad template set id &quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">setid</span><span class="p">))</span>
+    
+    <span class="k">return</span> <span class="n">offset</span>
+    
+<div class="viewcode-block" id="decode_template_from"><a class="viewcode-back" href="../../index.html#ipfix.template.decode_template_from">[docs]</a><span class="k">def</span> <span class="nf">decode_template_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">setid</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Decodes a template from a buffer.</span>
+<span class="sd">    Decodes as a Template if setid is TEMPLATE_SET_ID,</span>
+<span class="sd">    as an Options Template if setid is OPTIONS_SET_ID.</span>
+<span class="sd">    </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="n">setid</span> <span class="o">==</span> <span class="n">TEMPLATE_SET_ID</span><span class="p">:</span>
+        <span class="p">(</span><span class="n">tid</span><span class="p">,</span> <span class="n">count</span><span class="p">)</span> <span class="o">=</span> <span class="n">_tmplhdr_st</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">);</span>
+        <span class="n">scopecount</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">offset</span> <span class="o">+=</span> <span class="n">_tmplhdr_st</span><span class="o">.</span><span class="n">size</span>
+    <span class="k">elif</span> <span class="n">setid</span> <span class="o">==</span> <span class="n">OPTIONS_SET_ID</span><span class="p">:</span>
+        <span class="p">(</span><span class="n">tid</span><span class="p">,</span> <span class="n">count</span><span class="p">,</span> <span class="n">scopecount</span><span class="p">)</span> <span class="o">=</span> <span class="n">_otmplhdr_st</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">);</span>
+        <span class="n">offset</span> <span class="o">+=</span> <span class="n">_otmplhdr_st</span><span class="o">.</span><span class="n">size</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="n">IpfixDecodeError</span><span class="p">(</span><span class="s">&quot;bad template set id &quot;</span><span class="o">+</span><span class="nb">str</span><span class="p">(</span><span class="n">setid</span><span class="p">))</span>
+        
+    <span class="n">tmpl</span> <span class="o">=</span> <span class="n">Template</span><span class="p">(</span><span class="n">tid</span><span class="p">)</span>
+    <span class="n">tmpl</span><span class="o">.</span><span class="n">scopecount</span> <span class="o">=</span> <span class="n">scopecount</span>
+    
+    <span class="k">while</span> <span class="n">count</span><span class="p">:</span>
+        <span class="p">(</span><span class="n">num</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span> <span class="o">=</span> <span class="n">_iespec_st</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
+        <span class="n">offset</span> <span class="o">+=</span> <span class="n">_iespec_st</span><span class="o">.</span><span class="n">size</span>
+        <span class="k">if</span> <span class="n">num</span> <span class="o">&amp;</span> <span class="mh">0x8000</span><span class="p">:</span>
+            <span class="n">num</span> <span class="o">&amp;=</span> <span class="mh">0x7fff</span>
+            <span class="n">pen</span> <span class="o">=</span> <span class="n">_iepen_st</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+            <span class="n">offset</span> <span class="o">+=</span> <span class="n">_iespec_st</span><span class="o">.</span><span class="n">size</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">pen</span> <span class="o">=</span> <span class="mi">0</span>
+        <span class="n">tmpl</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">ie</span><span class="o">.</span><span class="n">for_template_entry</span><span class="p">(</span><span class="n">pen</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">length</span><span class="p">))</span>
+        <span class="n">count</span> <span class="o">-=</span> <span class="mi">1</span>
+
+    <span class="n">tmpl</span><span class="o">.</span><span class="n">finalize</span><span class="p">()</span>
+
+    <span class="k">return</span> <span class="p">(</span><span class="n">tmpl</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
+    </div>
+<div class="viewcode-block" id="from_ielist"><a class="viewcode-back" href="../../index.html#ipfix.template.from_ielist">[docs]</a><span class="k">def</span> <span class="nf">from_ielist</span><span class="p">(</span><span class="n">tid</span><span class="p">,</span> <span class="n">ielist</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create a template from a template ID and an information element list</span>
+<span class="sd">    (itself available from :func:`ipfix.ie.spec_list`).</span>
+<span class="sd">    </span>
+<span class="sd">    :param tid: Template ID, must be between 256 and 65535.</span>
+<span class="sd">    :param ielist: List of Information Elements for the Template, see</span>
+<span class="sd">                   :func:`ipfix.ie.spec_list`.</span>
+<span class="sd">    :return: A new Template, ready to use for writing to a Message</span>
+<span class="sd">              </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    
+    <span class="n">tmpl</span> <span class="o">=</span> <span class="n">Template</span><span class="p">(</span><span class="n">tid</span><span class="p">,</span> <span class="n">ielist</span><span class="p">)</span>
+    
+    <span class="n">tmpl</span><span class="o">.</span><span class="n">finalize</span><span class="p">()</span>
+    
+    <span class="k">return</span> <span class="n">tmpl</span></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">python-ipfix 0.9 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2013, Brian Trammell.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2b1.
+    </div>
+  </body>
+</html>
