@@ -1,0 +1,3 @@
+v0.9, 1 July 2013 -- Initial release.
+
+v0.9.1, 2 July 2013 -- Add missing license headers and LICENSE.txt for GNU LGPL.
