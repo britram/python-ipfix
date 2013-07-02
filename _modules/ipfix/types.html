@@ -48,9 +48,10 @@
             
   <h1>Source code for ipfix.types</h1><div class="highlight"><pre>
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">Implementation of IPFIX abstract data types (ADT) and mappings to Python types.</span>
+<span class="sd">Implementation of IPFIX abstract data types and mappings to Python types.</span>
 
-<span class="sd">Maps each IPFIX ADT to the corresponding Python type, as below:</span>
+<span class="sd">Based largely on the pack and unpack facilities in the struct package. This</span>
+<span class="sd">module maps IPFIX types to the corresponding Python type, as below:</span>
 
 <span class="sd">======================= =============</span>
 <span class="sd">       IPFIX Type        Python Type</span>
@@ -77,108 +78,12 @@
 <span class="sd">ipv6Address             ipaddress</span>
 <span class="sd">======================= =============</span>
 
-<span class="sd">Though client code generally will not use this module directly, it defines how</span>
-<span class="sd">each IPFIX abstract data type will be represented in Python, and the concrete</span>
-<span class="sd">IPFIX representation of each type. Type methods operate on buffers, as used</span>
-<span class="sd">internally by the :class:`ipfix.message.MessageBuffer` class, so we&#39;ll create </span>
-<span class="sd">one to illustrate encoding and decoding:</span>
-
-<span class="sd">&gt;&gt;&gt; import ipfix.types</span>
-<span class="sd">&gt;&gt;&gt; buf = memoryview(bytearray(16))</span>
-
-<span class="sd">Each of the encoding methods returns the offset into the buffer of the first</span>
-<span class="sd">byte after the encoded value; since we&#39;re always encoding to the beginning</span>
-<span class="sd">of the buffer in this example, this is equivalent to the length. </span>
-<span class="sd">We use this to bound the encoded value on subsequent decode.</span>
-
-<span class="sd">Integers are represented by the python int type:</span>
-
-<span class="sd">&gt;&gt;&gt; unsigned32 = ipfix.types.for_name(&quot;unsigned32&quot;)</span>
-<span class="sd">&gt;&gt;&gt; length = unsigned32.encode_single_value_to(42, buf, 0)</span>
-<span class="sd">&gt;&gt;&gt; buf[0:length].tolist()</span>
-<span class="sd">[0, 0, 0, 42]</span>
-<span class="sd">&gt;&gt;&gt; unsigned32.decode_single_value_from(buf, 0, length)</span>
-<span class="sd">42</span>
-
-<span class="sd">...floats by the float type, with the usual caveats about precision:</span>
-
-<span class="sd">&gt;&gt;&gt; float32 = ipfix.types.for_name(&quot;float32&quot;)</span>
-<span class="sd">&gt;&gt;&gt; length = float32.encode_single_value_to(42.03579, buf, 0)</span>
-<span class="sd">&gt;&gt;&gt; buf[0:length].tolist()</span>
-<span class="sd">[66, 40, 36, 166]</span>
-<span class="sd">&gt;&gt;&gt; float32.decode_single_value_from(buf, 0, length)</span>
-<span class="sd">42.035789489746094</span>
-
-<span class="sd">...strings by the str type, encoded as UTF-8:</span>
-
-<span class="sd">&gt;&gt;&gt; string = ipfix.types.for_name(&quot;string&quot;)</span>
-<span class="sd">&gt;&gt;&gt; length = string.encode_single_value_to(&quot;Grüezi&quot;, buf, 0)</span>
-<span class="sd">&gt;&gt;&gt; buf[0:length].tolist()</span>
-<span class="sd">[71, 114, 195, 188, 101, 122, 105]</span>
-<span class="sd">&gt;&gt;&gt; string.decode_single_value_from(buf, 0, length)</span>
-<span class="sd">&#39;Grüezi&#39;</span>
-
-<span class="sd">...addresses as the IPv4Address and IPv6Address types in the ipaddress module:</span>
-
-<span class="sd">&gt;&gt;&gt; from ipaddress import ip_address</span>
-<span class="sd">&gt;&gt;&gt; ipv4Address = ipfix.types.for_name(&quot;ipv4Address&quot;)</span>
-<span class="sd">&gt;&gt;&gt; length = ipv4Address.encode_single_value_to(ip_address(&quot;198.51.100.27&quot;), buf, 0)</span>
-<span class="sd">&gt;&gt;&gt; buf[0:length].tolist()</span>
-<span class="sd">[198, 51, 100, 27]</span>
-<span class="sd">&gt;&gt;&gt; ipv4Address.decode_single_value_from(buf, 0, length)</span>
-<span class="sd">IPv4Address(&#39;198.51.100.27&#39;)</span>
-<span class="sd">&gt;&gt;&gt; ipv6Address = ipfix.types.for_name(&quot;ipv6Address&quot;)</span>
-<span class="sd">&gt;&gt;&gt; length = ipv6Address.encode_single_value_to(ip_address(&quot;2001:db8::c0:ffee&quot;), buf, 0)</span>
-<span class="sd">&gt;&gt;&gt; buf[0:length].tolist()</span>
-<span class="sd">[32, 1, 13, 184, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 255, 238]</span>
-<span class="sd">&gt;&gt;&gt; ipv6Address.decode_single_value_from(buf, 0, length)</span>
-<span class="sd">IPv6Address(&#39;2001:db8::c0:ffee&#39;)</span>
-
-<span class="sd">...and the timestamps of various precision as a python datetime, </span>
-<span class="sd">encoded as per RFC5101bis:</span>
-
-<span class="sd">&gt;&gt;&gt; from datetime import datetime</span>
-<span class="sd">&gt;&gt;&gt; dtfmt_in = &quot;%Y-%m-%d %H:%M:%S.%f %z&quot;</span>
-<span class="sd">&gt;&gt;&gt; dtfmt_out = &quot;%Y-%m-%d %H:%M:%S.%f&quot;</span>
-<span class="sd">&gt;&gt;&gt; dt = datetime.strptime(&quot;2013-06-21 14:00:03.456789 +0000&quot;, dtfmt_in)</span>
-
-<span class="sd">dateTimeSeconds truncates microseconds:</span>
-
-<span class="sd">&gt;&gt;&gt; dateTimeSeconds = ipfix.types.for_name(&quot;dateTimeSeconds&quot;)</span>
-<span class="sd">&gt;&gt;&gt; length = dateTimeSeconds.encode_single_value_to(dt, buf, 0)</span>
-<span class="sd">&gt;&gt;&gt; buf[0:length].tolist()</span>
-<span class="sd">[81, 196, 92, 99]</span>
-<span class="sd">&gt;&gt;&gt; dateTimeSeconds.decode_single_value_from(buf, 0, length).strftime(dtfmt_out)</span>
-<span class="sd">&#39;2013-06-21 14:00:03.000000&#39;</span>
-
-<span class="sd">dateTimeMilliseconds truncates microseconds to the nearest millisecond:</span>
-
-<span class="sd">&gt;&gt;&gt; dateTimeMilliseconds = ipfix.types.for_name(&quot;dateTimeMilliseconds&quot;)</span>
-<span class="sd">&gt;&gt;&gt; length = dateTimeMilliseconds.encode_single_value_to(dt, buf, 0)</span>
-<span class="sd">&gt;&gt;&gt; buf[0:length].tolist()</span>
-<span class="sd">[0, 0, 1, 63, 103, 8, 228, 128]</span>
-<span class="sd">&gt;&gt;&gt; dateTimeMilliseconds.decode_single_value_from(buf, 0, length).strftime(dtfmt_out)</span>
-<span class="sd">&#39;2013-06-21 14:00:03.456000&#39;</span>
-
-<span class="sd">dateTimeMicroseconds exports microseconds fully in NTP format:</span>
-
-<span class="sd">&gt;&gt;&gt; dateTimeMicroseconds = ipfix.types.for_name(&quot;dateTimeMicroseconds&quot;)</span>
-<span class="sd">&gt;&gt;&gt; length = dateTimeMicroseconds.encode_single_value_to(dt, buf, 0)</span>
-<span class="sd">&gt;&gt;&gt; buf[0:length].tolist()</span>
-<span class="sd">[81, 196, 92, 99, 116, 240, 32, 0]</span>
-<span class="sd">&gt;&gt;&gt; dateTimeMicroseconds.decode_single_value_from(buf, 0, length).strftime(dtfmt_out)</span>
-<span class="sd">&#39;2013-06-21 14:00:03.456789&#39;</span>
-
-<span class="sd">dateTimeNanoseconds is also supported, but is identical to</span>
-<span class="sd">dateTimeMicroseconds, as the datetime class in Python only supports</span>
-<span class="sd">microsecond-level timing.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
 <span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">total_ordering</span>
 <span class="kn">from</span> <span class="nn">ipaddress</span> <span class="kn">import</span> <span class="n">ip_address</span>
 <span class="kn">import</span> <span class="nn">struct</span>
-<span class="kn">import</span> <span class="nn">math</span>
 
 <span class="n">VARLEN</span> <span class="o">=</span> <span class="mi">65535</span>
 
@@ -251,18 +156,18 @@
             <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
                 <span class="k">raise</span> <span class="n">IpfixTypeError</span><span class="p">(</span><span class="s">&quot;Reduced length encoding not supported &lt;</span><span class="si">%s</span><span class="s">&gt;[</span><span class="si">%u</span><span class="s">]&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">length</span><span class="p">))</span>
 
-    <span class="k">def</span> <span class="nf">encode_single_value_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">(</span><span class="n">val</span><span class="p">))</span>
-        <span class="k">return</span> <span class="n">offset</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span>
-    
-    <span class="k">def</span> <span class="nf">decode_single_value_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">encode_single_value_to</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
         <span class="k">assert</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">==</span> <span class="n">length</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">st</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">(</span><span class="n">val</span><span class="p">))</span>
+    
+    <span class="k">def</span> <span class="nf">decode_single_value_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
+        <span class="k">assert</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">==</span> <span class="n">length</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">st</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">))</span>
 
 </div>
 <div class="viewcode-block" id="OctetArrayType"><a class="viewcode-back" href="../../index.html#ipfix.types.OctetArrayType">[docs]</a><span class="k">class</span> <span class="nc">OctetArrayType</span><span class="p">(</span><span class="n">IpfixType</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Type encoded by byte array packing. Used internally.&quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">valenc</span> <span class="o">=</span> <span class="n">_identity</span><span class="p">,</span> <span class="n">valdec</span> <span class="o">=</span> <span class="n">_identity</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">valenc</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">,</span> <span class="n">valdec</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">):</span>
         <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">valenc</span><span class="p">,</span> <span class="n">valdec</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">=</span> <span class="n">VARLEN</span>
     
@@ -272,13 +177,11 @@
         <span class="k">else</span><span class="p">:</span>
             <span class="k">return</span> <span class="n">StructType</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">length</span><span class="p">)</span><span class="o">+</span><span class="s">&quot;s&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">encode_single_value_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">):</span>
-        <span class="n">enc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
-        <span class="n">buf</span><span class="p">[</span><span class="n">offset</span><span class="p">:</span><span class="n">offset</span><span class="o">+</span><span class="nb">len</span><span class="p">(</span><span class="n">enc</span><span class="p">)]</span> <span class="o">=</span> <span class="n">enc</span>
-        <span class="k">return</span> <span class="n">offset</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">enc</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">encode_single_value_to</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
+        <span class="n">buf</span><span class="p">[</span><span class="n">offset</span><span class="p">:</span><span class="n">offset</span><span class="o">+</span><span class="n">length</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">decode_single_value_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">(</span><span class="n">buf</span><span class="p">[</span><span class="n">offset</span><span class="p">:</span><span class="n">offset</span><span class="o">+</span><span class="n">length</span><span class="p">]</span><span class="o">.</span><span class="n">tobytes</span><span class="p">())</span>
+    <span class="k">def</span> <span class="nf">decode_single_value_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">(</span><span class="n">buf</span><span class="p">[</span><span class="n">offset</span><span class="p">:</span><span class="n">offset</span><span class="o">+</span><span class="n">length</span><span class="p">])</span>
 
 <span class="c"># Builtin encoders/decoders</span>
 </div>
@@ -307,19 +210,16 @@
     <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcfromtimestamp</span><span class="p">(</span><span class="n">epoch</span><span class="p">)</span>
     
 <span class="k">def</span> <span class="nf">_encode_msec</span><span class="p">(</span><span class="n">dt</span><span class="p">):</span>
-    <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">dt</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">dt</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span> <span class="o">*</span> <span class="mi">1000</span> <span class="o">+</span> <span class="n">dt</span><span class="o">.</span><span class="n">microsecond</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">)</span>
     
 <span class="k">def</span> <span class="nf">_decode_msec</span><span class="p">(</span><span class="n">epoch</span><span class="p">):</span>
-    <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcfromtimestamp</span><span class="p">(</span><span class="n">epoch</span><span class="o">/</span><span class="mi">1000</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcfromtimestamp</span><span class="p">(</span><span class="n">epoch</span><span class="o">/</span><span class="mi">1000</span><span class="p">)</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">milliseconds</span> <span class="o">=</span> <span class="n">epoch</span> <span class="o">%</span> <span class="mi">1000</span><span class="p">)</span>
     
 <span class="k">def</span> <span class="nf">_encode_ntp</span><span class="p">(</span><span class="n">dt</span><span class="p">):</span>
-    <span class="p">(</span><span class="n">tsf</span><span class="p">,</span> <span class="n">tsi</span><span class="p">)</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">modf</span><span class="p">(</span><span class="n">dt</span><span class="o">.</span><span class="n">timestamp</span><span class="p">())</span>
-    <span class="k">return</span> <span class="nb">int</span><span class="p">((</span><span class="nb">int</span><span class="p">(</span><span class="n">tsi</span><span class="p">)</span> <span class="o">&lt;&lt;</span> <span class="mi">32</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">tsf</span> <span class="o">*</span> <span class="mi">2</span><span class="o">**</span><span class="mi">32</span><span class="p">))</span>
+    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
 <span class="k">def</span> <span class="nf">_decode_ntp</span><span class="p">(</span><span class="n">ntp</span><span class="p">):</span>
-    <span class="n">tsf</span> <span class="o">=</span> <span class="n">ntp</span> <span class="o">&amp;</span> <span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">32</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
-    <span class="n">tsi</span> <span class="o">=</span> <span class="n">ntp</span> <span class="o">&gt;&gt;</span> <span class="mi">32</span>
-    <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcfromtimestamp</span><span class="p">(</span><span class="n">tsi</span> <span class="o">+</span> <span class="n">tsf</span> <span class="o">/</span> <span class="mi">2</span><span class="o">**</span><span class="mi">32</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
 <span class="k">def</span> <span class="nf">_encode_ip</span><span class="p">(</span><span class="n">ipaddr</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">ipaddr</span><span class="o">.</span><span class="n">packed</span>
@@ -370,22 +270,22 @@
 </div>
 <div class="viewcode-block" id="decode_varlen"><a class="viewcode-back" href="../../index.html#ipfix.types.decode_varlen">[docs]</a><span class="k">def</span> <span class="nf">decode_varlen</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Decode a IPFIX varlen encoded length; used internally by template&quot;&quot;&quot;</span>
-    <span class="n">length</span> <span class="o">=</span> <span class="n">_varlen1_st</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">length</span> <span class="o">=</span> <span class="n">_varlen1_st</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
     <span class="n">offset</span> <span class="o">+=</span> <span class="n">_varlen1_st</span><span class="o">.</span><span class="n">size</span>
     <span class="k">if</span> <span class="n">length</span> <span class="o">==</span> <span class="mi">255</span><span class="p">:</span>
-        <span class="n">length</span> <span class="o">=</span> <span class="n">_varlen2_st</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">length</span> <span class="o">=</span> <span class="n">_varlen2_st</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
         <span class="n">offset</span> <span class="o">+=</span> <span class="n">_varlen2_st</span><span class="o">.</span><span class="n">size</span>
     <span class="k">return</span> <span class="p">(</span><span class="n">length</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
     </div>
 <div class="viewcode-block" id="encode_varlen"><a class="viewcode-back" href="../../index.html#ipfix.types.encode_varlen">[docs]</a><span class="k">def</span> <span class="nf">encode_varlen</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Encode a IPFIX varlen encoded length; used internally by template&quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">length</span> <span class="o">&gt;=</span> <span class="mi">255</span><span class="p">:</span>
-        <span class="n">_varlen1_st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="mi">255</span><span class="p">)</span>
+        <span class="n">_varlen1</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="mi">255</span><span class="p">)</span>
         <span class="n">offset</span> <span class="o">+=</span> <span class="n">_varlen1_st</span><span class="o">.</span><span class="n">size</span>
-        <span class="n">_varlen2_st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span>
+        <span class="n">_varlen2</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span>
         <span class="n">offset</span> <span class="o">+=</span> <span class="n">_varlen2_st</span><span class="o">.</span><span class="n">size</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">_varlen1_st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span>
+        <span class="n">_varlen1</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span>
         <span class="n">offset</span> <span class="o">+=</span> <span class="n">_varlen1_st</span><span class="o">.</span><span class="n">size</span>
     <span class="k">return</span> <span class="n">offset</span>
     </div>
