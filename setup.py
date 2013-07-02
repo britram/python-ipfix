@@ -6,7 +6,7 @@ with open('README.md') as file:
     long_description = file.read()
 
 setup(name='ipfix',
-      version='0.9',
+      version='0.9.1',
       description='IPFIX implementation for Python 3.3+',
       long_description = long_description,
       author='Brian Trammell',
