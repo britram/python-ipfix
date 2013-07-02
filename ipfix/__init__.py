@@ -45,9 +45,9 @@ messages, see :mod:`ipfix.message`. In any case, exporters will need to define
 templates; see :mod:`ipfix.template`.
 
 This module is copyright 2013 Brian Trammell. It is made available under the
-terms of the [GNU Lesser General Public
-License](http://www.gnu.org/licenses/lgpl.html), or, at your option, any later
-version.
+terms of the 
+`GNU Lesser General Public License <http://www.gnu.org/licenses/lgpl.html>`_, 
+or, at your option, any later version.
 
 """
 
