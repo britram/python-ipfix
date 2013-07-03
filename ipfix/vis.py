@@ -18,7 +18,12 @@
 # this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+# This file is not part of the main ipfix distribution; 
+# it exists for interactive visualization of IPFIX messages.
+
 from . import message
+from . import template
+
 import math
 
 import svgwrite
@@ -28,6 +33,9 @@ def scale_tuple(t, factor):
 
 def scale_tupletuple(tt, factor):
     return tuple([scale_tuple(x, factor) for x in tt])
+
+def dt8601(dt):
+    return dt.strftime("%Y-%m%-d %H:%M:%S")
 
 class OctetField:
     def __init__(self, origin, size, value, label, fill):
@@ -126,6 +134,10 @@ class OctetFieldDrawing:
         self.row = 0
         self.fields = []
         self.rowaddrs = [0]
+        self.fill="white"
+        
+    def set_fill(self, fill):
+        self.fill = fill
         
     def _add_field(self, length, field):
         self.fields.append(field)
@@ -136,7 +148,7 @@ class OctetFieldDrawing:
             self.rowaddrs.append(self.rowaddrs[-1] + self.raster)
     
     def add(self, length, value,
-            render_fn=hex, label=None, fill="white", rowbreak=False):
+            render_fn=str, label=None, rowbreak=False):
         
         # Increment row on rowbreak
         if rowbreak:
@@ -154,12 +166,12 @@ class OctetFieldDrawing:
                 #print("    fit, simple rect")
                 self._add_field(length, 
                     RectField(self.col, self.row, length, 1, 
-                              render_fn(value), label, fill))
+                              render_fn(value), label, self.fill))
                 self.col += length
             # Case 0b: doesn't fit on row, force rowbreak
             else:
                 #print("    short field doesn't fit, force rowbreak")
-                self.add(length, value, render_fn, label, fill, True)
+                self.add(length, value, render_fn, label, True)
     
         # Case 1: flush left but too big to fit
         elif self.col == 0 and length > self.raster:
@@ -169,7 +181,7 @@ class OctetFieldDrawing:
                 self._add_field(length, 
                                 RectField(self.col, self.row, 
                                           self.raster, length / self.raster,
-                                          render_fn(value), label, fill))
+                                          render_fn(value), label, self.fill))
                 self._row_extend(length / self.raster)
             # Case 1b: not even multiple, left tetronimo
             else:               
@@ -178,7 +190,7 @@ class OctetFieldDrawing:
                     LeftPolylineField(self.row, self.raster,
                                       math.ceil(length / self.raster),
                                       length % self.raster,
-                                      render_fn(value), label, fill))
+                                      render_fn(value), label, self.fill))
                 self._row_extend(int(math.floor(length / self.raster)))
                 self.col = length % self.raster;
                 
@@ -189,7 +201,7 @@ class OctetFieldDrawing:
                 RightPolylineField(self.row, self.raster,
                                    math.ceil(length / self.raster),
                                    self.raster - self.col,
-                                   render_fn(value), label, fill))
+                                   render_fn(value), label, self.fill))
             self._row_extend(int(math.ceil(length / self.raster)))
             self.col = 0                       
         
@@ -197,7 +209,7 @@ class OctetFieldDrawing:
         # corner case now, bail and force a left tetronimo
         else:
             #print("    too lazy for mid tetronimo, force rowbreak")
-            self.add(length, value, render_fn, label, fill, True)
+            self.add(length, value, render_fn, label, True)
 
     def _render_fields(self, dwg, origin, scale, fontsize):
         # create a boxgroup to contain the fields
@@ -259,18 +271,75 @@ class OctetFieldDrawing:
                                      scale * (self.row + 2)))
         
         # render column header
-        self._render_colhdr(dwg, (scale, 0), scale, 18)
+        self._render_colhdr(dwg, (scale, 0), scale, int(scale/2.5))
 
         # render row header
-        self._render_rowhdr(dwg, (0, scale/3), scale, 18)
+        self._render_rowhdr(dwg, (0, scale/2), scale, int(scale/2.5))
 
         # render fields
-        self._render_fields(dwg, (scale, scale/3), scale, 18)
+        self._render_fields(dwg, (scale, scale/2), scale, int(scale/3))
         
         # return document
         return dwg.tostring()
-       
-class VisualMessageBuffer(message.MessageBuffer):
-    def __init__(self):
-        super().__init__()
+            
+class MessageBufferRenderer:
+    def __init__(self, mbuf):
+        self.mbuf = mbuf
+        self.ofd = OctetFieldDrawing()
+        
+    def add_msg_header(self, fill=None):
+        if fill:
+            self.ofd.set_fill(fill)
+
+        self.ofd.add(2, 10, label="Version", fill=fill, rowbreak=True)
+        self.ofd.add(2, self.mbuf.length, label="Length")
+        self.ofd.add(4, self.mbuf.sequence, label="Sequence")
+        self.ofd.add(4, self.mbuf.get_export_time(), render_fn=dt8601, 
+                     label="Export Time")
+        self.ofd.add(4, self.mbuf.odid, label="Observation Domain")
+    
+    def add_sethdr(self, setid, setlen, fill=None):
+        if fill:
+            self.ofd.set_fill(fill)
+
+        self.ofd.add(2, setid, label="Set ID", fill=fill, rowbreak=True)
+        self.ofd.add(2, setlen, label="Set Length")
+
+    def add_template(self, tmpl, fill=None, setid=None):
+        if fill:
+            self.ofd.set_fill(fill)
+
+        if not setid:
+            setid = tmpl.native_setid()
+        
+        self.ofd.add(2, tmpl.tid, label="Template ID")
+        self.ofd.add(2, tmpl.count(), label="Count")
+        if (setid == template.OPTIONS_SET_ID):
+            self.ofd.add(2, tmpl.scopecount, label="Scope Count")
+        for ie in ies:
+            self.ofd.add(2, ie, render_fn=ienumber)
+            self.ofd.add(2, ie.length, label="Length")
+            if ie.pen:
+                self.ofd.add(4, ie.pen, label="PEN")
+    
+    def add_record_at_offset(self, offset, tmpl, fill=None):
+        if fill:
+            self.ofd.set_fill(fill)
+        
+        (values, offset) = tmpl.decode_from(mbuf.mbuf, offset)
+        for v, ie in zip(values, tmpl.ies):
+            # prefix with varlen
+            if ie.length == types.VARLEN:
+                ielen = len(ie.type.valenc(v))
+                if ielen > 254:
+                    self.ofd.add(1, 255)
+                    self.odd.add(2, ielen, label="varlen")
+                else:
+                    self.ofd.add(1, ielen, label="varlen")
+            else:
+                ielen = ie.length
+            
+            self.ofd.add(ielen, v, label=ie.name)
+            
+            
         
