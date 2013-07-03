@@ -185,11 +185,15 @@ def _identity(x):
 @total_ordering
 class IpfixType:
     """Abstract interface for all IPFIX types. Used internally. """
-    def __init__(self, name, num, valenc, valdec):
+    def __init__(self, name, num, valenc, valdec, roottype=None):
         self.name = name
         self.num = num
         self.valenc = valenc
         self.valdec = valdec
+        if roottype:
+            self.roottype = roottype
+        else:
+            self.roottype = self
         self.length = 0
 
     def __eq__(self, other):
@@ -206,8 +210,8 @@ class IpfixType:
 
 class StructType(IpfixType):
     """Type encoded by struct packing. Used internally."""
-    def __init__(self, name, num, stel, valenc = _identity, valdec = _identity):
-        super().__init__(name, num, valenc, valdec)
+    def __init__(self, name, num, stel, valenc=_identity, valdec=_identity, roottype=None):
+        super().__init__(name, num, valenc, valdec, roottype)
         self.stel = stel
         self.st = struct.Struct("!"+stel)
         self.length = self.st.size
@@ -216,11 +220,18 @@ class StructType(IpfixType):
     def for_length(self, length):
         if not length or length == self.length:
             return self
+        elif self.roottype is _roottypes[0]:
+            # FIXME this is kind of a hack to allow any-length encoding of octet arrays
+            return StructType(self.name, self.num, str(length)+"s",
+                              self.valenc, self.valdec, self.roottype)
         else:
             try:
-                return StructType(self.name, self.num, _stel_rle[(self.stel, length)], self.valenc, self.valdec)
+                return StructType(self.name, self.num, 
+                                  _stel_rle[(self.stel, length)], 
+                                  self.valenc, self.valdec, self.roottype)
             except KeyError:
-                raise IpfixTypeError("Reduced length encoding not supported <%s>[%u]" % (self.name, length))
+                raise IpfixTypeError("No RLE for <%s>[%u]" % 
+                                     (self.name, length))
 
     def encode_single_value_to(self, val, buf, offset):
         self.st.pack_into(buf, offset, self.valenc(val))
@@ -233,15 +244,16 @@ class StructType(IpfixType):
 
 class OctetArrayType(IpfixType):
     """Type encoded by byte array packing. Used internally."""
-    def __init__(self, name, num, valenc = _identity, valdec = _identity):
-        super().__init__(name, num, valenc, valdec)
+    def __init__(self, name, num, valenc=_identity, valdec=_identity, roottype=None):
+        super().__init__(name, num, valenc, valdec, roottype)
         self.length = VARLEN
     
     def for_length(self, length):
         if not length or length == self.length:
             return self
         else:
-            return StructType(self.name, self.num, str(length)+"s", self.valenc, self.valdec)
+            return StructType(self.name, self.num, str(length)+"s", 
+                              self.valenc, self.valdec, self.roottype)
 
     def encode_single_value_to(self, val, buf, offset):
         enc = self.valenc(val)
@@ -299,7 +311,7 @@ def _decode_ip(octets):
     return ip_address(octets)
 
 # builtin type registry
-_Types = [
+_roottypes = [
     OctetArrayType("octetArray", 0),
     StructType("unsigned8",  1, "B"),
     StructType("unsigned16", 2, "H"),
@@ -322,8 +334,8 @@ _Types = [
     StructType("ipv6Address", 19, "16s", _encode_ip, _decode_ip)
 ]
 
-_TypeForName = { ietype.name: ietype for ietype in _Types }
-_TypeForNum = { ietype.num: ietype for ietype in _Types }
+_TypeForName = { ietype.name: ietype for ietype in _roottypes }
+_TypeForNum = { ietype.num: ietype for ietype in _roottypes }
 
 def for_name(name):
     """
