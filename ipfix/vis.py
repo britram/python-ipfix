@@ -19,8 +19,9 @@
 #
 
 from . import message
-import svgwrite
 import math
+
+import svgwrite
 
 def scale_tuple(t, factor):
     return tuple([x * factor for x in t])
@@ -84,7 +85,7 @@ class LeftPolylineField(PolylineField):
                   (0, row + height),
                   (0, row))
         origin = (0, row)
-        size = (width, height)
+        size = (width, height-1)
         super().__init__(points, origin, size, value, label, fill)
 
 class RightPolylineField(PolylineField):
@@ -97,8 +98,8 @@ class RightPolylineField(PolylineField):
                   (0, row + 1),
                   (width - topwidth, row + 1),
                   (width - topwidth, row))
-        origin = (0, row)          
-        size = (width, height)
+        origin = (0, row+1)          
+        size = (width, height-1)
         super().__init__(points, origin, size, value, label, fill)        
 
 class MidPolylineField(PolylineField):
@@ -113,8 +114,8 @@ class MidPolylineField(PolylineField):
                   (0, row + 1),
                   (width - topwidth, row + 1),
                   (width - topwidth, row))
-        origin = (0, row)
-        size = (width, height)
+        origin = (0, row+1)
+        size = (width, height-2)
         super().__init__(points, origin, size, value, label, fill)   
 
 class OctetFieldDrawing:     
@@ -123,32 +124,25 @@ class OctetFieldDrawing:
         self.raster = raster
         self.col = 0
         self.row = 0
-        self.acclength = 0
         self.fields = []
         self.rowaddrs = [0]
         
     def _add_field(self, length, field):
-        self.acclength += length;
         self.fields.append(field)
     
-    # FIXME subtly broken
-    def _extend_rows(self, count):
-        self.col = 0
-        self.rowaddrs.append(self.acclength)
-        self.row += 1
-        count -= 1
-        while count:
-            self.rowaddrs.append(self.rowaddrs[-1] + self.raster)
+    def _row_extend(self, count):
+        for i in range(count):
             self.row += 1
-            count -= 1
+            self.rowaddrs.append(self.rowaddrs[-1] + self.raster)
     
     def add(self, length, value,
             render_fn=hex, label=None, fill="white", rowbreak=False):
         
         # Increment row on rowbreak
         if rowbreak:
-            self._extend_rows(1)
-             
+            self.row += 1
+            self.rowaddrs.append(self.rowaddrs[-1] + self.col)
+            self.col = 0
         
         # Case 0: fits on row
         if (self.col + length) <= self.raster:
@@ -167,7 +161,7 @@ class OctetFieldDrawing:
             self._add_field(length, RectField(self.col, self.row, 
                                               self.raster, length / self.raster,
                                               render_fn(value), label, fill))
-            self._extend_rows(length / self.raster)
+            self._row_extend(length / self.raster)
             
         # Case 3: polyline left tetronimo
         elif self.col == 0:
@@ -176,7 +170,7 @@ class OctetFieldDrawing:
                                   math.ceil(length / self.raster),
                                   length % self.raster,
                                   render_fn(value), label, fill))
-            self._extend_rows(int(math.floor(length / self.raster)))
+            self._row_extend(int(math.floor(length / self.raster)))
             self.col = length % self.raster;
                 
         # Case 4: polyline right tetronimo
@@ -186,7 +180,7 @@ class OctetFieldDrawing:
                                    math.ceil(length / self.raster),
                                    self.raster - self.col,
                                    render_fn(value), label, fill))
-            self._extend_rows(int(math.ciel(length / self.raster)))
+            self._row_extend(int(math.ceil(length / self.raster)))                       
         
         # Case 5: polyline middle tetronimo; too lazy for this
         # corner case now, bail and force a left tetronimo
@@ -263,7 +257,7 @@ class OctetFieldDrawing:
         
         # return document
         return dwg.tostring()
-   
+       
 class VisualMessageBuffer(message.MessageBuffer):
     def __init__(self):
         super().__init__()
