@@ -144,47 +144,59 @@ class OctetFieldDrawing:
             self.rowaddrs.append(self.rowaddrs[-1] + self.col)
             self.col = 0
         
-        # Case 0: fits on row
-        if (self.col + length) <= self.raster:
-            self._add_field(length, RectField(self.col, self.row, length, 1, 
-                                              render_fn(value), label, fill))
-            self.col += length
+        #print ("draw field length "+str(length)+
+        #       " at ("+str(self.col)+", "+str(self.row)+")")
+        
+        # Case 0: could fit on a single row
+        if length <= self.raster:
+            # Case 0a: fits on row, simple rect
+            if (self.col + length) <= self.raster:
+                #print("    fit, simple rect")
+                self._add_field(length, 
+                    RectField(self.col, self.row, length, 1, 
+                              render_fn(value), label, fill))
+                self.col += length
+            # Case 0b: doesn't fit on row, force rowbreak
+            else:
+                #print("    short field doesn't fit, force rowbreak")
+                self.add(length, value, render_fn, label, fill, True)
     
-        # Case 1: doesn't fit on row, shorter than row: 
-        # bail, force rowbreak and try again
-        elif length < self.raster:
-            self.add(length, value, render_fn, label, fill, True)
-    
-        # Case 2: multirow rect
-        elif self.col == 0 and length > self.raster \
-                           and length % self.raster == 0:
-            self._add_field(length, RectField(self.col, self.row, 
-                                              self.raster, length / self.raster,
-                                              render_fn(value), label, fill))
-            self._row_extend(length / self.raster)
-            
-        # Case 3: polyline left tetronimo
-        elif self.col == 0:
-            self._add_field(length, 
-                LeftPolylineField(self.row, self.raster,
-                                  math.ceil(length / self.raster),
-                                  length % self.raster,
-                                  render_fn(value), label, fill))
-            self._row_extend(int(math.floor(length / self.raster)))
-            self.col = length % self.raster;
+        # Case 1: flush left but too big to fit
+        elif self.col == 0 and length > self.raster:
+            # Case 1a: even multiple, multirow rect
+            if length % self.raster == 0:
+                #print("    perfect fit, multirow rect")
+                self._add_field(length, 
+                                RectField(self.col, self.row, 
+                                          self.raster, length / self.raster,
+                                          render_fn(value), label, fill))
+                self._row_extend(length / self.raster)
+            # Case 1b: not even multiple, left tetronimo
+            else:               
+                #print("    long flush left tetronimo")
+                self._add_field(length, 
+                    LeftPolylineField(self.row, self.raster,
+                                      math.ceil(length / self.raster),
+                                      length % self.raster,
+                                      render_fn(value), label, fill))
+                self._row_extend(int(math.floor(length / self.raster)))
+                self.col = length % self.raster;
                 
-        # Case 4: polyline right tetronimo
+        # Case 2: flush right
         elif (self.col + length) % self.raster == 0:
+            #print("    long flush right tetronimo")
             self._add_field(length,
                 RightPolylineField(self.row, self.raster,
                                    math.ceil(length / self.raster),
                                    self.raster - self.col,
                                    render_fn(value), label, fill))
-            self._row_extend(int(math.ceil(length / self.raster)))                       
+            self._row_extend(int(math.ceil(length / self.raster)))
+            self.col = 0                       
         
-        # Case 5: polyline middle tetronimo; too lazy for this
+        # Case 3: polyline middle tetronimo; too lazy for this
         # corner case now, bail and force a left tetronimo
         else:
+            #print("    too lazy for mid tetronimo, force rowbreak")
             self.add(length, value, render_fn, label, fill, True)
 
     def _render_fields(self, dwg, origin, scale, fontsize):
