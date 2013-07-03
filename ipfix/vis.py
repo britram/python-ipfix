@@ -23,20 +23,27 @@
 
 from . import message
 from . import template
+from . import types
 
 import math
 
 import svgwrite
 
-def scale_tuple(t, factor):
-    return tuple([x * factor for x in t])
+def scale_tuple(t, scale):
+    return tuple([x * s for x,s in zip(t, scale)])
 
-def scale_tupletuple(tt, factor):
-    return tuple([scale_tuple(x, factor) for x in tt])
+def scale_tupletuple(tt, scale):
+    return tuple([scale_tuple(x, scale) for x in tt])
 
-def dt8601(dt):
-    return dt.strftime("%Y-%m%-d %H:%M:%S")
+def render_dt8601(dt):
+    return dt.strftime("%Y-%m-%d %H:%M:%S")
 
+def render_ienumber(ie):
+    if ie.pen:
+        return str(ie.num + 0x8000)
+    else:
+        return str(ie.num)
+    
 class OctetField:
     def __init__(self, origin, size, value, label, fill):
         self.origin = origin;
@@ -128,12 +135,12 @@ class MidPolylineField(PolylineField):
 
 class OctetFieldDrawing:     
     
-    def __init__(self, raster=8):
+    def __init__(self, raster=8, offset=0):
         self.raster = raster
         self.col = 0
         self.row = 0
         self.fields = []
-        self.rowaddrs = [0]
+        self.rowaddrs = [offset]
         self.fill="white"
         
     def set_fill(self, fill):
@@ -151,7 +158,7 @@ class OctetFieldDrawing:
             render_fn=str, label=None, rowbreak=False):
         
         # Increment row on rowbreak
-        if rowbreak:
+        if rowbreak and self.col:
             self.row += 1
             self.rowaddrs.append(self.rowaddrs[-1] + self.col)
             self.col = 0
@@ -239,7 +246,7 @@ class OctetFieldDrawing:
         
         # draw text where appropriate
         for i in range(0, self.raster):
-            gc.add(dwg.text(i, ((i + 1) * scale - scale/4, 0),
+            gc.add(dwg.text(i, ((i + 1) * scale[0] - scale[0]/5, 0),
                             style="text-anchor: right; "
                                   "dominant-baseline: hanging;"))
         
@@ -256,7 +263,7 @@ class OctetFieldDrawing:
                    
         # draw text where appropriate
         for i, a in enumerate(self.rowaddrs):
-            gr.add(dwg.text(hex(a), (0, i * scale),
+            gr.add(dwg.text(hex(a), (0, i * scale[1]),
                             style="text-anchor: left; "
                                   "dominant-baseline: hanging;"))
         
@@ -267,42 +274,51 @@ class OctetFieldDrawing:
         
     def render(self, scale):
         # new drawing
-        dwg = svgwrite.Drawing(size=(scale * (self.raster + 1), 
-                                     scale * (self.row + 2)))
+        dwg = svgwrite.Drawing(size=(scale[0] * (self.raster + 1), 
+                                     scale[1] * (self.row + 2)))
         
         # render column header
-        self._render_colhdr(dwg, (scale, 0), scale, int(scale/2.5))
+        self._render_colhdr(dwg, (scale[0], 0), scale, int(scale[1]/1.75))
 
         # render row header
-        self._render_rowhdr(dwg, (0, scale/2), scale, int(scale/2.5))
+        self._render_rowhdr(dwg, (0, scale[1]/2), scale, int(scale[1]/1.75))
 
         # render fields
-        self._render_fields(dwg, (scale, scale/2), scale, int(scale/3))
+        self._render_fields(dwg, (scale[0], scale[1]/2), scale, int(scale[1]/2))
         
         # return document
         return dwg.tostring()
             
 class MessageBufferRenderer:
-    def __init__(self, mbuf):
-        self.mbuf = mbuf
-        self.ofd = OctetFieldDrawing()
+    def __init__(self, msg, scale):
+        self.msg = msg
+        self.scale = scale
+        
+        self.raster = 8
+        self.msg_header_fill = "rgb(255,216,216)"
+        self.set_header_fill = "rgb(240,192,216)"
+        self.template_fill = "rgb(224,224,255)"
+        self.record_fill = [ "rgb(255,255,216)",
+                             "rgb(216,255,216)" ]
+
+        self.ofd = OctetFieldDrawing(self.raster)
         
     def add_msg_header(self, fill=None):
         if fill:
             self.ofd.set_fill(fill)
 
-        self.ofd.add(2, 10, label="Version", fill=fill, rowbreak=True)
-        self.ofd.add(2, self.mbuf.length, label="Length")
-        self.ofd.add(4, self.mbuf.sequence, label="Sequence")
-        self.ofd.add(4, self.mbuf.get_export_time(), render_fn=dt8601, 
+        self.ofd.add(2, 10, label="Version")
+        self.ofd.add(2, self.msg.length, label="Length")
+        self.ofd.add(4, self.msg.sequence, label="Sequence")
+        self.ofd.add(4, self.msg.get_export_time(), render_fn=render_dt8601, 
                      label="Export Time")
-        self.ofd.add(4, self.mbuf.odid, label="Observation Domain")
+        self.ofd.add(4, self.msg.odid, label="Observation Domain")
     
-    def add_sethdr(self, setid, setlen, fill=None):
+    def add_set_header(self, setid, setlen, fill=None):
         if fill:
             self.ofd.set_fill(fill)
 
-        self.ofd.add(2, setid, label="Set ID", fill=fill, rowbreak=True)
+        self.ofd.add(2, setid, label="Set ID")
         self.ofd.add(2, setlen, label="Set Length")
 
     def add_template(self, tmpl, fill=None, setid=None):
@@ -312,13 +328,13 @@ class MessageBufferRenderer:
         if not setid:
             setid = tmpl.native_setid()
         
-        self.ofd.add(2, tmpl.tid, label="Template ID")
+        self.ofd.add(2, tmpl.tid, label="ID")
         self.ofd.add(2, tmpl.count(), label="Count")
         if (setid == template.OPTIONS_SET_ID):
-            self.ofd.add(2, tmpl.scopecount, label="Scope Count")
-        for ie in ies:
-            self.ofd.add(2, ie, render_fn=ienumber)
-            self.ofd.add(2, ie.length, label="Length")
+            self.ofd.add(2, tmpl.scopecount, label="Scope")
+        for ie in tmpl.ies:
+            self.ofd.add(2, ie, label="IE", render_fn=render_ienumber)
+            self.ofd.add(2, ie.length, label="Len")
             if ie.pen:
                 self.ofd.add(4, ie.pen, label="PEN")
     
@@ -326,7 +342,7 @@ class MessageBufferRenderer:
         if fill:
             self.ofd.set_fill(fill)
         
-        (values, offset) = tmpl.decode_from(mbuf.mbuf, offset)
+        (values, offset) = tmpl.decode_tuple_from(self.msg.mbuf, offset)
         for v, ie in zip(values, tmpl.ies):
             # prefix with varlen
             if ie.length == types.VARLEN:
@@ -340,6 +356,73 @@ class MessageBufferRenderer:
                 ielen = ie.length
             
             self.ofd.add(ielen, v, label=ie.name)
-            
-            
         
+        return offset
+            
+    def render(self, start=0, length=65535):
+        # record count for color rotation
+        reccount = 0
+        
+        # start the drawing from scratch
+        self.ofd = OctetFieldDrawing(self.raster, start)
+        
+        # prepare the message for rendering
+        self.msg.to_bytes()
+        self.msg._scan_setlist()
+        
+        # dump message header
+        if start == 0:
+            self.add_msg_header(self.msg_header_fill)
+
+        # iterate the setlist
+        for (offset, setid, setlen) in self.msg.setlist:
+            # only render sets within the window
+            if offset < start:
+                continue
+            if offset > start + length:
+                break
+ 
+            # add set header
+            self.add_set_header(setid, setlen, self.set_header_fill)
+            
+            setend = offset + setlen
+            offset += message._sethdr_st.size # skip set header in decode
+            if setid == template.TEMPLATE_SET_ID or \
+               setid == template.OPTIONS_SET_ID:
+                while offset < setend:
+                    (tmpl, offset) = template.decode_template_from(
+                                              self.msg.mbuf, offset, setid)
+                    self.add_template(tmpl, fill=self.template_fill, setid=setid)
+            elif setid < 256:
+                warn("skipping illegal set id "+str(setid)+" in render")
+                
+            else:
+                try:
+                    tmpl = self.msg.templates[(self.msg.odid, setid)]
+                    while (offset + tmpl.minlength <= setend) and\
+                          (offset < start + length):
+                        fill = self.record_fill[reccount % len(self.record_fill)]
+                        offset = self.add_record_at_offset(offset, tmpl, fill)
+                        reccount += 1
+
+                except KeyError:
+                    while offset < setend:
+                        self.add_byte(self.msg.mbuf[offset], "white")
+                        offset += 1
+                
+                except EOFError:
+                    pass
+
+        return self.ofd.render(self.scale)
+
+class MessageStreamRenderer(MessageBufferRenderer):
+    def __init__(self, stream, scale):
+        super().__init__(message.MessageBuffer(), scale)
+        self.stream = stream
+        
+    def render_next_message(self, length=65535):
+        self.msg.read_message(self.stream)
+        # must decode the message to ensure all templates loaded into the TIB
+        for rec in self.msg.namedict_iterator():
+            pass
+        return self.render(length=length)

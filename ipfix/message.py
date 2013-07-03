@@ -389,7 +389,8 @@ class MessageBuffer:
         for (offset, setid, setlen) in self.setlist:
             setend = offset + setlen
             offset += _sethdr_st.size # skip set header in decode
-            if setid == 2 or setid == 3:
+            if setid == template.TEMPLATE_SET_ID or\
+               setid == template.OPTIONS_SET_ID:
                 while offset < setend:
                     (tmpl, offset) = template.decode_template_from(
                                               self.mbuf, offset, setid)
