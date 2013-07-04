@@ -288,13 +288,39 @@ class OctetFieldDrawing:
         
         # return document
         return dwg.tostring()
-            
+
+def draw_msg_header(ofd, version, length, sequence, export_time, odid):
+    ofd.add(2, version, label="Version")
+    ofd.add(2, length, label="Length")
+    ofd.add(4, sequence, label="Sequence")
+    ofd.add(4, export_time, render_fn=render_dt8601, label="Export Time")
+    ofd.add(4, odid, label="Observation Domain")
+    
+def draw_set_header(ofd, setid, length):
+    ofd.add(2, setid, label="Set ID")
+    ofd.add(2, setlen, label="Set Length")
+
+def draw_template(ofd, tmpl, setid=None):
+    if not setid:
+        setid = tmpl.native_setid()
+
+    ofd.add(2, tmpl.tid, label="ID")
+    ofd.add(2, tmpl.count(), label="Count")
+    if (setid == template.OPTIONS_SET_ID):
+        ofd.add(2, tmpl.scopecount, label="Scope")
+    for ie in tmpl.ies:
+        ofd.add(2, ie, label="IE", render_fn=render_ienumber)
+        ofd.add(2, ie.length, label="Len")
+        if ie.pen:
+            ofd.add(4, ie.pen, label="PEN")
+
 class MessageBufferRenderer:
-    def __init__(self, msg, scale):
+    def __init__(self, msg, scale=(90,30), raster=8):
         self.msg = msg
         self.scale = scale
+        self.raster = raster
         
-        self.raster = 8
+        # FIXME this really, really should be done in a stylesheet.
         self.msg_header_fill = "rgb(255,216,216)"
         self.set_header_fill = "rgb(240,192,216)"
         self.template_fill = "rgb(224,224,255)"
@@ -307,36 +333,20 @@ class MessageBufferRenderer:
         if fill:
             self.ofd.set_fill(fill)
 
-        self.ofd.add(2, 10, label="Version")
-        self.ofd.add(2, self.msg.length, label="Length")
-        self.ofd.add(4, self.msg.sequence, label="Sequence")
-        self.ofd.add(4, self.msg.get_export_time(), render_fn=render_dt8601, 
-                     label="Export Time")
-        self.ofd.add(4, self.msg.odid, label="Observation Domain")
+        draw_msg_header(self.ofd, 10, self.msg.length, self.msg.sequence, 
+                        self.msg.get_export_time(), self.msg.odid)
     
     def add_set_header(self, setid, setlen, fill=None):
         if fill:
             self.ofd.set_fill(fill)
-
-        self.ofd.add(2, setid, label="Set ID")
-        self.ofd.add(2, setlen, label="Set Length")
+        
+        draw_set_header(self.ofd, setid, length)
 
     def add_template(self, tmpl, fill=None, setid=None):
         if fill:
             self.ofd.set_fill(fill)
 
-        if not setid:
-            setid = tmpl.native_setid()
-        
-        self.ofd.add(2, tmpl.tid, label="ID")
-        self.ofd.add(2, tmpl.count(), label="Count")
-        if (setid == template.OPTIONS_SET_ID):
-            self.ofd.add(2, tmpl.scopecount, label="Scope")
-        for ie in tmpl.ies:
-            self.ofd.add(2, ie, label="IE", render_fn=render_ienumber)
-            self.ofd.add(2, ie.length, label="Len")
-            if ie.pen:
-                self.ofd.add(4, ie.pen, label="PEN")
+        draw_template(self.ofd, tmpl, setid=setid)
     
     def add_record_at_offset(self, offset, tmpl, fill=None):
         if fill:

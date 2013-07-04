@@ -359,19 +359,20 @@ def decode_template_from(buf, offset, setid):
     return (tmpl, offset)
     
 def from_ielist(tid, ielist):
-    """
-    Create a template from a template ID and an information element list
-    (itself available from :func:`ipfix.ie.spec_list`).
-    
-    :param tid: Template ID, must be between 256 and 65535.
-    :param ielist: List of Information Elements for the Template, see
-                   :func:`ipfix.ie.spec_list`.
-    :return: A new Template, ready to use for writing to a Message
-              
-    """
     
     tmpl = Template(tid, ielist)
     
     tmpl.finalize()
     
     return tmpl
+
+def for_specs(tid, *specs):
+    """
+    Create a template from a template ID and a list of IESpecs
+    
+    :param tid: Template ID, must be between 256 and 65535.
+    :param *specs: List of IESpecs 
+    :return: A new Template, ready to use for writing to a Message
+              
+    """
+    return from_ielist(tid, ie.spec_list(specs))
