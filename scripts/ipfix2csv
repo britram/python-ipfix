@@ -21,9 +21,31 @@
 
 import ipfix.ie
 import ipfix.reader
+import ipfix.message
+
+import socketserver
 import argparse
 import csv
-from sys import stdin, stdout
+from sys import stdin, stdout, stderr
+
+args = None
+
+def parse_args():
+    global args
+    parser = argparse.ArgumentParser(description="Convert an IPFIX file or stream to CSV")
+    parser.add_argument('ienames', metavar="ie", nargs="+",
+                        help="column(s) by IE name")
+    parser.add_argument('--spec', '-s', metavar="specfile", action="append",
+                        help="file to load additional IESpecs from")
+    parser.add_argument('--file', '-f', metavar="file", nargs="?",
+                        help="IPFIX file to read (default stdin)")
+    parser.add_argument('--collect', '-c', metavar="transport", nargs="?",
+                        help="run CP on specified transport")
+    parser.add_argument('--bind', '-b', metavar="bind", nargs="?",
+                        default="", help="address to bind to as CP (default all)")
+    parser.add_argument('--port', '-p', metavar="port", nargs="?", type=int,
+                        default="4739", help="port to bind to as CP (default 4739)")
+    args = parser.parse_args()
 
 def init_ipfix(specfiles = None):
     ipfix.ie.use_iana_default()
@@ -44,26 +66,28 @@ def stream_to_csv(instream, ienames):
     for rec in r.records_as_tuple(cols):
         w.writerow([str(val) for val in rec])
     
-    
-parser = argparse.ArgumentParser(description="Convert an IPFIX file or stream to CSV")
-parser.add_argument('iename', metavar="ie", nargs="+",
-                    help="column(s) by IE name")
-parser.add_argument('--spec', '-s', metavar="specfile", action="append",
-                    help="file to load additional IESpecs from")
-parser.add_argument('--file', '-f', metavar="file", nargs="?",
-                    help="IPFIX file to read (default stdin)")
-parser.add_argument('--collect', '-c')
-parser.add_argument('--bind', '-b', metavar="bind", nargs="?",
-                    help="address to bind to as CP (default all)")
-parser.add_argument('--port', '-p', metavar="port", nargs="?",
-                    help="port to bind to as CP (default 4739)")
-args = parser.parse_args()
+
+class TcpCsvHandler(socketserver.StreamRequestHandler):
+    def handle(self):
+        stderr.write("connection from "+str(self.client_address)+"\n")
+        stream_to_csv(self.rfile, args.ienames)
+
+# set "args" global
+parse_args()
 
 init_ipfix(args.spec)
 
-if args.file:
+if args.collect == 'tcp':
+    stderr.write("starting TCP CP on "+args.bind+":"+
+                     str(args.port)+"; Ctrl-C to stop\n")
+    stderr.flush()
+    ss = socketserver.TCPServer((args.bind, args.port), TcpCsvHandler)
+    ss.serve_forever()
+elif args.collect:
+    raise ValueError("Unsupported transport "+args.transport)
+elif args.file:
     with open (args.file, mode="rb") as f:
-        stream_to_csv(f, args.iename)
+        stream_to_csv(f, args.ienames)
 else:
     stdin = stdin.detach()
-    stream_to_csv(stdin, args.iename)
+    stream_to_csv(stdin, args.ienames)
