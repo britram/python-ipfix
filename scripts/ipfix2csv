@@ -47,12 +47,16 @@ def stream_to_csv(instream, ienames):
     
 parser = argparse.ArgumentParser(description="Convert an IPFIX file or stream to CSV")
 parser.add_argument('iename', metavar="ie", nargs="+",
-                    help="column name of IE")
+                    help="column(s) by IE name")
 parser.add_argument('--spec', '-s', metavar="specfile", action="append",
                     help="file to load additional IESpecs from")
 parser.add_argument('--file', '-f', metavar="file", nargs="?",
                     help="IPFIX file to read (default stdin)")
-
+parser.add_argument('--collect', '-c')
+parser.add_argument('--bind', '-b', metavar="bind", nargs="?",
+                    help="address to bind to as CP (default all)")
+parser.add_argument('--port', '-p', metavar="port", nargs="?",
+                    help="port to bind to as CP (default 4739)")
 args = parser.parse_args()
 
 init_ipfix(args.spec)

@@ -20,6 +20,9 @@
 
 # This file is not part of the main ipfix distribution; 
 # it exists for interactive visualization of IPFIX messages.
+# It's basically a sick hack pulled together over a couple of hours.
+# It's not documented, and that's intentional.
+# It's entirely possible that I'll come back and clean this up one day.
 
 from . import message
 from . import template
@@ -28,6 +31,8 @@ from . import types
 import math
 
 import svgwrite
+import string
+import random
 
 def scale_tuple(t, scale):
     return tuple([x * s for x,s in zip(t, scale)])
@@ -40,10 +45,20 @@ def render_dt8601(dt):
 
 def render_ienumber(ie):
     if ie.pen:
-        return str(ie.num + 0x8000)
+        num = ie.num + 0x8000
     else:
-        return str(ie.num)
-    
+        num = ie.num
+    return midtrunc(ie.name,6,4) + "(" + str(num) + ")"
+
+def random_id(length = 16):
+    return ''.join(random.choice(string.ascii_lowercase + string.digits) for x in range(length))
+
+def midtrunc(s, front, back):
+    if len(s) <= (front + back + 3):
+        return s
+    else:
+        return s[:front] + "..." + s[-back:]
+
 class OctetField:
     def __init__(self, origin, size, value, label, fill):
         self.origin = origin;
@@ -189,7 +204,7 @@ class OctetFieldDrawing:
                                 RectField(self.col, self.row, 
                                           self.raster, length / self.raster,
                                           render_fn(value), label, self.fill))
-                self._row_extend(length / self.raster)
+                self._row_extend(int(length / self.raster))
             # Case 1b: not even multiple, left tetronimo
             else:               
                 #print("    long flush left tetronimo")
@@ -219,11 +234,12 @@ class OctetFieldDrawing:
             self.add(length, value, render_fn, label, True)
 
     def _render_fields(self, dwg, origin, scale, fontsize):
+        rid = random_id()
         # create a boxgroup to contain the fields
-        gb = dwg.g(id="boxes", stroke="black", stroke_width=2)
+        gb = dwg.g(id="boxes-"+rid, stroke="black", stroke_width=2)
         
         # create a textgroup to contain the fields
-        gt = dwg.g(id="text", font_size=fontsize)
+        gt = dwg.g(id="text-"+rid, font_size=fontsize)
         
         # add each field to the group
         for field in self.fields:
@@ -241,7 +257,7 @@ class OctetFieldDrawing:
         
     def _render_colhdr(self, dwg, origin, scale, fontsize):
         # create a group to contain the column addresses
-        gc = dwg.g(id="coladdr", 
+        gc = dwg.g(id=random_id(), 
                    font_size=fontsize)
         
         # draw text where appropriate
@@ -258,7 +274,7 @@ class OctetFieldDrawing:
     def _render_rowhdr(self, dwg, origin, scale, fontsize):
 
         # create a group to contain the row addresses
-        gr = dwg.g(id="rowaddr", 
+        gr = dwg.g(id=random_id(), 
                    font_size=fontsize)
                    
         # draw text where appropriate
@@ -296,7 +312,7 @@ def draw_msg_header(ofd, version, length, sequence, export_time, odid):
     ofd.add(4, export_time, render_fn=render_dt8601, label="Export Time")
     ofd.add(4, odid, label="Observation Domain")
     
-def draw_set_header(ofd, setid, length):
+def draw_set_header(ofd, setid, setlen):
     ofd.add(2, setid, label="Set ID")
     ofd.add(2, setlen, label="Set Length")
 
@@ -340,7 +356,7 @@ class MessageBufferRenderer:
         if fill:
             self.ofd.set_fill(fill)
         
-        draw_set_header(self.ofd, setid, length)
+        draw_set_header(self.ofd, setid, setlen)
 
     def add_template(self, tmpl, fill=None, setid=None):
         if fill:
@@ -365,7 +381,14 @@ class MessageBufferRenderer:
             else:
                 ielen = ie.length
             
-            self.ofd.add(ielen, v, label=ie.name)
+            if ielen < 2:
+                label = midtrunc(ie.name,4,4)
+            elif ielen < 4:
+                label = midtrunc(ie.name,8,4)
+            else:
+                label = midtrunc(ie.name,8,8)
+            
+            self.ofd.add(ielen, v, label=label)
         
         return offset
             
