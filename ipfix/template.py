@@ -208,8 +208,21 @@ class Template:
             
         (vals, offset) = self.decode_from(buf, offset, packplan = packplan)
 
+        # print("in decode_tuple_from")
+        # print(repr(self))
+        # print("\t" + "\n\t".join(str(ie) for ie in self.ies))
+        # print(repr(packplan))
+        # 
+        # print("raw values")
+        # print(repr(vals))
+        
+        outvals = tuple(v for i,v in sorted(zip(packplan.indices, vals)))
+
+        # print("shuffled values")
+        # print(repr(outvals))
+
         # re-sort values in same order as packplan indices
-        return (tuple(v for i,v in sorted(zip(packplan.indices, vals))), offset)
+        return (outvals, offset)
         
     def encode_to(self, buf, offset, vals, packplan = None):
         """Encodes a record from a tuple containing values in template order"""
