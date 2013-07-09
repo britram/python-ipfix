@@ -63,6 +63,7 @@ class TemplatePackingPlan:
     def __init__(self, tmpl, indices):
         self.tmpl = tmpl
         self.indices = indices
+        self.ranks = sorted(range(len(indices)), key=indices.__getitem__)
         self.valenc = []
         self.valdec = []
                 
@@ -207,19 +208,8 @@ class Template:
             packplan = self.packplan
             
         (vals, offset) = self.decode_from(buf, offset, packplan = packplan)
-
-        # print("in decode_tuple_from")
-        # print(repr(self))
-        # print("\t" + "\n\t".join(str(ie) for ie in self.ies))
-        # print(repr(packplan))
-        # 
-        # print("raw values")
-        # print(repr(vals))
         
-        outvals = tuple(v for i,v in sorted(zip(packplan.indices, vals)))
-
-        # print("shuffled values")
-        # print(repr(outvals))
+        outvals = tuple(v for i,v in sorted(zip(packplan.ranks, vals)))
 
         # re-sort values in same order as packplan indices
         return (outvals, offset)
