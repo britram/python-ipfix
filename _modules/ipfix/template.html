@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>ipfix.template &mdash; python-ipfix 0.9 documentation</title>
+    <title>ipfix.template &mdash; python-ipfix 0.9.3 documentation</title>
     
     <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../../',
-        VERSION:     '0.9',
+        VERSION:     '0.9.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +23,7 @@
     <script type="text/javascript" src="../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../_static/underscore.js"></script>
     <script type="text/javascript" src="../../_static/doctools.js"></script>
-    <link rel="top" title="python-ipfix 0.9 documentation" href="../../index.html" />
+    <link rel="top" title="python-ipfix 0.9.3 documentation" href="../../index.html" />
     <link rel="up" title="Module code" href="../index.html" /> 
   </head>
   <body>
@@ -36,7 +36,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">python-ipfix 0.9 documentation</a> &raquo;</li>
+        <li><a href="../../index.html">python-ipfix 0.9.3 documentation</a> &raquo;</li>
           <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
       </ul>
     </div>  
@@ -47,6 +47,26 @@
           <div class="body">
             
   <h1>Source code for ipfix.template</h1><div class="highlight"><pre>
+<span class="c">#</span>
+<span class="c"># python-ipfix (c) 2013 Brian Trammell.</span>
+<span class="c">#</span>
+<span class="c"># Many thanks to the mPlane consortium (http://www.ict-mplane.eu) for</span>
+<span class="c"># its material support of this effort.</span>
+<span class="c"># </span>
+<span class="c"># This program is free software: you can redistribute it and/or modify it under</span>
+<span class="c"># the terms of the GNU Lesser General Public License as published by the Free</span>
+<span class="c"># Software Foundation, either version 3 of the License, or (at your option) any</span>
+<span class="c"># later version.</span>
+<span class="c">#</span>
+<span class="c"># This program is distributed in the hope that it will be useful, but WITHOUT</span>
+<span class="c"># ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS</span>
+<span class="c"># FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more</span>
+<span class="c"># details.</span>
+<span class="c">#</span>
+<span class="c"># You should have received a copy of the GNU General Public License along with</span>
+<span class="c"># this program.  If not, see &lt;http://www.gnu.org/licenses/&gt;.</span>
+<span class="c">#</span>
+
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">Representation of IPFIX templates.</span>
 <span class="sd">Provides template-based packing and unpacking of data in IPFIX messages.</span>
@@ -92,6 +112,7 @@
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tmpl</span><span class="p">,</span> <span class="n">indices</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">tmpl</span> <span class="o">=</span> <span class="n">tmpl</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">indices</span> <span class="o">=</span> <span class="n">indices</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">ranks</span> <span class="o">=</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">range</span><span class="p">(</span><span class="nb">len</span><span class="p">(</span><span class="n">indices</span><span class="p">)),</span> <span class="n">key</span><span class="o">=</span><span class="n">indices</span><span class="o">.</span><span class="n">__getitem__</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span> <span class="o">=</span> <span class="p">[]</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span> <span class="o">=</span> <span class="p">[]</span>
                 
@@ -236,9 +257,11 @@
             <span class="n">packplan</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">packplan</span>
             
         <span class="p">(</span><span class="n">vals</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">decode_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">packplan</span> <span class="o">=</span> <span class="n">packplan</span><span class="p">)</span>
+        
+        <span class="n">outvals</span> <span class="o">=</span> <span class="nb">tuple</span><span class="p">(</span><span class="n">v</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span><span class="n">v</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">packplan</span><span class="o">.</span><span class="n">ranks</span><span class="p">,</span> <span class="n">vals</span><span class="p">)))</span>
 
         <span class="c"># re-sort values in same order as packplan indices</span>
-        <span class="k">return</span> <span class="p">(</span><span class="nb">tuple</span><span class="p">(</span><span class="n">v</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span><span class="n">v</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">packplan</span><span class="o">.</span><span class="n">indices</span><span class="p">,</span> <span class="n">vals</span><span class="p">))),</span> <span class="n">offset</span><span class="p">)</span>
+        <span class="k">return</span> <span class="p">(</span><span class="n">outvals</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
         </div>
 <div class="viewcode-block" id="Template.encode_to"><a class="viewcode-back" href="../../index.html#ipfix.template.Template.encode_to">[docs]</a>    <span class="k">def</span> <span class="nf">encode_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">vals</span><span class="p">,</span> <span class="n">packplan</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Encodes a record from a tuple containing values in template order&quot;&quot;&quot;</span>
@@ -284,18 +307,11 @@
         </div>
 <div class="viewcode-block" id="Template.encode_tuple_to"><a class="viewcode-back" href="../../index.html#ipfix.template.Template.encode_tuple_to">[docs]</a>    <span class="k">def</span> <span class="nf">encode_tuple_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">rec</span><span class="p">,</span> <span class="n">recinf</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Encodes a record from a tuple containing values</span>
-<span class="sd">        ordered as the IEs in the InformationElementList given as recinf.</span>
-<span class="sd">        If recinf is not given, assumes the tuple contains all</span>
-<span class="sd">        IEs in the template in template order.</span>
+<span class="sd">        Encodes a record from a tuple containing values ordered as the IEs </span>
+<span class="sd">        in the template.</span>
 <span class="sd">         </span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="n">recinf</span><span class="p">:</span>
-            <span class="n">sortrec</span> <span class="o">=</span> <span class="p">(</span><span class="n">v</span> <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">v</span> <span class="ow">in</span> <span class="nb">sorted</span><span class="p">(</span><span class="nb">zip</span><span class="p">(</span><span class="n">packplan</span><span class="o">.</span><span class="n">indices</span><span class="p">,</span> <span class="n">rec</span><span class="p">)))</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">encode_to</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">sortrec</span><span class="p">,</span>
-                                  <span class="bp">self</span><span class="o">.</span><span class="n">packplan_for_ielist</span><span class="p">(</span><span class="n">recinf</span><span class="p">))</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">encode_to</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">rec</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">encode_to</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">rec</span><span class="p">)</span>
     </div>
 <div class="viewcode-block" id="Template.encode_template_to"><a class="viewcode-back" href="../../index.html#ipfix.template.Template.encode_template_to">[docs]</a>    <span class="k">def</span> <span class="nf">encode_template_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">setid</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;</span>
@@ -387,23 +403,24 @@
 
     <span class="k">return</span> <span class="p">(</span><span class="n">tmpl</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
     </div>
-<div class="viewcode-block" id="from_ielist"><a class="viewcode-back" href="../../index.html#ipfix.template.from_ielist">[docs]</a><span class="k">def</span> <span class="nf">from_ielist</span><span class="p">(</span><span class="n">tid</span><span class="p">,</span> <span class="n">ielist</span><span class="p">):</span>
-    <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">    Create a template from a template ID and an information element list</span>
-<span class="sd">    (itself available from :func:`ipfix.ie.spec_list`).</span>
-<span class="sd">    </span>
-<span class="sd">    :param tid: Template ID, must be between 256 and 65535.</span>
-<span class="sd">    :param ielist: List of Information Elements for the Template, see</span>
-<span class="sd">                   :func:`ipfix.ie.spec_list`.</span>
-<span class="sd">    :return: A new Template, ready to use for writing to a Message</span>
-<span class="sd">              </span>
-<span class="sd">    &quot;&quot;&quot;</span>
+<span class="k">def</span> <span class="nf">from_ielist</span><span class="p">(</span><span class="n">tid</span><span class="p">,</span> <span class="n">ielist</span><span class="p">):</span>
     
     <span class="n">tmpl</span> <span class="o">=</span> <span class="n">Template</span><span class="p">(</span><span class="n">tid</span><span class="p">,</span> <span class="n">ielist</span><span class="p">)</span>
     
     <span class="n">tmpl</span><span class="o">.</span><span class="n">finalize</span><span class="p">()</span>
     
-    <span class="k">return</span> <span class="n">tmpl</span></div>
+    <span class="k">return</span> <span class="n">tmpl</span>
+
+<div class="viewcode-block" id="for_specs"><a class="viewcode-back" href="../../index.html#ipfix.template.for_specs">[docs]</a><span class="k">def</span> <span class="nf">for_specs</span><span class="p">(</span><span class="n">tid</span><span class="p">,</span> <span class="o">*</span><span class="n">specs</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Create a template from a template ID and a list of IESpecs</span>
+<span class="sd">    </span>
+<span class="sd">    :param tid: Template ID, must be between 256 and 65535.</span>
+<span class="sd">    :param *specs: List of IESpecs </span>
+<span class="sd">    :return: A new Template, ready to use for writing to a Message</span>
+<span class="sd">              </span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">return</span> <span class="n">from_ielist</span><span class="p">(</span><span class="n">tid</span><span class="p">,</span> <span class="n">ie</span><span class="o">.</span><span class="n">spec_list</span><span class="p">(</span><span class="n">specs</span><span class="p">))</span></div>
 </pre></div>
 
           </div>
@@ -437,7 +454,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">python-ipfix 0.9 documentation</a> &raquo;</li>
+        <li><a href="../../index.html">python-ipfix 0.9.3 documentation</a> &raquo;</li>
           <li><a href="../index.html" >Module code</a> &raquo;</li> 
       </ul>
     </div>

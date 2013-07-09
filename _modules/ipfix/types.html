@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>ipfix.types &mdash; python-ipfix 0.9 documentation</title>
+    <title>ipfix.types &mdash; python-ipfix 0.9.3 documentation</title>
     
     <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../../',
-        VERSION:     '0.9',
+        VERSION:     '0.9.3',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +23,7 @@
     <script type="text/javascript" src="../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../_static/underscore.js"></script>
     <script type="text/javascript" src="../../_static/doctools.js"></script>
-    <link rel="top" title="python-ipfix 0.9 documentation" href="../../index.html" />
+    <link rel="top" title="python-ipfix 0.9.3 documentation" href="../../index.html" />
     <link rel="up" title="Module code" href="../index.html" /> 
   </head>
   <body>
@@ -36,7 +36,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">python-ipfix 0.9 documentation</a> &raquo;</li>
+        <li><a href="../../index.html">python-ipfix 0.9.3 documentation</a> &raquo;</li>
           <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
       </ul>
     </div>  
@@ -47,6 +47,26 @@
           <div class="body">
             
   <h1>Source code for ipfix.types</h1><div class="highlight"><pre>
+<span class="c">#</span>
+<span class="c"># python-ipfix (c) 2013 Brian Trammell.</span>
+<span class="c">#</span>
+<span class="c"># Many thanks to the mPlane consortium (http://www.ict-mplane.eu) for</span>
+<span class="c"># its material support of this effort.</span>
+<span class="c"># </span>
+<span class="c"># This program is free software: you can redistribute it and/or modify it under</span>
+<span class="c"># the terms of the GNU Lesser General Public License as published by the Free</span>
+<span class="c"># Software Foundation, either version 3 of the License, or (at your option) any</span>
+<span class="c"># later version.</span>
+<span class="c">#</span>
+<span class="c"># This program is distributed in the hope that it will be useful, but WITHOUT</span>
+<span class="c"># ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS</span>
+<span class="c"># FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more</span>
+<span class="c"># details.</span>
+<span class="c">#</span>
+<span class="c"># You should have received a copy of the GNU General Public License along with</span>
+<span class="c"># this program.  If not, see &lt;http://www.gnu.org/licenses/&gt;.</span>
+<span class="c">#</span>
+
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">Implementation of IPFIX abstract data types (ADT) and mappings to Python types.</span>
 
@@ -214,11 +234,15 @@
 <span class="nd">@total_ordering</span>
 <div class="viewcode-block" id="IpfixType"><a class="viewcode-back" href="../../index.html#ipfix.types.IpfixType">[docs]</a><span class="k">class</span> <span class="nc">IpfixType</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Abstract interface for all IPFIX types. Used internally. &quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">valenc</span><span class="p">,</span> <span class="n">valdec</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">valenc</span><span class="p">,</span> <span class="n">valdec</span><span class="p">,</span> <span class="n">roottype</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">num</span> <span class="o">=</span> <span class="n">num</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span> <span class="o">=</span> <span class="n">valenc</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span> <span class="o">=</span> <span class="n">valdec</span>
+        <span class="k">if</span> <span class="n">roottype</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">roottype</span> <span class="o">=</span> <span class="n">roottype</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">roottype</span> <span class="o">=</span> <span class="bp">self</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">=</span> <span class="mi">0</span>
 
     <span class="k">def</span> <span class="nf">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
@@ -235,8 +259,8 @@
 </div>
 <div class="viewcode-block" id="StructType"><a class="viewcode-back" href="../../index.html#ipfix.types.StructType">[docs]</a><span class="k">class</span> <span class="nc">StructType</span><span class="p">(</span><span class="n">IpfixType</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Type encoded by struct packing. Used internally.&quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">stel</span><span class="p">,</span> <span class="n">valenc</span> <span class="o">=</span> <span class="n">_identity</span><span class="p">,</span> <span class="n">valdec</span> <span class="o">=</span> <span class="n">_identity</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">valenc</span><span class="p">,</span> <span class="n">valdec</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">stel</span><span class="p">,</span> <span class="n">valenc</span><span class="o">=</span><span class="n">_identity</span><span class="p">,</span> <span class="n">valdec</span><span class="o">=</span><span class="n">_identity</span><span class="p">,</span> <span class="n">roottype</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">valenc</span><span class="p">,</span> <span class="n">valdec</span><span class="p">,</span> <span class="n">roottype</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">stel</span> <span class="o">=</span> <span class="n">stel</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">st</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">Struct</span><span class="p">(</span><span class="s">&quot;!&quot;</span><span class="o">+</span><span class="n">stel</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">st</span><span class="o">.</span><span class="n">size</span>
@@ -245,11 +269,18 @@
     <span class="k">def</span> <span class="nf">for_length</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">length</span> <span class="ow">or</span> <span class="n">length</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">roottype</span> <span class="ow">is</span> <span class="n">_roottypes</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="c"># FIXME this is kind of a hack to allow any-length encoding of octet arrays</span>
+            <span class="k">return</span> <span class="n">StructType</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">length</span><span class="p">)</span><span class="o">+</span><span class="s">&quot;s&quot;</span><span class="p">,</span>
+                              <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">roottype</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">StructType</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num</span><span class="p">,</span> <span class="n">_stel_rle</span><span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">stel</span><span class="p">,</span> <span class="n">length</span><span class="p">)],</span> <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">StructType</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num</span><span class="p">,</span> 
+                                  <span class="n">_stel_rle</span><span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">stel</span><span class="p">,</span> <span class="n">length</span><span class="p">)],</span> 
+                                  <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">roottype</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">IpfixTypeError</span><span class="p">(</span><span class="s">&quot;Reduced length encoding not supported &lt;</span><span class="si">%s</span><span class="s">&gt;[</span><span class="si">%u</span><span class="s">]&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">length</span><span class="p">))</span>
+                <span class="k">raise</span> <span class="n">IpfixTypeError</span><span class="p">(</span><span class="s">&quot;No RLE for &lt;</span><span class="si">%s</span><span class="s">&gt;[</span><span class="si">%u</span><span class="s">]&quot;</span> <span class="o">%</span> 
+                                     <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">length</span><span class="p">))</span>
 
     <span class="k">def</span> <span class="nf">encode_single_value_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">(</span><span class="n">val</span><span class="p">))</span>
@@ -262,15 +293,16 @@
 </div>
 <div class="viewcode-block" id="OctetArrayType"><a class="viewcode-back" href="../../index.html#ipfix.types.OctetArrayType">[docs]</a><span class="k">class</span> <span class="nc">OctetArrayType</span><span class="p">(</span><span class="n">IpfixType</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Type encoded by byte array packing. Used internally.&quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">valenc</span> <span class="o">=</span> <span class="n">_identity</span><span class="p">,</span> <span class="n">valdec</span> <span class="o">=</span> <span class="n">_identity</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">valenc</span><span class="p">,</span> <span class="n">valdec</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">valenc</span><span class="o">=</span><span class="n">_identity</span><span class="p">,</span> <span class="n">valdec</span><span class="o">=</span><span class="n">_identity</span><span class="p">,</span> <span class="n">roottype</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">valenc</span><span class="p">,</span> <span class="n">valdec</span><span class="p">,</span> <span class="n">roottype</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">=</span> <span class="n">VARLEN</span>
     
     <span class="k">def</span> <span class="nf">for_length</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">length</span> <span class="ow">or</span> <span class="n">length</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">StructType</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">length</span><span class="p">)</span><span class="o">+</span><span class="s">&quot;s&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">StructType</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">length</span><span class="p">)</span><span class="o">+</span><span class="s">&quot;s&quot;</span><span class="p">,</span> 
+                              <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">roottype</span><span class="p">)</span>
 
     <span class="k">def</span> <span class="nf">encode_single_value_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">):</span>
         <span class="n">enc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
@@ -328,7 +360,7 @@
     <span class="k">return</span> <span class="n">ip_address</span><span class="p">(</span><span class="n">octets</span><span class="p">)</span>
 
 <span class="c"># builtin type registry</span>
-<span class="n">_Types</span> <span class="o">=</span> <span class="p">[</span>
+<span class="n">_roottypes</span> <span class="o">=</span> <span class="p">[</span>
     <span class="n">OctetArrayType</span><span class="p">(</span><span class="s">&quot;octetArray&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
     <span class="n">StructType</span><span class="p">(</span><span class="s">&quot;unsigned8&quot;</span><span class="p">,</span>  <span class="mi">1</span><span class="p">,</span> <span class="s">&quot;B&quot;</span><span class="p">),</span>
     <span class="n">StructType</span><span class="p">(</span><span class="s">&quot;unsigned16&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="s">&quot;H&quot;</span><span class="p">),</span>
@@ -351,8 +383,8 @@
     <span class="n">StructType</span><span class="p">(</span><span class="s">&quot;ipv6Address&quot;</span><span class="p">,</span> <span class="mi">19</span><span class="p">,</span> <span class="s">&quot;16s&quot;</span><span class="p">,</span> <span class="n">_encode_ip</span><span class="p">,</span> <span class="n">_decode_ip</span><span class="p">)</span>
 <span class="p">]</span>
 
-<span class="n">_TypeForName</span> <span class="o">=</span> <span class="p">{</span> <span class="n">ietype</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">ietype</span> <span class="k">for</span> <span class="n">ietype</span> <span class="ow">in</span> <span class="n">_Types</span> <span class="p">}</span>
-<span class="n">_TypeForNum</span> <span class="o">=</span> <span class="p">{</span> <span class="n">ietype</span><span class="o">.</span><span class="n">num</span><span class="p">:</span> <span class="n">ietype</span> <span class="k">for</span> <span class="n">ietype</span> <span class="ow">in</span> <span class="n">_Types</span> <span class="p">}</span>
+<span class="n">_TypeForName</span> <span class="o">=</span> <span class="p">{</span> <span class="n">ietype</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">ietype</span> <span class="k">for</span> <span class="n">ietype</span> <span class="ow">in</span> <span class="n">_roottypes</span> <span class="p">}</span>
+<span class="n">_TypeForNum</span> <span class="o">=</span> <span class="p">{</span> <span class="n">ietype</span><span class="o">.</span><span class="n">num</span><span class="p">:</span> <span class="n">ietype</span> <span class="k">for</span> <span class="n">ietype</span> <span class="ow">in</span> <span class="n">_roottypes</span> <span class="p">}</span>
 
 <div class="viewcode-block" id="for_name"><a class="viewcode-back" href="../../index.html#ipfix.types.for_name">[docs]</a><span class="k">def</span> <span class="nf">for_name</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
@@ -422,7 +454,7 @@
         <li class="right" >
           <a href="../../py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="../../index.html">python-ipfix 0.9 documentation</a> &raquo;</li>
+        <li><a href="../../index.html">python-ipfix 0.9.3 documentation</a> &raquo;</li>
           <li><a href="../index.html" >Module code</a> &raquo;</li> 
       </ul>
     </div>
