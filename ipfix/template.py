@@ -258,18 +258,11 @@ class Template:
         
     def encode_tuple_to(self, buf, offset, rec, recinf = None):
         """
-        Encodes a record from a tuple containing values
-        ordered as the IEs in the InformationElementList given as recinf.
-        If recinf is not given, assumes the tuple contains all
-        IEs in the template in template order.
+        Encodes a record from a tuple containing values ordered as the IEs 
+        in the template.
          
         """
-        if recinf:
-            sortrec = (v for i, v in sorted(zip(packplan.indices, rec)))
-            return self.encode_to(buf, offset, sortrec,
-                                  self.packplan_for_ielist(recinf))
-        else:
-            return self.encode_to(buf, offset, rec)
+        return self.encode_to(buf, offset, rec)
     
     def encode_template_to(self, buf, offset, setid):
         """

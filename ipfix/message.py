@@ -725,18 +725,13 @@ class MessageBuffer:
         """
         self.export_record(rec, template.Template.encode_namedict_to)
     
-    def export_tuple(self, rec, ielist = None):
+    def export_tuple(self, rec):
         """
         Export a record to the message, using the template for the current Set
-        ID. The record is a tuple of values, in template order by default.
-        If ielist is given, the tuple is in the order if IEs in that list
-        instead. The tuple must contain one value for each IE in the template;
-        values for IEs in the ielist not in the template will be ignored.
+        ID. The record is a tuple of values in template order.
         
-        :param rec: the record to export, as a tuple
-        :param ielist: optional information element list describing the order
-                       of the rec tuple
+        :param rec: the record to export, as a tuple in template order.
         :raises: EndOfMessage
         
         """       
-        self.export_record(rec, template.Template.encode_tuple_to, ielist)
+        self.export_record(rec, template.Template.encode_tuple_to)
