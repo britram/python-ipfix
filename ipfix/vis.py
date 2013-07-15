@@ -172,34 +172,34 @@ class OctetFieldDrawing:
     def add(self, length, value,
             render_fn=str, label=None, rowbreak=False):
         
-        # Increment row on rowbreak
-        if rowbreak and self.col:
+        # Increment row on rowbreak, or at end of row
+        if (self.col >= self.raster) or (rowbreak and self.col):
             self.row += 1
             self.rowaddrs.append(self.rowaddrs[-1] + self.col)
             self.col = 0
         
-        #print ("draw field length "+str(length)+
-        #       " at ("+str(self.col)+", "+str(self.row)+")")
+        print ("draw field length "+str(length)+
+               " at ("+str(self.col)+", "+str(self.row)+")")
         
         # Case 0: could fit on a single row
         if length <= self.raster:
             # Case 0a: fits on row, simple rect
             if (self.col + length) <= self.raster:
-                #print("    fit, simple rect")
+                print("    fit, simple rect")
                 self._add_field(length, 
                     RectField(self.col, self.row, length, 1, 
                               render_fn(value), label, self.fill))
                 self.col += length
             # Case 0b: doesn't fit on row, force rowbreak
             else:
-                #print("    short field doesn't fit, force rowbreak")
+                print("    short field doesn't fit, force rowbreak")
                 self.add(length, value, render_fn, label, True)
     
         # Case 1: flush left but too big to fit
         elif self.col == 0 and length > self.raster:
             # Case 1a: even multiple, multirow rect
             if length % self.raster == 0:
-                #print("    perfect fit, multirow rect")
+                print("    perfect fit, "+str(length/self.raster)+"-row rect")
                 self._add_field(length, 
                                 RectField(self.col, self.row, 
                                           self.raster, length / self.raster,
@@ -207,7 +207,7 @@ class OctetFieldDrawing:
                 self._row_extend(int(length / self.raster))
             # Case 1b: not even multiple, left tetronimo
             else:               
-                #print("    long flush left tetronimo")
+                print("    long flush left tetronimo")
                 self._add_field(length, 
                     LeftPolylineField(self.row, self.raster,
                                       math.ceil(length / self.raster),
@@ -218,7 +218,7 @@ class OctetFieldDrawing:
                 
         # Case 2: flush right
         elif (self.col + length) % self.raster == 0:
-            #print("    long flush right tetronimo")
+            print("    long flush right tetronimo")
             self._add_field(length,
                 RightPolylineField(self.row, self.raster,
                                    math.ceil(length / self.raster),
@@ -230,7 +230,7 @@ class OctetFieldDrawing:
         # Case 3: polyline middle tetronimo; too lazy for this
         # corner case now, bail and force a left tetronimo
         else:
-            #print("    too lazy for mid tetronimo, force rowbreak")
+            print("    too lazy for mid tetronimo, force rowbreak")
             self.add(length, value, render_fn, label, True)
 
     def _render_fields(self, dwg, origin, scale, fontsize):
@@ -449,8 +449,8 @@ class MessageBufferRenderer:
         return self.ofd.render(self.scale)
 
 class MessageStreamRenderer(MessageBufferRenderer):
-    def __init__(self, stream, scale):
-        super().__init__(message.MessageBuffer(), scale)
+    def __init__(self, stream, scale=(90,30), raster=8):
+        super().__init__(message.MessageBuffer(), scale, raster)
         self.stream = stream
         
     def render_next_message(self, length=65535):
