@@ -109,9 +109,9 @@ IPv6Address('2001:db8::c0:ffee')
 encoded as per RFC5101bis:
 
 >>> from datetime import datetime
->>> dtfmt_in = "%Y-%m-%d %H:%M:%S.%f %z"
->>> dtfmt_out = "%Y-%m-%d %H:%M:%S.%f"
->>> dt = datetime.strptime("2013-06-21 14:00:03.456789 +0000", dtfmt_in)
+>>> from datetime import timestamp
+>>> dtfmt = "%Y-%m-%d %H:%M:%S.%f"
+>>> dt = datetime.strptime("2013-06-21 14:00:03.456789", dtfmt).replace(tzinfo=timezone.utc)
 
 dateTimeSeconds truncates microseconds:
 
@@ -119,7 +119,7 @@ dateTimeSeconds truncates microseconds:
 >>> length = dateTimeSeconds.encode_single_value_to(dt, buf, 0)
 >>> buf[0:length].tolist()
 [81, 196, 92, 99]
->>> dateTimeSeconds.decode_single_value_from(buf, 0, length).strftime(dtfmt_out)
+>>> dateTimeSeconds.decode_single_value_from(buf, 0, length).strftime(dtfmt)
 '2013-06-21 14:00:03.000000'
 
 dateTimeMilliseconds truncates microseconds to the nearest millisecond:
@@ -128,7 +128,7 @@ dateTimeMilliseconds truncates microseconds to the nearest millisecond:
 >>> length = dateTimeMilliseconds.encode_single_value_to(dt, buf, 0)
 >>> buf[0:length].tolist()
 [0, 0, 1, 63, 103, 8, 228, 128]
->>> dateTimeMilliseconds.decode_single_value_from(buf, 0, length).strftime(dtfmt_out)
+>>> dateTimeMilliseconds.decode_single_value_from(buf, 0, length).strftime(dtfmt)
 '2013-06-21 14:00:03.456000'
 
 dateTimeMicroseconds exports microseconds fully in NTP format:
@@ -137,7 +137,7 @@ dateTimeMicroseconds exports microseconds fully in NTP format:
 >>> length = dateTimeMicroseconds.encode_single_value_to(dt, buf, 0)
 >>> buf[0:length].tolist()
 [81, 196, 92, 99, 116, 240, 32, 0]
->>> dateTimeMicroseconds.decode_single_value_from(buf, 0, length).strftime(dtfmt_out)
+>>> dateTimeMicroseconds.decode_single_value_from(buf, 0, length).strftime(dtfmt)
 '2013-06-21 14:00:03.456789'
 
 dateTimeNanoseconds is also supported, but is identical to
@@ -145,7 +145,7 @@ dateTimeMicroseconds, as the datetime class in Python only supports
 microsecond-level timing.
 
 """
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from functools import total_ordering
 from ipaddress import ip_address
 import struct
@@ -284,7 +284,7 @@ def _decode_utf8(octets):
     return octets.decode()
 
 def _encode_sec(dt):
-    return int(dt.timestamp())
+    return int(dt.astimezone(timezone.utc).timestamp())
     
 def _decode_sec(epoch):
     return datetime.utcfromtimestamp(epoch)

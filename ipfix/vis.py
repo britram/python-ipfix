@@ -27,6 +27,7 @@
 from . import message
 from . import template
 from . import types
+from datetime import datetime
 
 import math
 
@@ -41,7 +42,7 @@ def scale_tupletuple(tt, scale):
     return tuple([scale_tuple(x, scale) for x in tt])
 
 def render_dt8601(dt):
-    return dt.strftime("%Y-%m-%d %H:%M:%S")
+    return dt.strftime("%Y-%m-%d %H:%M:%S.%f %Z")
 
 def render_ienumber(ie):
     if ie.pen:
@@ -388,7 +389,10 @@ class MessageBufferRenderer:
             else:
                 label = midtrunc(ie.name,8,8)
             
-            self.ofd.add(ielen, v, label=label)
+            if isinstance(v, datetime):
+                self.ofd.add(ielen, v, render_fn=render_dt8601, label=label)
+            else:
+                self.ofd.add(ielen, v, label=label)
         
         return offset
             

@@ -177,6 +177,7 @@ import operator
 import functools
 import struct
 from datetime import datetime
+from datetime import timezone
 from warnings import warn
 
 _sethdr_st = struct.Struct("!HH")
