@@ -478,7 +478,8 @@ class MessageBuffer:
         
         # Update export time if necessary
         if self.auto_export_time:
-            self.export_epoch = int(datetime.utcnow().timestamp())
+            self.export_epoch = int(datetime.utcnow()
+                                    .replace(tzinfo=timezone.utc).timestamp())
         
         # Update message header in buffer
         _msghdr_st.pack_into(self.mbuf, 0, 10, self.length, 
