@@ -109,7 +109,7 @@ IPv6Address('2001:db8::c0:ffee')
 encoded as per RFC5101bis:
 
 >>> from datetime import datetime
->>> from datetime import timestamp
+>>> from datetime import timezone
 >>> dtfmt = "%Y-%m-%d %H:%M:%S.%f"
 >>> dt = datetime.strptime("2013-06-21 14:00:03.456789", dtfmt).replace(tzinfo=timezone.utc)
 
@@ -284,16 +284,16 @@ def _decode_utf8(octets):
     return octets.decode()
 
 def _encode_sec(dt):
-    return int(dt.astimezone(timezone.utc).timestamp())
+    return int(dt.timestamp())
     
 def _decode_sec(epoch):
-    return datetime.utcfromtimestamp(epoch)
+    return datetime.utcfromtimestamp(epoch).replace(tzinfo=timezone.utc)
     
 def _encode_msec(dt):
     return int(dt.timestamp() * 1000)
     
 def _decode_msec(epoch):
-    return datetime.utcfromtimestamp(epoch/1000)
+    return datetime.utcfromtimestamp(epoch/1000).replace(tzinfo=timezone.utc)
     
 def _encode_ntp(dt):
     (tsf, tsi) = math.modf(dt.timestamp())
@@ -302,7 +302,7 @@ def _encode_ntp(dt):
 def _decode_ntp(ntp):
     tsf = ntp & (2**32 - 1)
     tsi = ntp >> 32
-    return datetime.utcfromtimestamp(tsi + tsf / 2**32)
+    return datetime.utcfromtimestamp(tsi + tsf / 2**32).replace(tzinfo=timezone.utc)
 
 def _encode_ip(ipaddr):
     return ipaddr.packed
