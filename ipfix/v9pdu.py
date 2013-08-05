@@ -26,7 +26,8 @@ This module is not yet complete.
 
 """
 
-_pduhdr_st = struct.Struct("!HHLLL")
+_sethdr_st = struct.Struct("!HH")
+_resthdr_st = struct.Struct("!LLLL")
 
 class PDUBuffer:
     """
@@ -40,6 +41,8 @@ class PDUBuffer:
         self.mbuf = memoryview(bytearray(65536))
 
         self.length = 0
+        self.cur = 0
+        
         self.sequence = None
         self.export_epoch = None
         self.base_epoch = None
@@ -54,8 +57,6 @@ class PDUBuffer:
 
         self.last_tuple_iterator_ielist = None
         
-        self.mtu = 65535
-
     def __repr__(self):
         return "<PDUBuffer domain "+str(self.odid)+\
                " length "+str(self.length)+addinf+">"
@@ -66,8 +67,48 @@ class PDUBuffer:
     def from_bytes(self, bytes):
         pass
     
-    def next_set(self):
+    def next_pdu_header(self):
         pass
+    
+    #
+    # The concept here: 
+    #
+    # either read an entire PDU at a time into the buffer with from_bytes
+    # (if you have framing) or attach a stream, which will read the PDU
+    # setwise into the buffer. In either case, at the _end_ of the decode, the
+    # message is completely in the buffer.
+    #
+    # This means that the next set logic is kind of weird, because it has
+    # to detect a new message (special Set ID 9), but only when reading from 
+    # a stream, and when reading from a stream, it has to read the set into
+    #
+    # Consider refactoring this into stream_next_set and bytes_next_set,
+    # or using inheritance -- there's no runtime reason to switch from one 
+    # regime to the other.
+    #
+    
+    def next_set(self):
+        if self.stream:
+            self.mbuf[self.cur:self.cur+_sethdr_st.size] = \
+                               self.stream.read(_sethdr_st.size)
+        
+        (setid, setlen) = _sethdr_st.unpack_from(self.mbuf, self.cur)
+
+        if setid == 9:
+            if not self.stream:
+                raise IpfixDecodeError("Illegal set ID in PDU")
+            
+            # not a set, really the beginning of a message header.
+            # shift and read header
+            
+            # FIXME read and shift goes here
+            
+            next_pdu_header(self)
+            
+        else:
+            # read the rest of the set into the buffer
+            
+            
     
     def record_iterator(self, 
                         decode_fn=template.Template.decode_namedict_from, 
