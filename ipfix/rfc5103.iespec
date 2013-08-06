@@ -337,3 +337,16 @@ reverseRfc3550JitterMicroseconds(29305/386)<unsigned32>[4]
 reverseRfc3550JitterNanoseconds(29305/387)<unsigned32>[4]
 reverseDot1qDEI(29305/388)<boolean>[1]
 reverseDot1qCustomerDEI(29305/389)<boolean>[1]
+reverseFlowSelectorAlgorithm(29305/390)<unsigned16>
+reverseFlowSelectedOctetDeltaCount(29305/391)<unsigned64>
+reverseFlowSelectedPacketDeltaCount(29305/392)<unsigned64>
+reverseFlowSelectedFlowDeltaCount(29305/393)<unsigned64>
+reverseSelectorIDTotalFlowsObserved(29305/394)<unsigned64>
+reverseSelectorIDTotalFlowsSelected(29305/395)<unsigned64>
+reverseSamplingFlowInterval(29305/396)<unsigned64>
+reverseSamplingFlowSpacing(29305/397)<unsigned64>
+reverseFlowSamplingTimeInterval(29305/398)<unsigned64>
+reverseFlowSamplingTimeSpacing(29305/399)<unsigned64>
+reverseHashFlowDomain(29305/400)<unsigned16>
+reverseTransportOctetDeltaCount(29305/401)<unsigned64>
+reverseTransportPacketDeltaCount(29305/402)<unsigned64>
