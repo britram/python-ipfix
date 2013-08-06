@@ -44,6 +44,10 @@ class IpfixDecodeError(Exception):
     def __init__(self, *args):
         super().__init__(args)
 
+# constants for v9
+V9_TEMPLATE_SET_ID = 0
+V9_OPTIONS_SET_ID = 1
+
 # constants
 TEMPLATE_SET_ID = 2
 OPTIONS_SET_ID = 3

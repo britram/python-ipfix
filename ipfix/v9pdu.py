@@ -19,17 +19,19 @@
 #
 
 """
-Provides the PDUBuffer class for decoding NetFlow V9 Protocol Data 
+Provides the PduBuffer class for decoding NetFlow V9 Protocol Data 
 Units (PDUs). 
 
 This module is not yet complete.
 
 """
 
-_sethdr_st = struct.Struct("!HH")
-_resthdr_st = struct.Struct("!LLLL")
+NETFLOW9_VERSION = 9
 
-class PDUBuffer:
+_sethdr_st = struct.Struct("!HH")
+_pduhdr_st = struct.Struct("!HHLLLL")
+
+class PduBuffer:
     """
     Implements a buffer for reading NetFlow V9 PDUs from a stream or packet.
     
@@ -37,12 +39,13 @@ class PDUBuffer:
     
     """
     def __init__(self):
-        """Create a new MessageBuffer instance."""
+        """Create a new PduBuffer instance."""
         self.mbuf = memoryview(bytearray(65536))
 
         self.length = 0
         self.cur = 0
         
+        self.reccount = None
         self.sequence = None
         self.export_epoch = None
         self.base_epoch = None
@@ -53,62 +56,27 @@ class PDUBuffer:
         self.accepted_tids = set()
         self.sequences = {}
         
-        self.setlist = []
-
         self.last_tuple_iterator_ielist = None
         
     def __repr__(self):
         return "<PDUBuffer domain "+str(self.odid)+\
                " length "+str(self.length)+addinf+">"
-    
-    def attach_stream(self, stream):
-        pass
 
-    def from_bytes(self, bytes):
-        pass
-    
-    def next_pdu_header(self):
-        pass
-    
-    #
-    # The concept here: 
-    #
-    # either read an entire PDU at a time into the buffer with from_bytes
-    # (if you have framing) or attach a stream, which will read the PDU
-    # setwise into the buffer. In either case, at the _end_ of the decode, the
-    # message is completely in the buffer.
-    #
-    # This means that the next set logic is kind of weird, because it has
-    # to detect a new message (special Set ID 9), but only when reading from 
-    # a stream, and when reading from a stream, it has to read the set into
-    #
-    # Consider refactoring this into stream_next_set and bytes_next_set,
-    # or using inheritance -- there's no runtime reason to switch from one 
-    # regime to the other.
-    #
-    
-    def next_set(self):
-        if self.stream:
-            self.mbuf[self.cur:self.cur+_sethdr_st.size] = \
-                               self.stream.read(_sethdr_st.size)
+    def _increment_sequence(self, inc = 1):
+        self.sequences.setdefault((self.odid, self.streamid), 0)
+        self.sequences[(self.odid, self.streamid)] += inc
+
+    def parse_pdu_header(self):
+        (version, self.reccount, self.sysuptime_ms, 
+             self.export_epoch, self.sequence, self.odid) = \
+             _pduhdr_st.unpack_from(self.mbuf, 0)
         
-        (setid, setlen) = _sethdr_st.unpack_from(self.mbuf, self.cur)
-
-        if setid == 9:
-            if not self.stream:
-                raise IpfixDecodeError("Illegal set ID in PDU")
-            
-            # not a set, really the beginning of a message header.
-            # shift and read header
-            
-            # FIXME read and shift goes here
-            
-            next_pdu_header(self)
-            
-        else:
-            # read the rest of the set into the buffer
-            
-            
+        if version != NETFLOW9_VERSION:
+            raise IpfixDecodeError("Illegal or unsupported version " + 
+                                   str(version))
+        
+        self._increment_sequence(self.reccount)
+        self.basetime_epoch = self.export_epoch - (self.sysuptime_ms / 1000)
     
     def record_iterator(self, 
                         decode_fn=template.Template.decode_namedict_from, 
@@ -139,7 +107,7 @@ class PDUBuffer:
         while (offset, setid, setlen) = next_set():
             setend = offset + setlen
             offset += _sethdr_st.size # skip set header in decode
-            if setid == template.V9_TEMPLATE_SET_ID or\
+            if setid == template.V9_TEMPLATE_SET_ID or \
                setid == template.V9_OPTIONS_SET_ID:
                 while offset < setend:
                     (tmpl, offset) = template.decode_template_from(
@@ -211,4 +179,40 @@ class PDUBuffer:
                 decode_fn = template.Template.decode_tuple_from, 
                 tmplaccept_fn = tmplaccept_fn, 
                 recinf = ielist)          
+
+class StreamPduBuffer(PduBuffer):
+    def __init__(self, stream):
+        super().__init__()
         
+        self.stream = stream
+    
+    def next_set(self):
+    """
+    Reads the next set from the stream. Automatically reads PDU headers, as
+    well, since PDU headers are treated as a special case of set header in
+    streamed PDU reading.
+    
+    Yes, NetFlow V9 really is that broken as a storage format,
+    and this is the only way to stream it without counting records 
+    (which we can't do in the tuple-reading case).
+    
+    """
+    self.mbuf[0:_sethdr_st.size]= self.stream.read(_sethdr_st.size)
+    (setid, setlen) = _sethdr_st.unpack_from(self.mbuf)
+    
+    while setid == NETFLOW9_VERSION:
+        # Actually, this is the first part of a message header.
+        # Grab the rest from the stream, then parse it.
+        self.mbuf[_sethdr_st.size:_pduhdr_st.size] = \
+            self.stream.read(_pduhdr_st.size - _sethdr_st.size)
+        parse_pdu_header()
+        # Now try again to get a set header
+        self.mbuf[0:_sethdr_st.size]= self.stream.read(_sethdr_st.size)
+        (setid, setlen) = _sethdr_st.unpack_from(self.mbuf)
+    
+    # read the set body into the buffer
+    self.mbuf[_sethdr_st.size:setlen] = \
+        self.stream.read(setlen, _sethdr_st.size)
+    
+    # return pointers for record_iterator
+    return (0, setid, setlen)
