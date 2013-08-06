@@ -337,3 +337,16 @@ rfc3550JitterMicroseconds(386)<unsigned32>[4]
 rfc3550JitterNanoseconds(387)<unsigned32>[4]
 dot1qDEI(388)<boolean>[1]
 dot1qCustomerDEI(389)<boolean>[1]
+flowSelectorAlgorithm(390)<unsigned16>
+flowSelectedOctetDeltaCount(391)<unsigned64>
+flowSelectedPacketDeltaCount(392)<unsigned64>
+flowSelectedFlowDeltaCount(393)<unsigned64>
+selectorIDTotalFlowsObserved(394)<unsigned64>
+selectorIDTotalFlowsSelected(395)<unsigned64>
+samplingFlowInterval(396)<unsigned64>
+samplingFlowSpacing(397)<unsigned64>
+flowSamplingTimeInterval(398)<unsigned64>
+flowSamplingTimeSpacing(399)<unsigned64>
+hashFlowDomain(400)<unsigned16>
+transportOctetDeltaCount(401)<unsigned64>
+transportPacketDeltaCount(402)<unsigned64>
