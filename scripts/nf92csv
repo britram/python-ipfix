@@ -1,0 +1,74 @@
+#!/usr/bin/env python3
+#
+# python-ipfix (c) 2013 Brian Trammell.
+#
+# Many thanks to the mPlane consortium (http://www.ict-mplane.eu) for
+# its material support of this effort.
+# 
+# This program is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
+# later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+import ipfix.ie
+import ipfix.reader
+import ipfix.v9pdu
+
+import socketserver
+import argparse
+import csv
+from sys import stdin, stdout, stderr
+
+args = None
+
+def parse_args():
+    global args
+    parser = argparse.ArgumentParser(description="Convert an IPFIX file or stream to CSV")
+    parser.add_argument('ienames', metavar="ie", nargs="+",
+                        help="column(s) by IE name")
+    parser.add_argument('--spec', '-s', metavar="specfile", action="append",
+                        help="file to load additional IESpecs from")
+    parser.add_argument('--file', '-f', metavar="file", nargs="?",
+                        help="IPFIX file to read (default stdin)")
+    args = parser.parse_args()
+
+def init_ipfix(specfiles = None):
+    ipfix.ie.use_iana_default()
+    ipfix.ie.use_5103_default()
+    
+    if specfiles:
+        for sf in specfiles:
+            ipfix.ie.use_specfile(sf)
+
+def stream_to_csv(instream, ienames):
+    cols = ipfix.ie.spec_list(ienames)
+
+    r = v9pdu.StreamPduBuffer(instream)
+    w = csv.writer(stdout, dialect='unix')
+
+    w.writerow([e.name for e in cols])
+    
+    for rec in r.tuple_iterator(cols):
+        w.writerow([str(val) for val in rec])
+    
+
+# set "args" global
+parse_args()
+
+init_ipfix(args.spec)
+
+if args.file:
+    with open (args.file, mode="rb") as f:
+        stream_to_csv(f, args.ienames)
+else:
+    stdin = stdin.detach()
+    stream_to_csv(stdin, args.ienames)
