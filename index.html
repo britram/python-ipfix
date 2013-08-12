@@ -6,7 +6,7 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>python-ipfix &mdash; python-ipfix 0.9.3 documentation</title>
+    <title>python-ipfix &mdash; python-ipfix 0.9.4 documentation</title>
     
     <link rel="stylesheet" href="_static/default.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
@@ -14,7 +14,7 @@
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '0.9.3',
+        VERSION:     '0.9.4',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,7 +23,7 @@
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="top" title="python-ipfix 0.9.3 documentation" href="#" /> 
+    <link rel="top" title="python-ipfix 0.9.4 documentation" href="#" /> 
   </head>
   <body>
     <div class="related">
@@ -35,7 +35,7 @@
         <li class="right" >
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="#">python-ipfix 0.9.3 documentation</a> &raquo;</li> 
+        <li><a href="#">python-ipfix 0.9.4 documentation</a> &raquo;</li> 
       </ul>
     </div>  
 
@@ -68,7 +68,7 @@ templates; see <a class="reference internal" href="#module-ipfix.template" title
 <p>This module is copyright 2013 Brian Trammell. It is made available under the
 terms of the 
 <a class="reference external" href="http://www.gnu.org/licenses/lgpl.html">GNU Lesser General Public License</a>, 
-or, at your option, any later version.</p>
+version 3 or, at your option, any later version.</p>
 <p>Reference documentation for each module is found in the subsections below.</p>
 <div class="section" id="module-ipfix.types">
 <span id="module-ipfix-types"></span><h2>module ipfix.types<a class="headerlink" href="#module-ipfix.types" title="Permalink to this headline">¶</a></h2>
@@ -206,9 +206,9 @@ We use this to bound the encoded value on subsequent decode.</p>
 <p>...and the timestamps of various precision as a python datetime, 
 encoded as per RFC5101bis:</p>
 <div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">dtfmt_in</span> <span class="o">=</span> <span class="s">&quot;%Y-%m-</span><span class="si">%d</span><span class="s"> %H:%M:%S.</span><span class="si">%f</span><span class="s"> %z&quot;</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">dtfmt_out</span> <span class="o">=</span> <span class="s">&quot;%Y-%m-</span><span class="si">%d</span><span class="s"> %H:%M:%S.</span><span class="si">%f</span><span class="s">&quot;</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">dt</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="s">&quot;2013-06-21 14:00:03.456789 +0000&quot;</span><span class="p">,</span> <span class="n">dtfmt_in</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">timezone</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dtfmt</span> <span class="o">=</span> <span class="s">&quot;%Y-%m-</span><span class="si">%d</span><span class="s"> %H:%M:%S.</span><span class="si">%f</span><span class="s">&quot;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dt</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="s">&quot;2013-06-21 14:00:03.456789&quot;</span><span class="p">,</span> <span class="n">dtfmt</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tzinfo</span><span class="o">=</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>dateTimeSeconds truncates microseconds:</p>
@@ -216,7 +216,7 @@ encoded as per RFC5101bis:</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">length</span> <span class="o">=</span> <span class="n">dateTimeSeconds</span><span class="o">.</span><span class="n">encode_single_value_to</span><span class="p">(</span><span class="n">dt</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">buf</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">length</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
 <span class="go">[81, 196, 92, 99]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">dateTimeSeconds</span><span class="o">.</span><span class="n">decode_single_value_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">dtfmt_out</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dateTimeSeconds</span><span class="o">.</span><span class="n">decode_single_value_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">dtfmt</span><span class="p">)</span>
 <span class="go">&#39;2013-06-21 14:00:03.000000&#39;</span>
 </pre></div>
 </div>
@@ -225,7 +225,7 @@ encoded as per RFC5101bis:</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">length</span> <span class="o">=</span> <span class="n">dateTimeMilliseconds</span><span class="o">.</span><span class="n">encode_single_value_to</span><span class="p">(</span><span class="n">dt</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">buf</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">length</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
 <span class="go">[0, 0, 1, 63, 103, 8, 228, 128]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">dateTimeMilliseconds</span><span class="o">.</span><span class="n">decode_single_value_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">dtfmt_out</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dateTimeMilliseconds</span><span class="o">.</span><span class="n">decode_single_value_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">dtfmt</span><span class="p">)</span>
 <span class="go">&#39;2013-06-21 14:00:03.456000&#39;</span>
 </pre></div>
 </div>
@@ -234,7 +234,7 @@ encoded as per RFC5101bis:</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">length</span> <span class="o">=</span> <span class="n">dateTimeMicroseconds</span><span class="o">.</span><span class="n">encode_single_value_to</span><span class="p">(</span><span class="n">dt</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">buf</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">length</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
 <span class="go">[81, 196, 92, 99, 116, 240, 32, 0]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">dateTimeMicroseconds</span><span class="o">.</span><span class="n">decode_single_value_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">dtfmt_out</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dateTimeMicroseconds</span><span class="o">.</span><span class="n">decode_single_value_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">dtfmt</span><span class="p">)</span>
 <span class="go">&#39;2013-06-21 14:00:03.456789&#39;</span>
 </pre></div>
 </div>
@@ -255,13 +255,13 @@ microsecond-level timing.</p>
 
 <dl class="class">
 <dt id="ipfix.types.OctetArrayType">
-<em class="property">class </em><tt class="descclassname">ipfix.types.</tt><tt class="descname">OctetArrayType</tt><big>(</big><em>name</em>, <em>num</em>, <em>valenc=&lt;function _identity at 0x104247e60&gt;</em>, <em>valdec=&lt;function _identity at 0x104247e60&gt;</em>, <em>roottype=None</em><big>)</big><a class="reference internal" href="_modules/ipfix/types.html#OctetArrayType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.types.OctetArrayType" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descclassname">ipfix.types.</tt><tt class="descname">OctetArrayType</tt><big>(</big><em>name</em>, <em>num</em>, <em>valenc=&lt;function _identity at 0x10424ac20&gt;</em>, <em>valdec=&lt;function _identity at 0x10424ac20&gt;</em>, <em>roottype=None</em><big>)</big><a class="reference internal" href="_modules/ipfix/types.html#OctetArrayType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.types.OctetArrayType" title="Permalink to this definition">¶</a></dt>
 <dd><p>Type encoded by byte array packing. Used internally.</p>
 </dd></dl>
 
 <dl class="class">
 <dt id="ipfix.types.StructType">
-<em class="property">class </em><tt class="descclassname">ipfix.types.</tt><tt class="descname">StructType</tt><big>(</big><em>name</em>, <em>num</em>, <em>stel</em>, <em>valenc=&lt;function _identity at 0x104247e60&gt;</em>, <em>valdec=&lt;function _identity at 0x104247e60&gt;</em>, <em>roottype=None</em><big>)</big><a class="reference internal" href="_modules/ipfix/types.html#StructType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.types.StructType" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descclassname">ipfix.types.</tt><tt class="descname">StructType</tt><big>(</big><em>name</em>, <em>num</em>, <em>stel</em>, <em>valenc=&lt;function _identity at 0x10424ac20&gt;</em>, <em>valdec=&lt;function _identity at 0x10424ac20&gt;</em>, <em>roottype=None</em><big>)</big><a class="reference internal" href="_modules/ipfix/types.html#StructType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.types.StructType" title="Permalink to this definition">¶</a></dt>
 <dd><p>Type encoded by struct packing. Used internally.</p>
 </dd></dl>
 
@@ -760,9 +760,9 @@ accepting many types of data, or diagnostic tools for debugging IPFIX export:</p
 <div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">rec</span> <span class="ow">in</span> <span class="n">msg</span><span class="o">.</span><span class="n">namedict_iterator</span><span class="p">():</span>
 <span class="gp">... </span>   <span class="k">print</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">rec</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
 <span class="gp">...</span>
-<span class="go">[(&#39;destinationIPv4Address&#39;, IPv4Address(&#39;10.5.6.7&#39;)), (&#39;flowStartMilliseconds&#39;, datetime.datetime(2013, 6, 21, 12, 0)), (&#39;packetDeltaCount&#39;, 27), (&#39;sourceIPv4Address&#39;, IPv4Address(&#39;10.1.2.3&#39;))]</span>
-<span class="go">[(&#39;destinationIPv4Address&#39;, IPv4Address(&#39;10.12.13.14&#39;)), (&#39;flowStartMilliseconds&#39;, datetime.datetime(2013, 6, 21, 12, 0, 2)), (&#39;packetDeltaCount&#39;, 33), (&#39;sourceIPv4Address&#39;, IPv4Address(&#39;10.8.9.11&#39;))]</span>
-<span class="go">[(&#39;flowStartMilliseconds&#39;, datetime.datetime(2013, 6, 21, 12, 0, 4)), (&#39;myNewInformationElement&#39;, &quot;Grüezi, Y&#39;all&quot;)]</span>
+<span class="go">[(&#39;destinationIPv4Address&#39;, IPv4Address(&#39;10.5.6.7&#39;)), (&#39;flowStartMilliseconds&#39;, datetime.datetime(2013, 6, 21, 12, 0, tzinfo=datetime.timezone.utc)), (&#39;packetDeltaCount&#39;, 27), (&#39;sourceIPv4Address&#39;, IPv4Address(&#39;10.1.2.3&#39;))]</span>
+<span class="go">[(&#39;destinationIPv4Address&#39;, IPv4Address(&#39;10.12.13.14&#39;)), (&#39;flowStartMilliseconds&#39;, datetime.datetime(2013, 6, 21, 12, 0, 2, tzinfo=datetime.timezone.utc)), (&#39;packetDeltaCount&#39;, 33), (&#39;sourceIPv4Address&#39;, IPv4Address(&#39;10.8.9.11&#39;))]</span>
+<span class="go">[(&#39;flowStartMilliseconds&#39;, datetime.datetime(2013, 6, 21, 12, 0, 4, tzinfo=datetime.timezone.utc)), (&#39;myNewInformationElement&#39;, &quot;Grüezi, Y&#39;all&quot;)]</span>
 </pre></div>
 </div>
 <p>The tuple interface for reading messages is designed for applications with a
@@ -775,8 +775,8 @@ specified as an <a class="reference internal" href="#ipfix.ie.InformationElement
 <span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">rec</span> <span class="ow">in</span> <span class="n">msg</span><span class="o">.</span><span class="n">tuple_iterator</span><span class="p">(</span><span class="n">ielist</span><span class="p">):</span>
 <span class="gp">... </span>    <span class="k">print</span><span class="p">(</span><span class="n">rec</span><span class="p">)</span>
 <span class="gp">...</span>
-<span class="go">(datetime.datetime(2013, 6, 21, 12, 0), 27)</span>
-<span class="go">(datetime.datetime(2013, 6, 21, 12, 0, 2), 33)</span>
+<span class="go">(datetime.datetime(2013, 6, 21, 12, 0, tzinfo=datetime.timezone.utc), 27)</span>
+<span class="go">(datetime.datetime(2013, 6, 21, 12, 0, 2, tzinfo=datetime.timezone.utc), 33)</span>
 </pre></div>
 </div>
 <p>Notice that the variable-length record written to the message are not returned 
@@ -951,7 +951,7 @@ to the MessageBuffer, see <a class="reference internal" href="#ipfix.message.Mes
 
 <dl class="method">
 <dt id="ipfix.message.MessageBuffer.export_record">
-<tt class="descname">export_record</tt><big>(</big><em>rec</em>, <em>encode_fn=&lt;function Template.encode_namedict_to at 0x10427cf80&gt;</em>, <em>recinf=None</em><big>)</big><a class="reference internal" href="_modules/ipfix/message.html#MessageBuffer.export_record"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.message.MessageBuffer.export_record" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">export_record</tt><big>(</big><em>rec</em>, <em>encode_fn=&lt;function Template.encode_namedict_to at 0x10427fb00&gt;</em>, <em>recinf=None</em><big>)</big><a class="reference internal" href="_modules/ipfix/message.html#MessageBuffer.export_record"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.message.MessageBuffer.export_record" title="Permalink to this definition">¶</a></dt>
 <dd><p>Low-level interface to record export.</p>
 <p>Export a record to a MessageBuffer, using the template associated with
 the Set ID given to the most recent <a class="reference internal" href="#ipfix.message.MessageBuffer.export_new_set" title="ipfix.message.MessageBuffer.export_new_set"><tt class="xref py py-meth docutils literal"><span class="pre">export_new_set()</span></tt></a> or
@@ -1084,7 +1084,7 @@ from a stream.</p>
 
 <dl class="method">
 <dt id="ipfix.message.MessageBuffer.record_iterator">
-<tt class="descname">record_iterator</tt><big>(</big><em>decode_fn=&lt;function Template.decode_namedict_from at 0x10427cd40&gt;</em>, <em>tmplaccept_fn=&lt;function accept_all_templates at 0x104283830&gt;</em>, <em>recinf=None</em><big>)</big><a class="reference internal" href="_modules/ipfix/message.html#MessageBuffer.record_iterator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.message.MessageBuffer.record_iterator" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">record_iterator</tt><big>(</big><em>decode_fn=&lt;function Template.decode_namedict_from at 0x10427f8c0&gt;</em>, <em>tmplaccept_fn=&lt;function accept_all_templates at 0x104285290&gt;</em>, <em>recinf=None</em><big>)</big><a class="reference internal" href="_modules/ipfix/message.html#MessageBuffer.record_iterator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.message.MessageBuffer.record_iterator" title="Permalink to this definition">¶</a></dt>
 <dd><p>Low-level interface to record iteration.</p>
 <p>Iterate over records in an IPFIX message previously read with 
 <a class="reference internal" href="#ipfix.message.MessageBuffer.read_message" title="ipfix.message.MessageBuffer.read_message"><tt class="xref py py-meth docutils literal"><span class="pre">read_message()</span></tt></a> or <a class="reference internal" href="#ipfix.message.MessageBuffer.from_bytes" title="ipfix.message.MessageBuffer.from_bytes"><tt class="xref py py-meth docutils literal"><span class="pre">from_bytes()</span></tt></a>. Automatically handles 
@@ -1376,9 +1376,6 @@ the largest possible ipfix message.</li>
 </dd></dl>
 
 </div>
-<div class="section" id="module-ipfix.ieutils">
-<span id="module-ipfix-ieutils"></span><h2>module ipfix.ieutils<a class="headerlink" href="#module-ipfix.ieutils" title="Permalink to this headline">¶</a></h2>
-</div>
 </div>
 <div class="section" id="indices-and-tables">
 <h1>Indices and tables<a class="headerlink" href="#indices-and-tables" title="Permalink to this headline">¶</a></h1>
@@ -1404,7 +1401,6 @@ the largest possible ipfix message.</li>
 <li><a class="reference internal" href="#module-ipfix.message">module ipfix.message</a></li>
 <li><a class="reference internal" href="#module-ipfix.reader">module ipfix.reader</a></li>
 <li><a class="reference internal" href="#module-ipfix.writer">module ipfix.writer</a></li>
-<li><a class="reference internal" href="#module-ipfix.ieutils">module ipfix.ieutils</a></li>
 </ul>
 </li>
 <li><a class="reference internal" href="#indices-and-tables">Indices and tables</a></li>
@@ -1441,7 +1437,7 @@ the largest possible ipfix message.</li>
         <li class="right" >
           <a href="py-modindex.html" title="Python Module Index"
              >modules</a> |</li>
-        <li><a href="#">python-ipfix 0.9.3 documentation</a> &raquo;</li> 
+        <li><a href="#">python-ipfix 0.9.4 documentation</a> &raquo;</li> 
       </ul>
     </div>
     <div class="footer">

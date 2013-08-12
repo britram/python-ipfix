@@ -43,11 +43,6 @@ module ipfix.writer
 .. automodule:: ipfix.writer
   :members:   
 
-module ipfix.ieutils
---------------------
-.. automodule:: ipfix.ieutils
-  :members:   
-
 Indices and tables
 ==================
 
