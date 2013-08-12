@@ -26,6 +26,7 @@ import ipfix.message
 import socketserver
 import argparse
 import csv
+import bz2
 from sys import stdin, stdout, stderr
 
 args = None
@@ -39,6 +40,8 @@ def parse_args():
                         help="file to load additional IESpecs from")
     parser.add_argument('--file', '-f', metavar="file", nargs="?",
                         help="IPFIX file to read (default stdin)")
+    parser.add_argument('--bzip2', '-j', action="store_const", const=True,
+                        help="Decompress bz2-compressed IPFIX file")
     parser.add_argument('--collect', '-c', metavar="transport", nargs="?",
                         help="run CP on specified transport")
     parser.add_argument('--bind', '-b', metavar="bind", nargs="?",
@@ -86,8 +89,12 @@ if args.collect == 'tcp':
 elif args.collect:
     raise ValueError("Unsupported transport "+args.transport)
 elif args.file:
-    with open (args.file, mode="rb") as f:
-        stream_to_csv(f, args.ienames)
+    if args.bzip2:
+        with bz2.open (args.file, mode="rb") as f:
+            stream_to_csv(f, args.ienames)
+    else:
+        with open (args.file, mode="rb") as f:
+            stream_to_csv(f, args.ienames)
 else:
     stdin = stdin.detach()
     stream_to_csv(stdin, args.ienames)

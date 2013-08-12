@@ -20,9 +20,7 @@
 
 """
 Provides the PduBuffer class for decoding NetFlow V9 Protocol Data 
-Units (PDUs). 
-
-This module is not yet complete.
+Units (PDUs) from a stream.
 
 """
 
@@ -46,8 +44,8 @@ class PduBuffer:
     """
     Implements a buffer for reading NetFlow V9 PDUs from a stream or packet.
     
-    This class is not yet complete.
-    
+    Abstract class; use the :meth:`from_stream` to get an instance for
+    reading from a stream instead.
     """
     def __init__(self):
         """Create a new PduBuffer instance."""
@@ -59,8 +57,8 @@ class PduBuffer:
         self.reccount = None
         self.sequence = None
         self.export_epoch = None
-        self.base_epoch = None
         self.sysuptime_ms = None
+        self.base_epoch = None
         self.odid = 0
 
         self.templates = {}
@@ -77,7 +75,7 @@ class PduBuffer:
         self.sequences.setdefault(self.odid, 0)
         self.sequences[self.odid] += inc
 
-    def parse_pdu_header(self):
+    def _parse_pdu_header(self):
         (version, self.reccount, self.sysuptime_ms, 
              self.export_epoch, self.sequence, self.odid) = \
              _pduhdr_st.unpack_from(self.mbuf, 0)
@@ -209,6 +207,7 @@ class PduBuffer:
                 recinf = ielist)          
 
 class StreamPduBuffer(PduBuffer):
+    """Create a new StreamPduBuffer instance."""
     def __init__(self, stream):
         super().__init__()
         
@@ -246,7 +245,7 @@ class StreamPduBuffer(PduBuffer):
                                        str(len(resthdr)) +")")
             
             self.mbuf[_sethdr_st.size:_pduhdr_st.size] = resthdr
-            self.parse_pdu_header()
+            self._parse_pdu_header()
             # Now try again to get a set header
             self.mbuf[0:_sethdr_st.size]= self.stream.read(_sethdr_st.size)
             (setid, setlen) = _sethdr_st.unpack_from(self.mbuf)
@@ -261,3 +260,13 @@ class StreamPduBuffer(PduBuffer):
     
         # return pointers for record_iterator
         return (0, setid, setlen)
+
+def from_stream(stream):
+    """
+    Get a StreamPduBuffer for a given stream
+    
+    :param stream: stream to read
+    :return: a :class:`PduBuffer` wrapped around the stream.
+
+    """
+    return StreamPduBuffer(stream)

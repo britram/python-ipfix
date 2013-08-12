@@ -41,7 +41,7 @@ def parse_args():
                         help="file to load additional IESpecs from")
     parser.add_argument('--file', '-f', metavar="file", nargs="?",
                         help="IPFIX file to read (default stdin)")
-    parser.add_argument('--bzip2', '-b', action="store_const", const=True)
+    parser.add_argument('--bzip2', '-j', action="store_const", const=True)
     args = parser.parse_args()
 
 def init_ipfix(specfiles = None):
@@ -55,7 +55,7 @@ def init_ipfix(specfiles = None):
 def stream_to_csv(instream, ienames):
     cols = ipfix.ie.spec_list(ienames)
 
-    r = ipfix.v9pdu.StreamPduBuffer(instream)
+    r = ipfix.v9pdu.from_stream(instream)
     w = csv.writer(stdout, dialect='unix')
 
     w.writerow([e.name for e in cols])
