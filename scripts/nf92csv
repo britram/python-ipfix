@@ -52,7 +52,7 @@ def init_ipfix(specfiles = None):
 def stream_to_csv(instream, ienames):
     cols = ipfix.ie.spec_list(ienames)
 
-    r = v9pdu.StreamPduBuffer(instream)
+    r = ipfix.v9pdu.StreamPduBuffer(instream)
     w = csv.writer(stdout, dialect='unix')
 
     w.writerow([e.name for e in cols])

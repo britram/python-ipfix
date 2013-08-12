@@ -26,6 +26,17 @@ This module is not yet complete.
 
 """
 
+from . import template
+from .template import IpfixEncodeError, IpfixDecodeError
+from .message import accept_all_templates
+
+import operator
+import functools
+import struct
+from datetime import datetime
+from datetime import timezone
+from warnings import warn
+
 NETFLOW9_VERSION = 9
 
 _sethdr_st = struct.Struct("!HH")
@@ -104,7 +115,12 @@ class PduBuffer:
         :returns: an iterator over records decoded by decode_fn.
         
         """
-        while (offset, setid, setlen) = next_set():
+        while True:
+            try:
+                (offset, setid, setlen) = self.next_set()
+            except EOFError:
+                break
+                
             setend = offset + setlen
             offset += _sethdr_st.size # skip set header in decode
             if setid == template.V9_TEMPLATE_SET_ID or \
@@ -147,6 +163,18 @@ class PduBuffer:
         
         return self.record_iterator(
                 decode_fn = template.Template.decode_namedict_from)
+
+    def active_template_ids(self):
+        """
+        Get an iterator over all active template IDs in the current domain.
+        Provided to allow callers to export some or all active Templates across
+        multiple Messages.
+        
+        :returns: a template ID iterator
+        
+        """
+        for tk in filter(lambda k: k[0] == self.odid, self.templates):
+            yield tk[1]  
     
     def _recache_accepted_tids(self, tmplaccept_fn):
         for tid in self.active_template_ids():
@@ -187,32 +215,34 @@ class StreamPduBuffer(PduBuffer):
         self.stream = stream
     
     def next_set(self):
-    """
-    Reads the next set from the stream. Automatically reads PDU headers, as
-    well, since PDU headers are treated as a special case of set header in
-    streamed PDU reading.
+        """
+        Reads the next set from the stream. Automatically reads PDU headers, as
+        well, since PDU headers are treated as a special case of set header in
+        streamed PDU reading.
     
-    Yes, NetFlow V9 really is that broken as a storage format,
-    and this is the only way to stream it without counting records 
-    (which we can't do in the tuple-reading case).
+        Raises EOF to signal end of stream.
     
-    """
-    self.mbuf[0:_sethdr_st.size]= self.stream.read(_sethdr_st.size)
-    (setid, setlen) = _sethdr_st.unpack_from(self.mbuf)
+        Yes, NetFlow V9 really is that broken as a storage format,
+        and this is the only way to stream it without counting records 
+        (which we can't do in the tuple-reading case).
     
-    while setid == NETFLOW9_VERSION:
-        # Actually, this is the first part of a message header.
-        # Grab the rest from the stream, then parse it.
-        self.mbuf[_sethdr_st.size:_pduhdr_st.size] = \
-            self.stream.read(_pduhdr_st.size - _sethdr_st.size)
-        parse_pdu_header()
-        # Now try again to get a set header
+        """
         self.mbuf[0:_sethdr_st.size]= self.stream.read(_sethdr_st.size)
         (setid, setlen) = _sethdr_st.unpack_from(self.mbuf)
     
-    # read the set body into the buffer
-    self.mbuf[_sethdr_st.size:setlen] = \
-        self.stream.read(setlen, _sethdr_st.size)
+        while setid == NETFLOW9_VERSION:
+            # Actually, this is the first part of a message header.
+            # Grab the rest from the stream, then parse it.
+            self.mbuf[_sethdr_st.size:_pduhdr_st.size] = \
+                self.stream.read(_pduhdr_st.size - _sethdr_st.size)
+            parse_pdu_header()
+            # Now try again to get a set header
+            self.mbuf[0:_sethdr_st.size]= self.stream.read(_sethdr_st.size)
+            (setid, setlen) = _sethdr_st.unpack_from(self.mbuf)
     
-    # return pointers for record_iterator
-    return (0, setid, setlen)
+        # read the set body into the buffer
+        self.mbuf[_sethdr_st.size:setlen] = \
+            self.stream.read(setlen, _sethdr_st.size)
+    
+        # return pointers for record_iterator
+        return (0, setid, setlen)
