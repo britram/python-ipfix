@@ -257,8 +257,7 @@ class StreamPduBuffer(PduBuffer):
             raise IpfixDecodeError("Short read in V9 set body ("+ 
                                     str(len(setbody)) +")")
 
-        
-        self.mbuf[_sethdr_st.size:setlen] = \
+        self.mbuf[_sethdr_st.size:setlen] = setbody
     
         # return pointers for record_iterator
         return (0, setid, setlen)
