@@ -241,9 +241,7 @@ class StreamPduBuffer(PduBuffer):
             # Actually, this is the first part of a message header.
             # Grab the rest from the stream, then parse it.
             resthdr = self.stream.read(_pduhdr_st.size - _sethdr_st.size)
-            if (len(resthdr) == 0):
-                raise EOFError()
-            elif (len(resthdr) < _pduhdr_st.size - _sethdr_st.size):
+            if (len(resthdr) < _pduhdr_st.size - _sethdr_st.size):
                 raise IpfixDecodeError("Short read in V9 pdu header ("+ 
                                        str(len(resthdr)) +")")
             
@@ -254,8 +252,13 @@ class StreamPduBuffer(PduBuffer):
             (setid, setlen) = _sethdr_st.unpack_from(self.mbuf)
     
         # read the set body into the buffer
+        setbody = self.stream.read(setlen - sethdr_st.size)
+        if (len(setbody) < setlen - _sethdr_st.size):
+            raise IpfixDecodeError("Short read in V9 set body ("+ 
+                                    str(len(setbody)) +")")
+
+        
         self.mbuf[_sethdr_st.size:setlen] = \
-            self.stream.read(setlen, _sethdr_st.size)
     
         # return pointers for record_iterator
         return (0, setid, setlen)
