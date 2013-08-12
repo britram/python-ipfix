@@ -1,8 +1,12 @@
-v0.9,   1 July 2013 -- Initial release.
+v0.9,   2013-07-01 -- Initial release.
 
-v0.9.1, 2 July 2013 -- Add missing license headers and LICENSE.txt for GNU LGPL.
+v0.9.1, 2013-07-02 -- Add missing license headers and LICENSE.txt for GNU LGPL.
 
-v0.9.2, 2 July 2013 -- Fix packaging script errors.
+v0.9.2, 2013-07-02 -- Fix packaging script errors.
 
-v0.9.3, 9 July 2013 -- Fix tuple decode bug, add (undocumented) vis submodule,
+v0.9.3, 2013-07-09 -- Fix tuple decode bug, add (undocumented) vis submodule,
                        add TCP mode to ipfix2csv.
+
+v0.9.4, 2013-08-12 -- Fix timestamp decode issues (force all timestamps to UTC),
+                       add (pre-alpha quality) netflow9 read-only support,
+                       update to latest IANA Information Element registry.
