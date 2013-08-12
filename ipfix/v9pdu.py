@@ -252,7 +252,7 @@ class StreamPduBuffer(PduBuffer):
             (setid, setlen) = _sethdr_st.unpack_from(self.mbuf)
     
         # read the set body into the buffer
-        setbody = self.stream.read(setlen - sethdr_st.size)
+        setbody = self.stream.read(setlen - _sethdr_st.size)
         if (len(setbody) < setlen - _sethdr_st.size):
             raise IpfixDecodeError("Short read in V9 set body ("+ 
                                     str(len(setbody)) +")")
