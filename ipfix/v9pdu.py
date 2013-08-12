@@ -248,7 +248,7 @@ class StreamPduBuffer(PduBuffer):
                                        str(len(resthdr)) +")")
             
             self.mbuf[_sethdr_st.size:_pduhdr_st.size] = resthdr
-            parse_pdu_header()
+            self.parse_pdu_header()
             # Now try again to get a set header
             self.mbuf[0:_sethdr_st.size]= self.stream.read(_sethdr_st.size)
             (setid, setlen) = _sethdr_st.unpack_from(self.mbuf)
