@@ -227,14 +227,27 @@ class StreamPduBuffer(PduBuffer):
         (which we can't do in the tuple-reading case).
     
         """
-        self.mbuf[0:_sethdr_st.size]= self.stream.read(_sethdr_st.size)
+        sethdr = self.stream.read(_sethdr_st.size)
+        if (len(sethdr) == 0):
+            raise EOFError()
+        elif (len(sethdr) < _sethdr_st.size):
+            raise IpfixDecodeError("Short read in V9 set header ("+ 
+                                       str(len(sethdr)) +")")
+        
+        self.mbuf[0:_sethdr_st.size] = sethdr
         (setid, setlen) = _sethdr_st.unpack_from(self.mbuf)
     
         while setid == NETFLOW9_VERSION:
             # Actually, this is the first part of a message header.
             # Grab the rest from the stream, then parse it.
-            self.mbuf[_sethdr_st.size:_pduhdr_st.size] = \
-                self.stream.read(_pduhdr_st.size - _sethdr_st.size)
+            resthdr = self.stream.read(_pduhdr_st.size - _sethdr_st.size)
+            if (len(resthdr) == 0):
+                raise EOFError()
+            elif (len(sethdr) < _pduhdr_st.size - _sethdr_st.size):
+                raise IpfixDecodeError("Short read in V9 pdu header ("+ 
+                                       str(len(sethdr)) +")")
+            
+            self.mbuf[_sethdr_st.size:_pduhdr_st.size] = resthdr
             parse_pdu_header()
             # Now try again to get a set header
             self.mbuf[0:_sethdr_st.size]= self.stream.read(_sethdr_st.size)
