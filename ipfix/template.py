@@ -44,6 +44,10 @@ class IpfixDecodeError(Exception):
     def __init__(self, *args):
         super().__init__(args)
 
+# constants for v9
+V9_TEMPLATE_SET_ID = 0
+V9_OPTIONS_SET_ID = 1
+
 # constants
 TEMPLATE_SET_ID = 2
 OPTIONS_SET_ID = 3
@@ -325,11 +329,11 @@ def decode_template_from(buf, offset, setid):
     as an Options Template if setid is OPTIONS_SET_ID.
     
     """
-    if setid == TEMPLATE_SET_ID:
+    if (setid == TEMPLATE_SET_ID) or (setid == V9_TEMPLATE_SET_ID):
         (tid, count) = _tmplhdr_st.unpack_from(buf, offset);
         scopecount = 0
         offset += _tmplhdr_st.size
-    elif setid == OPTIONS_SET_ID:
+    elif (setid == OPTIONS_SET_ID) or (setid == V9_OPTIONS_SET_ID):
         (tid, count, scopecount) = _otmplhdr_st.unpack_from(buf, offset);
         offset += _otmplhdr_st.size
     else:
