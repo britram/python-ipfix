@@ -74,8 +74,8 @@ class PduBuffer:
                " length "+str(self.length)+addinf+">"
 
     def _increment_sequence(self, inc = 1):
-        self.sequences.setdefault((self.odid, self.streamid), 0)
-        self.sequences[(self.odid, self.streamid)] += inc
+        self.sequences.setdefault(self.odid, 0)
+        self.sequences[self.odid] += inc
 
     def parse_pdu_header(self):
         (version, self.reccount, self.sysuptime_ms, 
