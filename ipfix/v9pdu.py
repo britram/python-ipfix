@@ -243,9 +243,9 @@ class StreamPduBuffer(PduBuffer):
             resthdr = self.stream.read(_pduhdr_st.size - _sethdr_st.size)
             if (len(resthdr) == 0):
                 raise EOFError()
-            elif (len(sethdr) < _pduhdr_st.size - _sethdr_st.size):
+            elif (len(resthdr) < _pduhdr_st.size - _sethdr_st.size):
                 raise IpfixDecodeError("Short read in V9 pdu header ("+ 
-                                       str(len(sethdr)) +")")
+                                       str(len(resthdr)) +")")
             
             self.mbuf[_sethdr_st.size:_pduhdr_st.size] = resthdr
             parse_pdu_header()
