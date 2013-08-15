@@ -125,18 +125,20 @@ class PduBuffer:
             offset += _sethdr_st.size # skip set header in decode
             if setid == template.V9_TEMPLATE_SET_ID or \
                setid == template.V9_OPTIONS_SET_ID:
-                while offset < setend:
-                    (tmpl, offset) = template.decode_template_from(
-                                              self.mbuf, offset, setid)
-                    # FIXME handle withdrawal
-                    self.templates[(self.odid, tmpl.tid)] = tmpl
-                    if tmplaccept_fn(tmpl):
-                        self.accepted_tids.add((self.odid, tmpl.tid))
-                    else:
-                        self.accepted_tids.discard((self.odid, tmpl.tid))
-                    if self.add_template_hook:
-                        self.add_template_hook(self, tmpl)
-                    
+                try:
+                    while offset < setend:
+                        (tmpl, offset) = template.decode_template_from(
+                                                  self.mbuf, offset, setid)
+                        # FIXME handle withdrawal
+                        self.templates[(self.odid, tmpl.tid)] = tmpl
+                        if tmplaccept_fn(tmpl):
+                            self.accepted_tids.add((self.odid, tmpl.tid))
+                        else:
+                            self.accepted_tids.discard((self.odid, tmpl.tid))
+                        if self.add_template_hook:
+                            self.add_template_hook(self, tmpl)
+                except IpfixTypeError as e:
+                    warn("skipping V9 template set: type error: "+str(e))
             elif setid < 256:
                 warn("skipping illegal set id "+setid)
             elif (self.odid, setid) in self.accepted_tids:
