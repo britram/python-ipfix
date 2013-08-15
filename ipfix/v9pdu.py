@@ -141,7 +141,7 @@ class PduBuffer:
                 except IpfixTypeError as e:
                     warn("skipping V9 template set: type error: "+str(e))
             elif setid < 256:
-                warn("skipping illegal set id "+setid)
+                warn("skipping illegal set id "+str(setid))
             elif (self.odid, setid) in self.accepted_tids:
                 try:
                     tmpl = self.templates[(self.odid, setid)]

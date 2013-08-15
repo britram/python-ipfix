@@ -407,7 +407,7 @@ class MessageBuffer:
                         self.add_template_hook(self, tmpl)
                     
             elif setid < 256:
-                warn("skipping illegal set id "+setid)
+                warn("skipping illegal set id "+str(setid))
             elif (self.odid, setid) in self.accepted_tids:
                 try:
                     tmpl = self.templates[(self.odid, setid)]
