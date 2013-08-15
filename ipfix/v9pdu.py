@@ -26,6 +26,7 @@ Units (PDUs) from a stream.
 
 from . import template
 from .template import IpfixEncodeError, IpfixDecodeError
+from .types import IpfixTypeError
 from .message import accept_all_templates
 
 import operator
