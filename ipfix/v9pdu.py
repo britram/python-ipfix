@@ -24,9 +24,8 @@ Units (PDUs) from a stream.
 
 """
 
-from . import template
+from . import template, types
 from .template import IpfixEncodeError, IpfixDecodeError
-from .types import IpfixTypeError
 from .message import accept_all_templates
 
 import operator
@@ -126,20 +125,17 @@ class PduBuffer:
             offset += _sethdr_st.size # skip set header in decode
             if setid == template.V9_TEMPLATE_SET_ID or \
                setid == template.V9_OPTIONS_SET_ID:
-                try:
-                    while offset < setend:
-                        (tmpl, offset) = template.decode_template_from(
-                                                  self.mbuf, offset, setid)
-                        # FIXME handle withdrawal
-                        self.templates[(self.odid, tmpl.tid)] = tmpl
-                        if tmplaccept_fn(tmpl):
-                            self.accepted_tids.add((self.odid, tmpl.tid))
-                        else:
-                            self.accepted_tids.discard((self.odid, tmpl.tid))
-                        if self.add_template_hook:
-                            self.add_template_hook(self, tmpl)
-                except IpfixTypeError as e:
-                    warn("skipping V9 template set: type error: "+str(e))
+                while offset < setend:
+                    (tmpl, offset) = template.decode_template_from(
+                                              self.mbuf, offset, setid)
+                    # FIXME handle withdrawal
+                    self.templates[(self.odid, tmpl.tid)] = tmpl
+                    if tmplaccept_fn(tmpl):
+                        self.accepted_tids.add((self.odid, tmpl.tid))
+                    else:
+                        self.accepted_tids.discard((self.odid, tmpl.tid))
+                    if self.add_template_hook:
+                        self.add_template_hook(self, tmpl)
             elif setid < 256:
                 warn("skipping illegal set id "+str(setid))
             elif (self.odid, setid) in self.accepted_tids:
@@ -277,3 +273,43 @@ def from_stream(stream):
 
     """
     return StreamPduBuffer(stream)
+
+class TimeAdapter:
+    
+    def __init__(self, pdubuf):
+        self.pdubuf = pdubuf
+        
+    def namedict_iterator(self):
+        for rec in self.pdubuf.namedict_iterator(ienames):
+            try: 
+                rec["flowStartMilliseconds"] = \
+                    types._decode_msec(rec["flowStartSysUpTime"] / 1000 +
+                                       self.pdubuf.basetime_epoch)
+            except KeyError:
+                pass
+        
+            try: 
+                rec["flowEndMilliseconds"] = \
+                    types._decode_msec(rec["flowEndSysUpTime"] / 1000 +
+                                       self.pdubuf.basetime_epoch)
+            except KeyError:
+                pass
+        
+            yield rec
+        
+    def tuple_iterator(self, ienames):
+        if ("flowEndSysUpTime" in ienames) and \
+           ("flowStartSysUpTime" in ienames):
+           start_index = ienames.index("flowStartSysUpTime")
+           end_index = ienames.index("flowStartSysUpTime")
+
+            for rec in self.pdubuf.tuple_iterator(ienames):
+                rec.append(types._decode_msec(rec[start_index] / 1000 + 
+                                 self.pdubuf.basetime_epoch))
+                rec.append(types._decode_msec(rec[end_index] / 1000 + 
+                                 self.pdubuf.basetime_epoch))
+                yield rec
+        else:
+            for rec in self.pdubuf.tuple_iterator(ienames):
+                yield rec
+    
