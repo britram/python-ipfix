@@ -23,7 +23,6 @@ import ipfix.ie
 import ipfix.reader
 import ipfix.v9pdu
 
-import socketserver
 import argparse
 import csv
 import bz2
@@ -40,8 +39,9 @@ def parse_args():
     parser.add_argument('--spec', '-s', metavar="specfile", action="append",
                         help="file to load additional IESpecs from")
     parser.add_argument('--file', '-f', metavar="file", nargs="?",
-                        help="IPFIX file to read (default stdin)")
-    parser.add_argument('--bzip2', '-j', action="store_const", const=True)
+                        help="NetFlow PDU file to read (default stdin)")
+    parser.add_argument('--bzip2', '-j', action="store_const", const=True,
+                        help="Decompress bz2-compressed NetFlow PDU file")
     args = parser.parse_args()
 
 def init_ipfix(specfiles = None):

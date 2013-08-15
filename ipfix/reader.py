@@ -43,7 +43,7 @@ class MessageStreamReader:
         self.msg = message.MessageBuffer()    
         self.msgcount = 0
         
-    def records_as_dict(self):
+    def namedict_iterator(self):
         """
         Iterate over all records in the stream, as dicts mapping IE names
         to values.
@@ -59,7 +59,7 @@ class MessageStreamReader:
         except EOFError:
             return
             
-    def records_as_tuple(self, ielist):
+    def tuple_iterator(self, ielist):
         """
         Iterate over all records in the stream containing all the IEs in 
         the given ielist. Records are returned as tuples in ielist order.

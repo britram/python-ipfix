@@ -67,6 +67,8 @@ class PduBuffer:
         
         self.last_tuple_iterator_ielist = None
         
+        self.add_template_hook = None
+        
     def __repr__(self):
         return "<PDUBuffer domain "+str(self.odid)+\
                " length "+str(self.length)+addinf+">"
@@ -132,6 +134,8 @@ class PduBuffer:
                         self.accepted_tids.add((self.odid, tmpl.tid))
                     else:
                         self.accepted_tids.discard((self.odid, tmpl.tid))
+                    if self.add_template_hook:
+                        self.add_template_hook(self, tmpl)
                     
             elif setid < 256:
                 warn("skipping illegal set id "+setid)

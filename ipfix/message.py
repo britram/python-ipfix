@@ -225,6 +225,8 @@ class MessageBuffer:
         
         self.mtu = 65535
         
+        self.add_template_hook = None
+        
     def __repr__(self):
         if self.cursetid:
             addinf = " (writing set "+str(self.cursetid)+")"
@@ -401,6 +403,8 @@ class MessageBuffer:
                         self.accepted_tids.add((self.odid, tmpl.tid))
                     else:
                         self.accepted_tids.discard((self.odid, tmpl.tid))
+                    if self.add_template_hook:
+                        self.add_template_hook(self, tmpl)
                     
             elif setid < 256:
                 warn("skipping illegal set id "+setid)
@@ -505,8 +509,12 @@ class MessageBuffer:
         :raises: EndOfMessage
         """
         self.templates[(self.odid, tmpl.tid)] = tmpl
+        
         if export:
             self.export_template(tmpl.tid)
+        
+        if self.add_template_hook:
+            self.add_template_hook(self, tmpl)
     
     def delete_template(self, tid, export=True):
         """

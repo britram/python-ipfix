@@ -26,13 +26,9 @@ automatic message boundary management, see the "ipfix.reader" and
 of messages, see "ipfix.message". In any case, exporters will need to
 define templates; see "ipfix.template".
 
-This module is  2013 Brian Trammell, and is made available under the
-terms of the [GNU Lesser General Public
-License](http://www.gnu.org/licenses/lgpl.html), or, at your option,
-any later version.
-
-Warning: Variable-length IEs are ostensibly supported by this
-  module, but have not been tested as of this release.
+This module is copyright 2013 Brian Trammell. It is made available
+under the terms of the  GNU Lesser General Public License,  or, at
+your option, any later version.
 
 Reference documentation for each module is found in the subsections
 below.
@@ -197,11 +193,11 @@ exception exception ipfix.types.IpfixTypeError(*args)
 
    Raised when attempting to do an unsupported operation on a type
 
-class class ipfix.types.OctetArrayType(name, num, valenc=<function _identity at 0x104a4ae60>, valdec=<function _identity at 0x104a4ae60>)
+class class ipfix.types.OctetArrayType(name, num, valenc=<function _identity at 0x1028a8b90>, valdec=<function _identity at 0x1028a8b90>)
 
    Type encoded by byte array packing. Used internally.
 
-class class ipfix.types.StructType(name, num, stel, valenc=<function _identity at 0x104a4ae60>, valdec=<function _identity at 0x104a4ae60>)
+class class ipfix.types.StructType(name, num, stel, valenc=<function _identity at 0x1028a8b90>, valdec=<function _identity at 0x1028a8b90>)
 
    Type encoded by struct packing. Used internally.
 
@@ -769,7 +765,7 @@ class class ipfix.message.MessageBuffer
       Raises :
          IpfixEncodeError, EndOfMessage
 
-   export_record(rec, encode_fn=<function Template.encode_namedict_to at 0x104a81dd0>, recinf=None)
+   export_record(rec, encode_fn=<function Template.encode_namedict_to at 0x102567ef0>, recinf=None)
 
       Low-level interface to record export.
 
@@ -868,7 +864,7 @@ class class ipfix.message.MessageBuffer
       Raises :
          IpfixDecodeError
 
-   record_iterator(decode_fn=<function Template.decode_namedict_from at 0x104a81b90>, tmplaccept_fn=<function accept_all_templates at 0x104a854d0>, recinf=None)
+   record_iterator(decode_fn=<function Template.decode_namedict_from at 0x102567cb0>, tmplaccept_fn=<function accept_all_templates at 0x10256f710>, recinf=None)
 
       Low-level interface to record iteration.
 
@@ -1079,10 +1075,6 @@ ipfix.writer.to_stream(stream, mtu=65535)
 
    Returns:
       a "MessageStreamWriter" wrapped around the stream.
-
-
-module ipfix.ieutils
-====================
 
 
 Indices and tables

@@ -21,12 +21,14 @@
 
 import ipfix.ie
 import ipfix.reader
+import ipfix.template
 import ipfix.message
+import ipfix.v9pdu
 
-import socketserver
 import argparse
 import csv
 import bz2
+
 from sys import stdin, stdout, stderr
 
 args = None
@@ -34,20 +36,14 @@ args = None
 def parse_args():
     global args
     parser = argparse.ArgumentParser(description="Convert an IPFIX file or stream to CSV")
-    parser.add_argument('ienames', metavar="ie", nargs="+",
-                        help="column(s) by IE name")
     parser.add_argument('--spec', '-s', metavar="specfile", action="append",
                         help="file to load additional IESpecs from")
     parser.add_argument('--file', '-f', metavar="file", nargs="?",
-                        help="IPFIX file to read (default stdin)")
+                        help="File to read (default stdin)")
     parser.add_argument('--bzip2', '-j', action="store_const", const=True,
-                        help="Decompress bz2-compressed IPFIX file")
-    parser.add_argument('--collect', '-c', metavar="transport", nargs="?",
-                        help="run CP on specified transport")
-    parser.add_argument('--bind', '-b', metavar="bind", nargs="?",
-                        default="", help="address to bind to as CP (default all)")
-    parser.add_argument('--port', '-p', metavar="port", nargs="?", type=int,
-                        default="4739", help="port to bind to as CP (default 4739)")
+                        help="Decompress bz2-compressed file")
+    parser.add_argument('--netflow9', '-9', action="store_const", const=True,
+                        help="Input is NetFlow V9 PDU file, not IPFIX")
     args = parser.parse_args()
 
 def init_ipfix(specfiles = None):
@@ -58,43 +54,43 @@ def init_ipfix(specfiles = None):
         for sf in specfiles:
             ipfix.ie.use_specfile(sf)
 
-def stream_to_csv(instream, ienames):
-    cols = ipfix.ie.spec_list(ienames)
+def dump_template(msg, tmpl):
+    if tmpl.scopecount:
+        print("#\n# Options Template "+str(tmpl.tid)+" in domain "+str(msg.odid)+
+              " ("+str(len(tmpl.ies))+" IEs)\n#")
+    else:
+        print("#\n# Template "+str(tmpl.tid)+" in domain "+str(msg.odid)+
+              " ("+str(len(tmpl.ies))+" IEs)\n#")
+            
+    for i, ie in enumerate(tmpl.ies):
+        if i < tmpl.scopecount:
+            addl = "{scope}"
+        else:
+            addl = ""
+        print(str(ie)+addl)
 
-    r = ipfix.reader.from_stream(instream)
-    w = csv.writer(stdout, dialect='unix')
-
-    w.writerow([e.name for e in cols])
-    
-    for rec in r.tuple_iterator(cols):
-        w.writerow([str(val) for val in rec])
-    
-
-class TcpCsvHandler(socketserver.StreamRequestHandler):
-    def handle(self):
-        stderr.write("connection from "+str(self.client_address)+"\n")
-        stream_to_csv(self.rfile, args.ienames)
+def dump_templates(instream):
+    if args.netflow9:
+        r = ipfix.v9pdu.from_stream(instream)
+        r.add_template_hook = dump_template
+    else:
+        r = ipfix.reader.from_stream(instream)
+        r.msg.add_template_hook = dump_template
+        
+    for rec in r.namedict_iterator():
+        pass
 
 # set "args" global
 parse_args()
 
 init_ipfix(args.spec)
-
-if args.collect == 'tcp':
-    stderr.write("starting TCP CP on "+args.bind+":"+
-                     str(args.port)+"; Ctrl-C to stop\n")
-    stderr.flush()
-    ss = socketserver.TCPServer((args.bind, args.port), TcpCsvHandler)
-    ss.serve_forever()
-elif args.collect:
-    raise ValueError("Unsupported transport "+args.transport)
-elif args.file:
+if args.file:
     if args.bzip2:
-        with bz2.open (args.file, mode="rb") as f:
-            stream_to_csv(f, args.ienames)
+        with bz2.open(args.file, mode="rb") as f:
+            dump_templates(f)
     else:
         with open (args.file, mode="rb") as f:
-            stream_to_csv(f, args.ienames)
+            dump_templates(f)
 else:
     stdin = stdin.detach()
-    stream_to_csv(stdin, args.ienames)
+    dump_templates(f)
