@@ -93,4 +93,4 @@ if args.file:
             dump_templates(f)
 else:
     stdin = stdin.detach()
-    dump_templates(f)
+    dump_templates(stdin)
