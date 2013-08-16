@@ -300,8 +300,8 @@ class TimeAdapter:
     def tuple_iterator(self, ienames):
         if ("flowEndSysUpTime" in ienames) and \
            ("flowStartSysUpTime" in ienames):
-           start_index = ienames.index("flowStartSysUpTime")
-           end_index = ienames.index("flowStartSysUpTime")
+            start_index = ienames.index("flowStartSysUpTime")
+            end_index = ienames.index("flowStartSysUpTime")
 
             for rec in self.pdubuf.tuple_iterator(ienames):
                 rec.append(types._decode_msec(rec[start_index] / 1000 + 
