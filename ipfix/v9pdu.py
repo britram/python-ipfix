@@ -306,13 +306,13 @@ class TimeAdapter:
             start_index = ielist.index(flowStartSysUpTime)
             end_index = ielist.index(flowEndSysUpTime)
 
-            for rec in self.pdubuf.tuple_iterator(ienames):
+            for rec in self.pdubuf.tuple_iterator(ielist):
                 rec.unshift(types._decode_msec(rec[end_index] / 1000 + 
                                   self.pdubuf.basetime_epoch))
                 rec.unshift(types._decode_msec(rec[start_index] / 1000 + 
                                  self.pdubuf.basetime_epoch))
                 yield rec
         else:
-            for rec in self.pdubuf.tuple_iterator(ienames):
+            for rec in self.pdubuf.tuple_iterator(ielist):
                 yield rec
     
