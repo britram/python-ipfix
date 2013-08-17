@@ -311,7 +311,7 @@ class TimeAdapter:
                                  self.pdubuf.basetime_epoch)
                 end_ms = types._decode_msec(rec[end_index] / 1000 + 
                                   self.pdubuf.basetime_epoch)
-                yield (start_ms, end_ms) + rec
+                yield rec + (start_ms, end_ms)
         else:
             for rec in self.pdubuf.tuple_iterator(ielist):
                 yield rec
