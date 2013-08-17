@@ -24,7 +24,7 @@ Units (PDUs) from a stream.
 
 """
 
-from . import template, types
+from . import template, types, ie
 from .template import IpfixEncodeError, IpfixDecodeError
 from .message import accept_all_templates
 
@@ -297,16 +297,19 @@ class TimeAdapter:
         
             yield rec
         
-    def tuple_iterator(self, ienames):
-        if ("flowEndSysUpTime" in ienames) and \
-           ("flowStartSysUpTime" in ienames):
-            start_index = ienames.index("flowStartSysUpTime")
-            end_index = ienames.index("flowStartSysUpTime")
+    def tuple_iterator(self, ielist):
+        flowStartSysUpTime = ie.for_spec("flowStartSysUpTime")
+        flowEndSysUpTime = ie.for_spec("flowEndSysUpTime")
+        
+        if (flowStartSysUpTime in ielist) and \
+           (flowEndSysUpTime in ielist):
+            start_index = ielist.index(flowStartSysUpTime)
+            end_index = ielist.index(flowEndSysUpTime)
 
             for rec in self.pdubuf.tuple_iterator(ienames):
-                rec.append(types._decode_msec(rec[start_index] / 1000 + 
-                                 self.pdubuf.basetime_epoch))
-                rec.append(types._decode_msec(rec[end_index] / 1000 + 
+                rec.unshift(types._decode_msec(rec[end_index] / 1000 + 
+                                  self.pdubuf.basetime_epoch))
+                rec.unshift(types._decode_msec(rec[start_index] / 1000 + 
                                  self.pdubuf.basetime_epoch))
                 yield rec
         else:

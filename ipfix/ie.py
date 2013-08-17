@@ -242,8 +242,8 @@ def for_spec(spec):
     
     # try to create new registered IE
     if not typename:
-        raise ValueError("Cannot create new IE "+str(spec)+
-                         " without valid type")
+        raise ValueError("IE "+str(spec)+
+                         " unknown; use a full IEspec to create a new IE.")
     
     ietype = types.for_name(typename)
         
