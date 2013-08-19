@@ -337,6 +337,16 @@ _roottypes = [
 _TypeForName = { ietype.name: ietype for ietype in _roottypes }
 _TypeForNum = { ietype.num: ietype for ietype in _roottypes }
 
+def use_integer_ipv4():
+    """
+    Use integers instead of ipaddress.IPv4Address to store IPv4 addresses.
+    Changes behavior globally; should be called before using any IPFIX types.
+    Designed for use with numpy arrays, to not require a Python object for
+    storing IP addresses.
+    """
+    _roottypes[18] = StructType("ipv4address", 18, "L")
+
+
 def for_name(name):
     """
     Return an IPFIX type for a given type name
