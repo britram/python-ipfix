@@ -87,7 +87,7 @@ if args.collect == 'tcp':
     ss = socketserver.TCPServer((args.bind, args.port), TcpCsvHandler)
     ss.serve_forever()
 elif args.collect:
-    raise ValueError("Unsupported transport "+args.transport)
+    raise ValueError("Unsupported transport "+args.collect+"; must be 'tcp'")
 elif args.file:
     if args.bzip2:
         with bz2.open (args.file, mode="rb") as f:
