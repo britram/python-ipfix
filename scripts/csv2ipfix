@@ -1,0 +1,173 @@
+#!/usr/bin/env python3
+#
+# python-ipfix (c) 2013 Brian Trammell.
+#
+# Many thanks to the mPlane consortium (http://www.ict-mplane.eu) for
+# its material support of this effort.
+# 
+# This program is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
+# later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+import ipfix.ie
+import ipfix.writer
+import ipfix.message
+
+from ipaddress import ip_address
+from datetime import datetime
+
+import socketserver
+import argparse
+import csv
+import bz2
+from sys import stdin, stdout, stderr
+
+TEMPLATE_ID = 256
+DOMAIN_ID = 1
+
+def _parse_mac(macstr):
+    return pack("6s",*macstr.split(":")[0:5])
+
+def _parse_iso8601_s(timestr):
+    return datetime.strptime(timestr, "%Y-%m-%d %H:%M:%S")
+
+# Parsers per type
+_parse_fn = [
+    bytes,            # octetArray
+    int,              # unsigned8
+    int,              # unsigned16
+    int,              # unsigned32
+    int,              # unsigned64
+    int,              # signed8
+    int,              # signed16
+    int,              # signed32
+    int,              # signed64
+    float,            # float32
+    float,            # float64
+    bool,             # boolean
+    _parse_mac,       # macAddress
+    str,              # string
+    _parse_iso8601_s,   # dateTimeSeconds
+    _parse_iso8601_s,   # dateTimeMilliseconds
+    _parse_iso8601_s,   # dateTimeMicroseconds
+    _parse_iso8601_s,   # dateTimeNanoseconds
+    ip_address,       # ipv4Address
+    ip_address        # ipv6Address
+]
+
+args = None
+
+def parse_args():
+    global args
+    parser = argparse.ArgumentParser(description="Convert a CSV file to an IPFIX file or stream")
+    parser.add_argument('csvfile', metavar="file", nargs="?",
+                        help="csv file to read")
+    parser.add_argument('--colmap', '-m', metavar="mapfile", action="append",
+                        help="file to load column map from")
+    parser.add_argument('--spec', '-s', metavar="specfile", action="append",
+                        help="file to load additional IESpecs from")
+    parser.add_argument('--file', '-f', metavar="file",
+                        help="IPFIX file to write [default stdout]")
+    parser.add_argument('--bzip2', '-j', action="store_const", const=True,
+                        help="Compress IPFIX file using bz2")
+    parser.add_argument('--export', '-e', metavar="transport",
+                        help="run EP on specified transport)")
+    parser.add_argument('--host', '-H', metavar="host",
+                        default="localhsot", help="address to export to (default localhost)")
+    parser.add_argument('--port', '-P', metavar="port", type=int,
+                        default="4739", help="port to export to as EP (default 4739)")
+    args = parser.parse_args()
+
+def init_ipfix(specfiles = None):
+    ipfix.ie.use_iana_default()
+    ipfix.ie.use_5103_default()
+    
+    if specfiles:
+        for sf in specfiles:
+            ipfix.ie.use_specfile(sf)
+
+def init_colmap(colmap_filenames = None):
+    colmap = {}
+    
+    if colmap_filenames:
+        for colmap_filename in colmap_filenames:
+            with open(colmap_file, "r") as f:
+                for line in f:
+                    (colname, iename) = line.split(':')
+                    colmap["colname"] = ipfix.ie.for_spec(iename)
+
+    return colmap
+
+def ie_for_colname(colname, colmap=None):
+    if colmap and (colname in colmap):
+            return colmap[colname]
+    # fall through if no map or no entry in map
+    return ipfix.ie.for_spec(colname)
+
+def parse_string_tuple(rec, ies):
+    return tuple([_parse_fn[ie.type.num](col) for col, ie in zip(rec, ies)])
+
+def csv_to_ipfix(instream, outstream, colmap=None):
+    # wrap the streams
+    r = csv.reader(instream)
+    w = ipfix.writer.to_stream(outstream)
+    
+    # read header and convert to IEs
+    headers = next(r)
+    ies = [ie_for_colname(colname) for colname in headers]
+    
+    # write a template
+    t = ipfix.template.from_ielist(TEMPLATE_ID, ies)
+    w.set_domain(DOMAIN_ID)
+    w.add_template(t)
+    
+    # set export template and start exporting
+    w.set_export_template(TEMPLATE_ID)
+    
+    # iterate over csv
+    for rec in r:
+        # export parsed record
+        w.export_tuple(parse_string_tuple(rec, ies))
+    
+    # flush last message
+    w.flush()
+
+# set "args" global
+parse_args()
+
+# spin up IPFIX
+init_ipfix(args.spec)
+
+# parse column maps
+colmap = init_colmap(args.colmap)
+
+# set up output stream first
+if args.export == 'tcp':
+    outstream = socket.create_connection((host, port))
+elif args.export:
+    raise ValueError("Unsupported transport "+args.export+"; must be 'tcp'")
+elif args.file:
+    if args.bz2:
+        outstream = bz2.open(args.file, mode="wb")
+    else:
+        outstream = open(args.file, mode="wb")
+else:
+    stdout = stdout.detach()
+    outstream = stdout
+    
+# now setup input stream and convert
+if args.csvfile:
+    with open (args.csvfile, mode="r") as instream:
+        csv_to_ipfix(instream, outstream, colmap)
+else:
+    csv_to_ipfix(stdin, outstream, colmap)

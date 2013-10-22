@@ -46,7 +46,7 @@ def parse_args():
                         help="run CP on specified transport")
     parser.add_argument('--bind', '-b', metavar="bind", nargs="?",
                         default="", help="address to bind to as CP (default all)")
-    parser.add_argument('--port', '-p', metavar="port", nargs="?", type=int,
+    parser.add_argument('--port', '-P', metavar="port", nargs="?", type=int,
                         default="4739", help="port to bind to as CP (default 4739)")
     args = parser.parse_args()
 
