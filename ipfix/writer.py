@@ -103,11 +103,11 @@ class MessageStreamWriter:
         self._retry_after_flush(message.MessageBuffer.export_namedict, 
                                self.msg, rec)
             
-    def export_tuple(self, rec, ielist = None):
+    def export_tuple(self, rec):
         self._retry_after_flush(message.MessageBuffer.export_ensure_set, 
                                 self.msg, self.curtid)
         self._retry_after_flush(message.MessageBuffer.export_tuple, 
-                                self.msg, rec, ielist)
+                                self.msg, rec)
     
     def flush(self):
         """
