@@ -115,7 +115,7 @@ def ie_for_colname(colname, colmap=None):
     return ipfix.ie.for_spec(colname)
 
 def parse_string_tuple(rec, ies):
-    return tuple([_parse_fn[ie.type.num](col) for col, ie in zip(rec, ies)])
+    return [_parse_fn[ie.type.num](col) for col, ie in zip(rec, ies)]
 
 def csv_to_ipfix(instream, outstream, colmap=None):
     # wrap the streams
