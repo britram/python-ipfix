@@ -75,26 +75,27 @@ class TcpCsvHandler(socketserver.StreamRequestHandler):
         stderr.write("connection from "+str(self.client_address)+"\n")
         stream_to_csv(self.rfile, args.ienames)
 
-# set "args" global
-parse_args()
+if __name__ == "__main__":
+    # set "args" global
+    parse_args()
 
-init_ipfix(args.spec)
+    init_ipfix(args.spec)
 
-if args.collect == 'tcp':
-    stderr.write("starting TCP CP on "+args.bind+":"+
-                     str(args.port)+"; Ctrl-C to stop\n")
-    stderr.flush()
-    ss = socketserver.TCPServer((args.bind, args.port), TcpCsvHandler)
-    ss.serve_forever()
-elif args.collect:
-    raise ValueError("Unsupported transport "+args.collect+"; must be 'tcp'")
-elif args.file:
-    if args.bzip2:
-        with bz2.open (args.file, mode="rb") as f:
-            stream_to_csv(f, args.ienames)
+    if args.collect == 'tcp':
+        stderr.write("starting TCP CP on "+args.bind+":"+
+                         str(args.port)+"; Ctrl-C to stop\n")
+        stderr.flush()
+        ss = socketserver.TCPServer((args.bind, args.port), TcpCsvHandler)
+        ss.serve_forever()
+    elif args.collect:
+        raise ValueError("Unsupported transport "+args.collect+"; must be 'tcp'")
+    elif args.file:
+        if args.bzip2:
+            with bz2.open (args.file, mode="rb") as f:
+                stream_to_csv(f, args.ienames)
+        else:
+            with open (args.file, mode="rb") as f:
+                stream_to_csv(f, args.ienames)
     else:
-        with open (args.file, mode="rb") as f:
-            stream_to_csv(f, args.ienames)
-else:
-    stdin = stdin.detach()
-    stream_to_csv(stdin, args.ienames)
+        stdin = stdin.detach()
+        stream_to_csv(stdin, args.ienames)

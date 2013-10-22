@@ -142,32 +142,33 @@ def csv_to_ipfix(instream, outstream, colmap=None):
     # flush last message
     w.flush()
 
-# set "args" global
-parse_args()
+if __name__ == "__main__":
+    # set "args" global
+    parse_args()
 
-# spin up IPFIX
-init_ipfix(args.spec)
+    # spin up IPFIX
+    init_ipfix(args.spec)
 
-# parse column maps
-colmap = init_colmap(args.colmap)
+    # parse column maps
+    colmap = init_colmap(args.colmap)
 
-# set up output stream first
-if args.export == 'tcp':
-    outstream = socket.create_connection((host, port))
-elif args.export:
-    raise ValueError("Unsupported transport "+args.export+"; must be 'tcp'")
-elif args.file:
-    if args.bz2:
-        outstream = bz2.open(args.file, mode="wb")
+    # set up output stream first
+    if args.export == 'tcp':
+        outstream = socket.create_connection((host, port))
+    elif args.export:
+        raise ValueError("Unsupported transport "+args.export+"; must be 'tcp'")
+    elif args.file:
+        if args.bz2:
+            outstream = bz2.open(args.file, mode="wb")
+        else:
+            outstream = open(args.file, mode="wb")
     else:
-        outstream = open(args.file, mode="wb")
-else:
-    stdout = stdout.detach()
-    outstream = stdout
+        stdout = stdout.detach()
+        outstream = stdout
     
-# now setup input stream and convert
-if args.csvfile:
-    with open (args.csvfile, mode="r") as instream:
-        csv_to_ipfix(instream, outstream, colmap)
-else:
-    csv_to_ipfix(stdin, outstream, colmap)
+    # now setup input stream and convert
+    if args.csvfile:
+        with open (args.csvfile, mode="r") as instream:
+            csv_to_ipfix(instream, outstream, colmap)
+    else:
+        csv_to_ipfix(stdin, outstream, colmap)
