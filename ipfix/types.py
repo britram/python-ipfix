@@ -335,7 +335,6 @@ _roottypes = [
 ]
 
 _TypeForName = { ietype.name: ietype for ietype in _roottypes }
-_TypeForNum = { ietype.num: ietype for ietype in _roottypes }
 
 def use_integer_ipv4():
     """
@@ -345,7 +344,7 @@ def use_integer_ipv4():
     storing IP addresses.
     """
     _roottypes[18] = StructType("ipv4address", 18, "L")
-
+    _TypeForName = { ietype.name: ietype for ietype in _roottypes }
 
 def for_name(name):
     """
