@@ -124,7 +124,7 @@ class Template:
 
         if ie.length == types.VARLEN:
             self.minlength += 1
-            if not self.varlenslice:
+            if self.varlenslice is None:
                 self.varlenslice = len(self.ies) - 1
         else:
             self.minlength += ie.length
@@ -144,7 +144,7 @@ class Template:
         which can be encoded/decoded efficiently.
         
         """
-        if self.varlenslice:
+        if self.varlenslice is not None:
             return self.varlenslice
         else:
             return self.count()
