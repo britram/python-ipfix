@@ -111,7 +111,7 @@ encoded as per RFC5101bis:
 >>> from datetime import datetime
 >>> from datetime import timezone
 >>> dtfmt = "%Y-%m-%d %H:%M:%S.%f"
->>> dt = datetime.strptime("2013-06-21 14:00:03.456789", dtfmt).replace(tzinfo=timezone.utc)
+>>> dt = datetime.strptime("2013-06-21 14:00:03.456789", dtfmt)
 
 dateTimeSeconds truncates microseconds:
 
@@ -263,6 +263,10 @@ class OctetArrayType(IpfixType):
     def decode_single_value_from(self, buf, offset, length):
         return self.valdec(buf[offset:offset+length].tobytes())
 
+# Utility calls for buildin encoders/decoders
+def dt2epoch(dt):
+    return (dt - datetime(1970,1,1,0,0)).total_seconds()
+
 # Builtin encoders/decoders
 
 def _encode_smibool(bool):
@@ -284,25 +288,25 @@ def _decode_utf8(octets):
     return octets.decode()
 
 def _encode_sec(dt):
-    return int(dt.timestamp())
+    return int(dt2epoch(dt))
     
 def _decode_sec(epoch):
-    return datetime.utcfromtimestamp(epoch).replace(tzinfo=timezone.utc)
+    return datetime.utcfromtimestamp(epoch)
     
 def _encode_msec(dt):
-    return int(dt.timestamp() * 1000)
+    return int(dt2epoch(dt) * 1000)
     
 def _decode_msec(epoch):
-    return datetime.utcfromtimestamp(epoch/1000).replace(tzinfo=timezone.utc)
+    return datetime.utcfromtimestamp(epoch/1000)
     
 def _encode_ntp(dt):
-    (tsf, tsi) = math.modf(dt.timestamp())
+    (tsf, tsi) = math.modf(dt2epoch(dt))
     return int((int(tsi) << 32) + (tsf * 2**32))
 
 def _decode_ntp(ntp):
     tsf = ntp & (2**32 - 1)
     tsi = ntp >> 32
-    return datetime.utcfromtimestamp(tsi + tsf / 2**32).replace(tzinfo=timezone.utc)
+    return datetime.utcfromtimestamp(tsi + tsf / 2**32)
 
 def _encode_ip(ipaddr):
     return ipaddr.packed

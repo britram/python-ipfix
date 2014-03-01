@@ -140,9 +140,9 @@ accepting many types of data, or diagnostic tools for debugging IPFIX export:
 >>> for rec in msg.namedict_iterator():
 ...    print(sorted(rec.items()))
 ...
-[('destinationIPv4Address', IPv4Address('10.5.6.7')), ('flowStartMilliseconds', datetime.datetime(2013, 6, 21, 12, 0, tzinfo=datetime.timezone.utc)), ('packetDeltaCount', 27), ('sourceIPv4Address', IPv4Address('10.1.2.3'))]
-[('destinationIPv4Address', IPv4Address('10.12.13.14')), ('flowStartMilliseconds', datetime.datetime(2013, 6, 21, 12, 0, 2, tzinfo=datetime.timezone.utc)), ('packetDeltaCount', 33), ('sourceIPv4Address', IPv4Address('10.8.9.11'))]
-[('flowStartMilliseconds', datetime.datetime(2013, 6, 21, 12, 0, 4, tzinfo=datetime.timezone.utc)), ('myNewInformationElement', "Grüezi, Y'all")]
+[('destinationIPv4Address', IPv4Address('10.5.6.7')), ('flowStartMilliseconds', datetime.datetime(2013, 6, 21, 12, 0)), ('packetDeltaCount', 27), ('sourceIPv4Address', IPv4Address('10.1.2.3'))]
+[('destinationIPv4Address', IPv4Address('10.12.13.14')), ('flowStartMilliseconds', datetime.datetime(2013, 6, 21, 12, 0, 2)), ('packetDeltaCount', 33), ('sourceIPv4Address', IPv4Address('10.8.9.11'))]
+[('flowStartMilliseconds', datetime.datetime(2013, 6, 21, 12, 0, 4)), ('myNewInformationElement', "Grüezi, Y'all")]
 
 The tuple interface for reading messages is designed for applications with a
 specific internal data model. It can be much faster than the dictionary
@@ -155,8 +155,8 @@ specified as an :class:`ipfix.ie.InformationElementList` instance, from
 >>> for rec in msg.tuple_iterator(ielist):
 ...     print(rec)
 ...
-(datetime.datetime(2013, 6, 21, 12, 0, tzinfo=datetime.timezone.utc), 27)
-(datetime.datetime(2013, 6, 21, 12, 0, 2, tzinfo=datetime.timezone.utc), 33)
+(datetime.datetime(2013, 6, 21, 12, 0), 27)
+(datetime.datetime(2013, 6, 21, 12, 0, 2), 33)
 
 Notice that the variable-length record written to the message are not returned 
 by this iterator, since that record doesn't include a packetDeltaCount IE. 
