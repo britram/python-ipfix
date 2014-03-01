@@ -45,9 +45,11 @@ def iana_xml_to_iespec(uri = "http://www.iana.org/assignments/ipfix/ipfix.xml"):
 
 
         if name and typename and num:
-            ietype = types.for_name(typename)
-            if ietype:
-                iespecs.append("%s(%u)<%s>[%u]" % (name, int(num), ietype.name, ietype.length()))            
+            try:
+                ietype = types.for_name(typename)
+                iespecs.append("%s(%u)<%s>[%u]" % (name, int(num), ietype.name, ietype.length))
+            except:
+                pass
         
     return iespecs
 

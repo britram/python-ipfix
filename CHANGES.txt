@@ -11,6 +11,6 @@ v0.9.4, 2013-08-12 -- Fix timestamp decode issues (force all timestamps to UTC),
                       add (pre-alpha quality) netflow9 read-only support,
                       update to latest IANA Information Element registry.
 
-v0.9.5, 2014-03-01 -- Various bugfixes (fix timestamps for real), 
+v0.9.5, 2014-03-01 -- Various bugfixes (fix timestamps for real), IANA updates,
                       some API changes, enhancements to (pre-alpha quality) 
                       netflow9 support and to support usage with numpy.
