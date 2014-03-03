@@ -148,6 +148,7 @@ microsecond-level timing.
 from datetime import datetime, timedelta, timezone
 from functools import total_ordering
 from ipaddress import ip_address
+import binascii
 import struct
 import math
 
@@ -185,11 +186,13 @@ def _identity(x):
 @total_ordering
 class IpfixType:
     """Abstract interface for all IPFIX types. Used internally. """
-    def __init__(self, name, num, valenc, valdec, roottype=None):
+    def __init__(self, name, num, valenc, valdec, valstr, valparse, roottype=None):
         self.name = name
         self.num = num
         self.valenc = valenc
         self.valdec = valdec
+        self.valstr = valstr
+        self.valparse = valparse
         if roottype:
             self.roottype = roottype
         else:
@@ -210,8 +213,8 @@ class IpfixType:
 
 class StructType(IpfixType):
     """Type encoded by struct packing. Used internally."""
-    def __init__(self, name, num, stel, valenc=_identity, valdec=_identity, roottype=None):
-        super().__init__(name, num, valenc, valdec, roottype)
+    def __init__(self, name, num, stel, valenc=_identity, valdec=_identity, valstr=str, valparse=int, roottype=None):
+        super().__init__(name, num, valenc, valdec, valstr, valparse, roottype)
         self.stel = stel
         self.st = struct.Struct("!"+stel)
         self.length = self.st.size
@@ -241,11 +244,10 @@ class StructType(IpfixType):
         assert(self.length == length)
         return self.valdec(self.st.unpack_from(buf, offset)[0])
 
-
 class OctetArrayType(IpfixType):
     """Type encoded by byte array packing. Used internally."""
-    def __init__(self, name, num, valenc=_identity, valdec=_identity, roottype=None):
-        super().__init__(name, num, valenc, valdec, roottype)
+    def __init__(self, name, num, valenc=_identity, valdec=_identity, valstr=binascii.hexlify, valparse=binascii.unhexlify, roottype=None):
+        super().__init__(name, num, valenc, valdec, valstr, valparse, roottype)
         self.length = VARLEN
     
     def for_length(self, length):
@@ -281,6 +283,18 @@ def _decode_smibool(byte):
     else:
         return False
 
+def _str_bool(bool):
+    if bool:
+        return "true"
+    else:
+        return "false"
+
+def _parse_bool(string):
+    if string == 'true':
+        return True
+    else:
+        return False
+
 def _encode_utf8(string):   
     return string.encode()
 
@@ -292,12 +306,24 @@ def _encode_sec(dt):
     
 def _decode_sec(epoch):
     return datetime.utcfromtimestamp(epoch)
-    
+
+def _str_sec(dt):
+    pass
+
+def _parse_sec(string):
+    pass
+
 def _encode_msec(dt):
     return int(dt2epoch(dt) * 1000)
     
 def _decode_msec(epoch):
     return datetime.utcfromtimestamp(epoch/1000)
+
+def _str_msec(dt):
+    pass
+
+def _parse_msec(string):
+    pass
     
 def _encode_ntp(dt):
     (tsf, tsi) = math.modf(dt2epoch(dt))
@@ -308,12 +334,15 @@ def _decode_ntp(ntp):
     tsi = ntp >> 32
     return datetime.utcfromtimestamp(tsi + tsf / 2**32)
 
+def _str_usec(dt):
+    pass
+
+def _parse_usec(string):
+    pass
+
 def _encode_ip(ipaddr):
     return ipaddr.packed
     
-def _decode_ip(octets):
-    return ip_address(octets)
-
 # builtin type registry
 _roottypes = [
     OctetArrayType("octetArray", 0),
@@ -325,17 +354,33 @@ _roottypes = [
     StructType("signed16",   6, "h"),
     StructType("signed32",   7, "l"),
     StructType("signed64",   8, "q"),
-    StructType("float32",    9, "f"),
-    StructType("float64",    10, "d"),
-    StructType("boolean",    11, "B", _encode_smibool, _decode_smibool),
+    StructType("float32",    9, "f", valparse=float),
+    StructType("float64",    10, "d", valparse=float),
+    StructType("boolean",    11, "B", 
+                valenc=_encode_smibool, valdec=_decode_smibool,
+                valstr=_str_bool, valparse=_parse_bool),
     StructType("macAddress", 12, "6s"),
-    OctetArrayType("string", 13, _encode_utf8, _decode_utf8),
-    StructType("dateTimeSeconds", 14, "L", _encode_sec, _decode_sec),
-    StructType("dateTimeMilliseconds", 15, "Q", _encode_msec, _decode_msec),
-    StructType("dateTimeMicroseconds", 16, "Q", _encode_ntp, _decode_ntp),
-    StructType("dateTimeNanoseconds", 17, "Q", _encode_ntp, _decode_ntp),
-    StructType("ipv4Address", 18, "4s", _encode_ip, _decode_ip),
-    StructType("ipv6Address", 19, "16s", _encode_ip, _decode_ip)
+    OctetArrayType("string", 13, 
+                valenc=_encode_utf8, valdec=_decode_utf8,
+                valstr=_identity, valparse=_identity),
+    StructType("dateTimeSeconds", 14, "L", 
+                valenc=_encode_sec, valdec=_decode_sec,
+                valstr=_str_sec, valparse=_parse_sec),
+    StructType("dateTimeMilliseconds", 15, "Q", 
+                valenc=_encode_msec, valdec=_decode_msec,
+                valstr=_str_msec, valparse=_parse_msec),
+    StructType("dateTimeMicroseconds", 16, "Q", 
+                valenc=_encode_ntp, valdec=_decode_ntp,
+                valstr=_str_usec, valparse=_parse_usec),
+    StructType("dateTimeNanoseconds", 17, "Q", 
+                valenc=_encode_ntp, valdec=_decode_ntp, 
+                valstr=_str_usec, valparse=_parse_usec),
+    StructType("ipv4Address", 18, "4s", 
+                valenc=_encode_ip, valdec=ip_address, 
+                valparse=ip_address),
+    StructType("ipv6Address", 19, "16s", 
+                valenc=_encode_ip, valdec=ip_address, 
+                valparse=ip_address)
 ]
 
 _TypeForName = { ietype.name: ietype for ietype in _roottypes }
