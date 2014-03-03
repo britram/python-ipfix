@@ -154,6 +154,8 @@ import math
 
 VARLEN = 65535
 
+ISO8601_FMT = "%Y-%m-%d %H:%M:%S"
+
 class IpfixTypeError(ValueError):
     """Raised when attempting to do an unsupported operation on a type"""
     def __init__(self, *args):
@@ -308,10 +310,10 @@ def _decode_sec(epoch):
     return datetime.utcfromtimestamp(epoch)
 
 def _str_sec(dt):
-    pass
+    return dt.strftime(ISO8601_FMT)
 
 def _parse_sec(string):
-    pass
+    return datetime.strptime(string, ISO8601_FMT)
 
 def _encode_msec(dt):
     return int(dt2epoch(dt) * 1000)
@@ -320,11 +322,12 @@ def _decode_msec(epoch):
     return datetime.utcfromtimestamp(epoch/1000)
 
 def _str_msec(dt):
-    pass
+    return dt.strftime(ISO8601_FMT) + "." + str(int(dt.microseconds / 1000))
 
 def _parse_msec(string):
-    pass
-    
+    (ss, mss) = string.split(".")
+    return datetime.strptime(ss, ISO8601_FMT).replace(microseconds = int(mss) * 1000)
+
 def _encode_ntp(dt):
     (tsf, tsi) = math.modf(dt2epoch(dt))
     return int((int(tsi) << 32) + (tsf * 2**32))
@@ -335,7 +338,7 @@ def _decode_ntp(ntp):
     return datetime.utcfromtimestamp(tsi + tsf / 2**32)
 
 def _str_usec(dt):
-    pass
+    return dt.strftime("%Y-%m-%d %H:%M:%S") + "." + str(dt.microseconds)
 
 def _parse_usec(string):
     pass
