@@ -87,13 +87,16 @@ class InformationElement:
     An IPFIX Information Element (IE). This is essentially a five-tuple of
     name, element number (num), a private enterprise number (pen; 0 if it
     is an IANA registered IE), a type, and a length.
+
+    Information Elements may also have value string and parser functions,
+    for representing the values as strings; if not set, these default to 
     
     InformationElement instances should be obtained using the :func:`for_spec`
     or :func:`for_template_entry` functions.
     
     """
     
-    def __init__(self, name, pen, num, ietype, length):    
+    def __init__(self, name, pen, num, ietype, length, valstr=None, valparse=None):    
         if name:
             self.name = name
         else: 
@@ -107,6 +110,9 @@ class InformationElement:
         self.pen = pen
         self.num = num
         self.type = ietype.for_length(self.length)
+
+        self.valparse = valparse
+        self.valstr = valstr
 
     def __eq__(self, other):
         return ((self.pen, self.num) == (other.pen, other.num))
@@ -139,6 +145,38 @@ class InformationElement:
             return self
         else:
             return self.__class__(self.name, self.pen, self.num, self.type, length)
+
+    def unparse(self, v):
+        """
+        Unparse a value to a string using the conversion function 
+        for this Information Element. Uses the default string conversion
+        for the IE's type if not overridden at IE creation time.
+
+        :param v: value to unparse using this IEs's string conversion
+        :returns: string representation of v
+        :raises: ValueError if v is not a valid value for this IE
+        """
+
+        if self.valstr:
+            return self.valstr(v)
+        else:
+            return self.type.valstr(v)
+
+    def parse(self, s):
+        """
+        Parse a string to a value using the conversion function 
+        for this Information Element. Uses the default string conversion
+        for the IE's type if not overridden at IE creation time.
+
+        :param s: string to parse using this IEs's string conversion
+        :returns: value for given string
+        :raises: ValueError is not a valid string representation for this IE
+        """
+        if self.valparse:
+            return self.valparse(s)
+        else:
+            return self.type.valparse(s)
+
 
 @total_ordering
 class InformationElementList:
