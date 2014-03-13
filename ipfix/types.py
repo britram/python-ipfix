@@ -322,7 +322,7 @@ def _decode_msec(epoch):
     return datetime.utcfromtimestamp(epoch/1000)
 
 def _str_msec(dt):
-    return "%s.%3u" % (dt.strftime(ISO8601_FMT), int(dt.microsecond / 1000))
+    return "%s.%03u" % (dt.strftime(ISO8601_FMT), int(dt.microsecond / 1000))
 
 def _parse_msec(string):
     (ss, mss) = string.split(".")
@@ -338,10 +338,11 @@ def _decode_ntp(ntp):
     return datetime.utcfromtimestamp(tsi + tsf / 2**32)
 
 def _str_usec(dt):
-    return dt.strftime("%Y-%m-%d %H:%M:%S") + "." + str(dt.microseconds)
+    return "%s.%06u" % (dt.strftime(ISO8601_FMT), dt.microsecond)
 
 def _parse_usec(string):
-    pass
+    (ss, uss) = string.split(".")
+    return datetime.strptime(ss, ISO8601_FMT).replace(microsecond = int(uss))
 
 def _encode_ip(ipaddr):
     return ipaddr.packed
