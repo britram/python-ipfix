@@ -341,7 +341,8 @@ def _str_usec(dt):
     return dt.strftime("%Y-%m-%d %H:%M:%S") + "." + str(dt.microseconds)
 
 def _parse_usec(string):
-    pass
+    (ss, uss) = string.split(".")
+    return datetime.strptime(ss, ISO8601_FMT).replace(microseconds = int(mss))
 
 def _encode_ip(ipaddr):
     return ipaddr.packed
