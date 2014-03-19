@@ -1,5 +1,5 @@
 #
-# python-ipfix (c) 2013 Brian Trammell.
+# python-ipfix (c) 2013-2014 Brian Trammell.
 #
 # Many thanks to the mPlane consortium (http://www.ict-mplane.eu) for
 # its material support of this effort.
@@ -322,11 +322,11 @@ def _decode_msec(epoch):
     return datetime.utcfromtimestamp(epoch/1000)
 
 def _str_msec(dt):
-    return dt.strftime(ISO8601_FMT) + "." + str(int(dt.microseconds / 1000))
+    return "%s.%03u" % (dt.strftime(ISO8601_FMT), int(dt.microsecond / 1000))
 
 def _parse_msec(string):
     (ss, mss) = string.split(".")
-    return datetime.strptime(ss, ISO8601_FMT).replace(microseconds = int(mss) * 1000)
+    return datetime.strptime(ss, ISO8601_FMT).replace(microsecond = int(mss) * 1000)
 
 def _encode_ntp(dt):
     (tsf, tsi) = math.modf(dt2epoch(dt))
@@ -338,11 +338,11 @@ def _decode_ntp(ntp):
     return datetime.utcfromtimestamp(tsi + tsf / 2**32)
 
 def _str_usec(dt):
-    return dt.strftime("%Y-%m-%d %H:%M:%S") + "." + str(dt.microseconds)
+    return "%s.%06u" % (dt.strftime(ISO8601_FMT), dt.microsecond)
 
 def _parse_usec(string):
     (ss, uss) = string.split(".")
-    return datetime.strptime(ss, ISO8601_FMT).replace(microseconds = int(mss))
+    return datetime.strptime(ss, ISO8601_FMT).replace(microsecond = int(uss))
 
 def _encode_ip(ipaddr):
     return ipaddr.packed
