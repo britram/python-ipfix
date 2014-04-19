@@ -93,6 +93,7 @@ class StatsSession():
             if tkey in self.templates:
                 self.template_count[tkey] += 1
                 if not self.templates[tkey].identical_to(tmpl):
+                    print("# replaced template "+repr(tkey))
                     self.template_replcount[tkey] += 1
                     self.templates[tkey] = tmpl
             else:
