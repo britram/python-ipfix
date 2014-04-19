@@ -84,6 +84,7 @@ class StatsSession():
     def handle_template_set(self, mbuf, offset, setid, setlen, odid):
         while offset < (offset + setlen):
             # decode the template
+            print("# DEBUG decoding template at offset %u in set with id  %u" % (offset, setid))
             (tmpl, offset) = ipfix.template.decode_template_from(mbuf, offset, setid)
             tkey = (odid, tmpl.tid)
 
