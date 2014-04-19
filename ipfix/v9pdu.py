@@ -95,7 +95,7 @@ class PduBuffer:
         """
         while True:
             try:
-                yield self.next_set()
+                return self.next_set()
             except EOFError:
                 break
 
@@ -125,7 +125,7 @@ class PduBuffer:
         :returns: an iterator over records decoded by decode_fn.
         
         """
-        for (offset, setid, setlen) in self.set_iterator():
+        for (mbuf, offset, setid, setlen) in self.set_iterator():
                 
             setend = offset + setlen
             offset += _sethdr_st.size # skip set header in decode
@@ -133,7 +133,7 @@ class PduBuffer:
                setid == template.V9_OPTIONS_SET_ID:
                 while offset < setend:
                     (tmpl, offset) = template.decode_template_from(
-                                              self.mbuf, offset, setid)
+                                              mbuf, offset, setid)
                     # FIXME handle withdrawal
                     self.templates[(self.odid, tmpl.tid)] = tmpl
                     if tmplaccept_fn(tmpl):
@@ -148,7 +148,7 @@ class PduBuffer:
                 try:
                     tmpl = self.templates[(self.odid, setid)]
                     while offset + tmpl.minlength <= setend:
-                        (rec, offset) = decode_fn(tmpl, self.mbuf, offset, 
+                        (rec, offset) = decode_fn(tmpl, mbuf, offset,
                                                   recinf = recinf)
                         yield rec
                         self._increment_sequence()
@@ -268,7 +268,7 @@ class StreamPduBuffer(PduBuffer):
         self.mbuf[_sethdr_st.size:setlen] = setbody
     
         # return pointers for set_iterator
-        return (0, setid, setlen)
+        return (self.mbuf, 0, setid, setlen)
 
 def from_stream(stream):
     """
@@ -281,6 +281,17 @@ def from_stream(stream):
     return StreamPduBuffer(stream)
 
 class TimeAdapter:
+    """
+    Wraps around a PduBuffer and adds flowStartMilliseconds and 
+    flowEndMilliseconds Information Elements to each record, turning
+    the basetime-dependent timestamps common in V9 export into
+    absolute timestamps.
+
+    To use, create a PduBuffer, create a TimeAdapter with the PduBuffer
+    as the constructor argument, then iterate tuples or namedicts from
+    the TimeAdapter.
+
+    """
     
     def __init__(self, pdubuf):
         self.pdubuf = pdubuf

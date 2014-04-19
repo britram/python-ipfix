@@ -117,7 +117,18 @@ class Template:
     def __repr__(self):
         return "<Template ID "+str(self.tid)+" count "+ \
                str(len(self.ies))+" scope "+str(self.scopecount)+">"
-        
+
+    def identical_to(self, other):
+        """
+        Determine if two templates are identical to each other.
+
+        Two templates are considered identical if they contain the same 
+        IEs in the same order, and the same scope count. Template ID
+        is not considered as part of the test for template identity.
+        """
+
+        return (self.ies == other.ies) and (self.scopecount == other.scopecount)
+
     def append(self, ie):
         """Append an IE to this Template"""
         self.ies.append(ie)
