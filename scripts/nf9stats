@@ -98,6 +98,8 @@ class StatsSession():
                 self.templates[tkey] = tmpl
                 self.template_count[tkey] = 1
                 self.template_replcount[tkey] = 0
+                self.template_setcount[tkey] = 0
+                self.template_bytecount[tkey] = 0
 
     def collect_from(self, instream):
         r = ipfix.v9pdu.from_stream(instream)
@@ -108,7 +110,7 @@ class StatsSession():
                 self.handle_template_set(mbuf, offset, setid, setlen, r.odid)
             else:
                 tkey = (r.odid, setid)
-                if tkey in templates:
+                if tkey in self.templates:
                     self.template_setcount[tkey] += 1
                     self.template_bytecount[tkey] += setlen
                 else:
