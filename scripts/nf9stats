@@ -30,6 +30,7 @@ import csv
 import bz2
 
 from functools import reduce
+import operator
 
 from sys import stdin, stdout, stderr
 
