@@ -95,7 +95,7 @@ class PduBuffer:
         """
         while True:
             try:
-                return self.next_set()
+                yield self.next_set()
             except EOFError:
                 break
 

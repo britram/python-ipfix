@@ -101,9 +101,8 @@ class StatsSession():
 
     def collect_from(self, instream):
         r = ipfix.v9pdu.from_stream(instream)
-        for set_tuple in r.set_iterator():
+        for (buf, offset, setid, setlen) in r.set_iterator():
 
-            (buf, offset, setid, setlen) = set_tuple
             if setid == template.V9_TEMPLATE_SET_ID or \
                setid == template.V9_OPTIONS_SET_ID:
                 self.handle_template_set(mbuf, offset, setid, setlen, r.odid)
