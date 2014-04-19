@@ -103,7 +103,7 @@ class StatsSession():
 
     def collect_from(self, instream):
         r = ipfix.v9pdu.from_stream(instream)
-        for (buf, offset, setid, setlen) in r.set_iterator():
+        for (mbuf, offset, setid, setlen) in r.set_iterator():
 
             if setid == ipfix.template.V9_TEMPLATE_SET_ID or \
                setid == ipfix.template.V9_OPTIONS_SET_ID:
