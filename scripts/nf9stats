@@ -82,13 +82,12 @@ class StatsSession():
         self.missing_setcount = {}
 
     def handle_template_set(self, mbuf, offset, setid, setlen, odid):
+        setend = offset + setlen
         offset += ipfix.v9pdu._sethdr_st.size # skip set header in decode
-        while offset < (offset + setlen):
+        while offset < setend:
             # decode the template
             (tmpl, offset) = ipfix.template.decode_template_from(mbuf, offset, setid)
             tkey = (odid, tmpl.tid)
-
-            dump_template(odid, tmpl)
 
             # see if we already have it
             if tkey in self.templates:
@@ -97,6 +96,7 @@ class StatsSession():
                     self.template_replcount[tkey] += 1
                     self.templates[tkey] = tmpl
             else:
+                print("# new template "+repr(tkey))
                 self.templates[tkey] = tmpl
                 self.template_count[tkey] = 1
                 self.template_replcount[tkey] = 0
