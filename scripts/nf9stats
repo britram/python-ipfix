@@ -104,7 +104,7 @@ class StatsSession():
         for (buf, offset, setid, setlen) in r.set_iterator():
 
             if setid == ipfix.template.V9_TEMPLATE_SET_ID or \
-               setid == iptix.template.V9_OPTIONS_SET_ID:
+               setid == ipfix.template.V9_OPTIONS_SET_ID:
                 self.handle_template_set(mbuf, offset, setid, setlen, r.odid)
             else:
                 tkey = (r.odid, setid)
