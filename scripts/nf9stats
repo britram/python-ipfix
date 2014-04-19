@@ -91,9 +91,9 @@ class StatsSession():
             dump_template(odid, tmpl)
 
             # see if we already have it
-            if tkey in templates:
-                template_count[tkey] += 1
-                if not templates[tkey].identical_to(tmpl):
+            if tkey in self.templates:
+                self.template_count[tkey] += 1
+                if not self.templates[tkey].identical_to(tmpl):
                     self.template_replcount[tkey] += 1
                     self.templates[tkey] = tmpl
             else:
