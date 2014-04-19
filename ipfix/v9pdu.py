@@ -67,7 +67,7 @@ class PduBuffer:
         self.last_tuple_iterator_ielist = None
         
         self.add_template_hook = None
-        
+
     def __repr__(self):
         return "<PDUBuffer domain "+str(self.odid)+\
                " length "+str(self.length)+addinf+">"
@@ -87,7 +87,18 @@ class PduBuffer:
         
         self._increment_sequence(self.reccount)
         self.basetime_epoch = self.export_epoch - (self.sysuptime_ms / 1000)
-    
+
+    def set_iterator(self):
+        """
+        Low-level interface to set iteration.
+
+        """
+        while True:
+            try:
+                yield self.next_set()
+            except EOFError:
+                break
+
     def record_iterator(self, 
                         decode_fn=template.Template.decode_namedict_from, 
                         tmplaccept_fn=accept_all_templates, 
@@ -114,11 +125,7 @@ class PduBuffer:
         :returns: an iterator over records decoded by decode_fn.
         
         """
-        while True:
-            try:
-                (offset, setid, setlen) = self.next_set()
-            except EOFError:
-                break
+        for (offset, setid, setlen) in self.set_iterator():
                 
             setend = offset + setlen
             offset += _sethdr_st.size # skip set header in decode
@@ -260,7 +267,7 @@ class StreamPduBuffer(PduBuffer):
 
         self.mbuf[_sethdr_st.size:setlen] = setbody
     
-        # return pointers for record_iterator
+        # return pointers for set_iterator
         return (0, setid, setlen)
 
 def from_stream(stream):
