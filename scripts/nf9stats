@@ -99,12 +99,12 @@ class StatsSession():
                 self.template_count[tkey] += 1
                 if not self.templates[tkey].identical_to(tmpl):
                     print("# replaced template "+repr(tkey))
-                    dump_template(odid, tmpl)
+                    # dump_template(odid, tmpl)
                     self.template_replcount[tkey] += 1
                     self.templates[tkey] = tmpl
             else:
                 print("# new template "+repr(tkey))
-                dump_template(odid, tmpl)
+                # dump_template(odid, tmpl)
                 self.templates[tkey] = tmpl
                 self.template_count[tkey] = 1
                 self.template_replcount[tkey] = 0
@@ -132,7 +132,7 @@ class StatsSession():
     def dump_report(self):
         missing_setcount = self.missing_setcount.copy()
 
-        print("# %u templates, %u template sets, %u replacements %u decodable sets, %u missing sets total" % 
+        print("#\n# %u templates, %u template sets, %u decodable sets, %u replacements, %u missing sets total" % 
                 (len(self.templates), 
                  reduce(operator.add, self.template_count.values()),
                  reduce(operator.add, self.template_setcount.values()),
@@ -149,6 +149,7 @@ class StatsSession():
                 print("# %u sets missing template with this ID" % missing_setcount[tkey])
                 del(missing_setcount[tkey])
 
+        if len(missing_setcount):
             print("#\n# Sets without templates")
             for tkey in missing_setcount:
                 print("# %u sets missing template with ID %u in domain %u" % 
