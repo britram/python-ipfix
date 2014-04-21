@@ -171,7 +171,7 @@ if args.file:
     if args.bzip2:
         with bz2.open(args.file, mode="rb") as f:
             s.collect_from(f)
-    elif args.bzip2:
+    elif args.gzip:
         with gzip.open(args.file, mode="rb") as f:
             s.collect_from(f)
     else:
