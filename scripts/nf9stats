@@ -132,8 +132,7 @@ class StatsSession():
     def dump_report(self):
         missing_setcount = self.missing_setcount.copy()
 
-        print("# %u templates, %u template sets, %u replacements\n"+\
-              "%u decodable sets, %u missing sets total" % 
+        print("# %u templates, %u template sets, %u replacements %u decodable sets, %u missing sets total" % 
                 (len(self.templates), 
                  reduce(operator.add, self.template_count.values()),
                  reduce(operator.add, self.template_setcount.values()),
