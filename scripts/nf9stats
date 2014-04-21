@@ -28,6 +28,7 @@ import ipfix.v9pdu
 import argparse
 import csv
 import bz2
+import gzip
 
 from functools import reduce
 import operator
@@ -61,6 +62,9 @@ def parse_args():
                         help="File to read (default stdin)")
     parser.add_argument('--bzip2', '-j', action="store_const", const=True,
                         help="Decompress bz2-compressed file")
+    parser.add_argument('--gzip', '-z', action="store_const", const=True,
+                        help="Decompress gzip-compressed file")
+
 
     args = parser.parse_args()
 
@@ -166,6 +170,9 @@ s = StatsSession()
 if args.file:
     if args.bzip2:
         with bz2.open(args.file, mode="rb") as f:
+            s.collect_from(f)
+    elif args.bzip2:
+        with gzip.open(args.file, mode="rb") as f:
             s.collect_from(f)
     else:
         with open (args.file, mode="rb") as f:
