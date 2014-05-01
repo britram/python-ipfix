@@ -115,10 +115,15 @@ class InformationElement:
         self.valstr = valstr
 
     def __eq__(self, other):
-        return ((self.pen, self.num) == (other.pen, other.num))
+        """
+        Determine if an IE is equal to another IE. 
+        Two IEs are considered equal if they share a PEN, number, and length.
+
+        """
+        return ((self.pen, self.num, self.length) == (other.pen, other.num, other.length))
     
     def __lt__(self, other):
-        return ((self.pen, self.num) < (other.pen, other.num))
+        return ((self.pen, self.num, self.length) < (other.pen, other.num, other.length))
 
     def __repr__(self):
         return "InformationElement(%s, %s, %s, %s, %s)" % (repr(self.name), 
@@ -129,7 +134,7 @@ class InformationElement:
         return "%s(%u/%u)%s[%u]" % (self.name, self.pen, self.num, str(self.type), self.length)
     
     def __hash__(self):
-        return (self.num << 16) ^ self.pen
+        return ((self.num << 16) + self.length) ^ self.pen
     
     def for_length(self, length):
         """

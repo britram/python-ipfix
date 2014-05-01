@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+#
+# python-ipfix (c) 2013 Brian Trammell.
+#
+# Many thanks to the mPlane consortium (http://www.ict-mplane.eu) for
+# its material support of this effort.
+# 
+# This program is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
+# later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+import ipfix.ie
+import ipfix.reader
+import ipfix.template
+import ipfix.message
+import ipfix.v9pdu
+
+import argparse
+import csv
+import bz2
+import gzip
+
+from functools import reduce
+import operator
+
+from sys import stdin, stdout, stderr
+
+# Arglist
+args = None
+
+def dump_template(odid, tmpl):
+    if tmpl.scopecount:
+        print("#\n# Options Template "+str(tmpl.tid)+" in domain "+str(odid)+
+              " ("+str(len(tmpl.ies))+" IEs)\n#")
+    else:
+        print("#\n# Template "+str(tmpl.tid)+" in domain "+str(odid)+
+              " ("+str(len(tmpl.ies))+" IEs)\n#")
+            
+    for i, ie in enumerate(tmpl.ies):
+        if i < tmpl.scopecount:
+            addl = "{scope}"
+        else:
+            addl = ""
+        print(str(ie)+addl)
+
+def parse_args():
+    global args
+    parser = argparse.ArgumentParser(description="Convert an IPFIX file or stream to CSV")
+    parser.add_argument('--spec', '-s', metavar="specfile", action="append",
+                        help="file to load additional IESpecs from")
+    parser.add_argument('--file', '-f', metavar="file", nargs="?",
+                        help="File to read (default stdin)")
+    parser.add_argument('--bzip2', '-j', action="store_const", const=True,
+                        help="Decompress bz2-compressed file")
+    parser.add_argument('--gzip', '-z', action="store_const", const=True,
+                        help="Decompress gzip-compressed file")
+
+
+    args = parser.parse_args()
+
+def init_ipfix(specfiles = None):
+    ipfix.ie.use_iana_default()
+    ipfix.ie.use_5103_default()
+    
+    if specfiles:
+        for sf in specfiles:
+            ipfix.ie.use_specfile(sf)
+
+class StatsSession():
+
+    def __init__(self):
+        self.templates = {}
+        self.template_count = {}
+        self.template_replcount = {}
+        self.template_setcount = {}
+        self.template_bytecount = {}
+        self.missing_setcount = {}
+
+    def handle_template_set(self, mbuf, offset, setid, setlen, odid):
+        setend = offset + setlen
+        offset += ipfix.v9pdu._sethdr_st.size # skip set header in decode
+        while offset < setend:
+            # decode the template
+            (tmpl, offset) = ipfix.template.decode_template_from(mbuf, offset, setid)
+            tkey = (odid, tmpl.tid)
+
+            # see if we already have it
+            if tkey in self.templates:
+                self.template_count[tkey] += 1
+                if not self.templates[tkey].identical_to(tmpl):
+                    print("# replaced template "+repr(tkey))
+                    # dump_template(odid, tmpl)
+                    self.template_replcount[tkey] += 1
+                    self.templates[tkey] = tmpl
+            else:
+                print("# new template "+repr(tkey))
+                # dump_template(odid, tmpl)
+                self.templates[tkey] = tmpl
+                self.template_count[tkey] = 1
+                self.template_replcount[tkey] = 0
+                self.template_setcount[tkey] = 0
+                self.template_bytecount[tkey] = 0
+
+    def collect_from(self, instream):
+        r = ipfix.v9pdu.from_stream(instream)
+        for (mbuf, offset, setid, setlen) in r.set_iterator():
+
+            if (setid == ipfix.template.V9_TEMPLATE_SET_ID) or \
+               (setid == ipfix.template.V9_OPTIONS_SET_ID):
+                self.handle_template_set(mbuf, offset, setid, setlen, r.odid)
+            else:
+                tkey = (r.odid, setid)
+                if tkey in self.templates:
+                    self.template_setcount[tkey] += 1
+                    self.template_bytecount[tkey] += setlen
+                else:
+                    if tkey in self.missing_setcount:
+                        self.missing_setcount[tkey] += 1
+                    else:
+                        self.missing_setcount[tkey] = 1
+
+    def dump_report(self):
+        missing_setcount = self.missing_setcount.copy()
+
+        print("#\n# %u templates, %u template sets, %u decodable sets, %u replacements, %u missing sets total" % 
+                (len(self.templates), 
+                 reduce(operator.add, self.template_count.values()),
+                 reduce(operator.add, self.template_setcount.values()),
+                 reduce(operator.add, self.template_replcount.values()),
+                 reduce(operator.add, self.missing_setcount.values())))
+
+
+        for tkey in sorted(self.templates.keys()):
+            dump_template(tkey[0], self.templates[tkey])
+            print("# %u instances %u replacements %u sets %u bytes " 
+                    % (self.template_count[tkey], self.template_replcount[tkey],
+                       self.template_setcount[tkey], self.template_bytecount[tkey]))
+            if tkey in missing_setcount:
+                print("# %u sets missing template with this ID" % missing_setcount[tkey])
+                del(missing_setcount[tkey])
+
+        if len(missing_setcount):
+            print("#\n# Sets without templates")
+            for tkey in missing_setcount:
+                print("# %u sets missing template with ID %u in domain %u" % 
+                        (missing_setcount[tkey], tkey[1], tkey[0]))
+
+
+
+# set "args" global
+parse_args()
+
+# initialize information model
+init_ipfix(args.spec)
+
+# create a session
+s = StatsSession()
+
+# iterate over sets in input
+if args.file:
+    if args.bzip2:
+        with bz2.open(args.file, mode="rb") as f:
+            s.collect_from(f)
+    elif args.gzip:
+        with gzip.open(args.file, mode="rb") as f:
+            s.collect_from(f)
+    else:
+        with open (args.file, mode="rb") as f:
+            s.collect_from(f)
+else:
+    stdin = stdin.detach()
+    s.collect_from(stdin)
+
+# and print some stuff
+s.dump_report()
