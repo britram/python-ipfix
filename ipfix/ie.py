@@ -114,10 +114,10 @@ class InformationElement:
         Two IEs are considered equal if they share a PEN, number, and length.
 
         """
-        return ((self.pen, self.num, self.length) == (other.pen, other.num, other.length))
+        return ((self.pen, self.num) == (other.pen, other.num))
     
     def __lt__(self, other):
-        return ((self.pen, self.num, self.length) < (other.pen, other.num, other.length))
+        return ((self.pen, self.num) < (other.pen, other.num))
 
     def __repr__(self):
         return "InformationElement(%s, %s, %s, %s, %s)" % (repr(self.name), 
