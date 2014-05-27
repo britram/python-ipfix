@@ -1,0 +1,193 @@
+#!/usr/bin/env python3
+#
+# python-ipfix (c) 2013-2014 Brian Trammell.
+#
+# Many thanks to the mPlane consortium (http://www.ict-mplane.eu) for
+# its material support of this effort.
+# 
+# This program is free software: you can redistribute it and/or modify it under
+# the terms of the GNU Lesser General Public License as published by the Free
+# Software Foundation, either version 3 of the License, or (at your option) any
+# later version.
+#
+# This program is distributed in the hope that it will be useful, but WITHOUT
+# ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS
+# FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more
+# details.
+#
+# You should have received a copy of the GNU General Public License along with
+# this program.  If not, see <http://www.gnu.org/licenses/>.
+#
+
+import ipfix.ie
+import ipfix.reader
+import ipfix.template
+import ipfix.message
+import ipfix.v9pdu
+
+import argparse
+import csv
+import bz2
+import gzip
+
+from functools import reduce
+import operator
+
+from sys import stdin, stdout, stderr
+
+def parse_args():
+    parser = argparse.ArgumentParser(description="Dump statistics about templates and data sets in an IPFIX file")
+    parser.add_argument('--spec', '-s', metavar="specfile", action="append",
+                        help="file to load additional IESpecs from")
+    parser.add_argument('--file', '-f', metavar="file", nargs="?",
+                        help="IPFIX file to read (default stdin)")
+    parser.add_argument('--gzip', '-z', action="store_const", const=True,
+                        help="Decompress gzip-compressed IPFIX file")
+    parser.add_argument('--bzip2', '-j', action="store_const", const=True,
+                        help="Decompress bz2-compressed IPFIX file")
+    parser.add_argument('--netflow9', '-9', action="store_const", const=True,
+                        help="Decode as NetFlow version 9 instead of IPFIX")
+    return parser.parse_args()
+
+def init_ipfix(specfiles = None):
+    ipfix.ie.use_iana_default()
+    ipfix.ie.use_5103_default()
+
+    if specfiles:
+        for sf in specfiles:
+            ipfix.ie.use_specfile(sf)
+
+def dump_template(odid, tmpl):
+    if tmpl.scopecount:
+        print("#\n# Options Template "+str(tmpl.tid)+" in domain "+str(odid)+
+              " ("+str(len(tmpl.ies))+" IEs)\n#")
+    else:
+        print("#\n# Template "+str(tmpl.tid)+" in domain "+str(odid)+
+              " ("+str(len(tmpl.ies))+" IEs)\n#")
+            
+    for i, ie in enumerate(tmpl.ies):
+        if i < tmpl.scopecount:
+            addl = "{scope}"
+        else:
+            addl = ""
+        print(str(ie)+addl)
+
+class TemplateStatsSession():
+
+    def __init__(self, instream, netflow9=False):
+        self.templates = {}
+        self.template_count = {}
+        self.template_replcount = {}
+        self.template_setcount = {}
+        self.template_bytecount = {}
+        self.missing_setcount = {}
+        self.missing_bytecount = {}
+
+        if netflow9:
+            self.r = ipfix.v9pdu.from_stream(instream)
+            self.r.template_record_hook = self.handle_template_record
+            self.r.ignored_data_set_hook = self.handle_data_set
+            self.r.unknown_data_set_hook = self.handle_unknown_set
+        else:
+            self.r = ipfix.reader.from_stream(instream)
+            self.r.msg.template_record_hook = self.handle_template_record
+            self.r.msg.ignored_data_set_hook = self.handle_data_set
+            self.r.msg.unknown_data_set_hook = self.handle_unknown_set
+
+    def handle_template_record(self, msg, tmpl):
+        tkey = (msg.odid, tmpl.tid)
+
+        # count templates per key, check for replacements
+        if tkey in self.templates:
+            self.template_count[tkey] += 1
+            if not self.templates[tkey].identical_to(tmpl):
+                self.template_replcount[tkey] += 1
+                self.templates[tkey] = tmpl
+        else:
+            self.templates[tkey] = tmpl
+            self.template_count[tkey] = 1
+            self.template_replcount[tkey] = 0
+            self.template_setcount[tkey] = 0
+            self.template_bytecount[tkey] = 0
+
+    def handle_data_set(self, msg, tmpl, setbuf):
+        tkey = (msg.odid, tmpl.tid)
+
+        self.template_setcount[tkey] += 1
+        self.template_bytecount[tkey] += len(setbuf)
+
+    def handle_unknown_set(self, msg, setbuf):
+        (setid, setlen) = ipfix.message._sethdr_st.unpack_from(setbuf)
+        tkey = (msg.odid, setid)
+
+        if tkey in self.missing_setcount:
+            self.missing_setcount[tkey] += 1
+            self.missing_bytecount[tkey] += setlen
+        else:
+            self.missing_setcount[tkey] = 1            
+            self.missing_bytecount[tkey] = setlen
+
+    def run(self):
+        # trick: to run a collector without actually collecting anything,
+        # attach an ignored set hook then try to get a tuple containing 
+        # an IE we'll never see.
+        for rec in self.r.tuple_iterator(ipfix.ie.spec_list(["impossible(35566/32767)<unsigned8>[1]"])):
+            pass
+
+    def print_report(self):
+        missing_setcount = self.missing_setcount.copy()
+
+        print("#\n# %u templates, %u template sets, %u decodable sets, %u replacements, %u missing sets total" % 
+                (len(self.templates), 
+                 reduce(operator.add, self.template_count.values()),
+                 reduce(operator.add, self.template_setcount.values()),
+                 reduce(operator.add, self.template_replcount.values()),
+                 reduce(operator.add, self.missing_setcount.values(), 0)))
+
+        for tkey in sorted(self.templates.keys()):
+            dump_template(tkey[0], self.templates[tkey])
+            print("# %u instances %u replacements %u sets %u bytes " 
+                    % (self.template_count[tkey], self.template_replcount[tkey],
+                       self.template_setcount[tkey], self.template_bytecount[tkey]))
+            if tkey in missing_setcount:
+                print("# %u sets missing template with this ID" % missing_setcount[tkey])
+                del(missing_setcount[tkey])
+
+        if len(missing_setcount):
+            print("#\n# Sets without templates")
+            for tkey in missing_setcount:
+                print("# %u sets missing template with ID %u in domain %u" % 
+                        (missing_setcount[tkey], tkey[1], tkey[0]))
+
+#######################################################################
+# MAIN PROGRAM 
+#######################################################################
+
+if __name__ == "__main__":
+
+    # get args
+    args = parse_args()
+
+    # initialize information model
+    init_ipfix(args.spec)
+
+
+    if args.file:       
+        if args.bzip2:
+            with bz2.open (args.file, mode="rb") as f:
+                tss = TemplateStatsSession(f, args.netflow9)
+                tss.run()
+        elif args.gzip:
+            with gzip.open (args.file, mode="rb") as f:
+                tss = TemplateStatsSession(f, args.netflow9)
+                tss.run()
+        else:
+            with open (args.file, mode="rb") as f:
+                tss = TemplateStatsSession(f, args.netflow9)
+                tss.run()
+    else:
+        stdin = stdin.detach()
+        tss = TemplateStatsSession(stdin, args.netflow9)
+        tss.run()
+
+    tss.print_report()
