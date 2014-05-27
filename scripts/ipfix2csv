@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 #
-# python-ipfix (c) 2013 Brian Trammell.
+# python-ipfix (c) 2013-2014 Brian Trammell.
 #
 # Many thanks to the mPlane consortium (http://www.ict-mplane.eu) for
 # its material support of this effort.
@@ -22,17 +22,17 @@
 import ipfix.ie
 import ipfix.reader
 import ipfix.message
+import ipfix.v9pdu
 
 import socketserver
 import argparse
 import csv
 import bz2
+import gzip
+
 from sys import stdin, stdout, stderr
 
-args = None
-
 def parse_args():
-    global args
     parser = argparse.ArgumentParser(description="Convert an IPFIX file or stream to CSV")
     parser.add_argument('ienames', metavar="ie", nargs="+",
                         help="column(s) by IE name")
@@ -40,15 +40,19 @@ def parse_args():
                         help="file to load additional IESpecs from")
     parser.add_argument('--file', '-f', metavar="file", nargs="?",
                         help="IPFIX file to read (default stdin)")
+    parser.add_argument('--gzip', '-z', action="store_const", const=True,
+                        help="Decompress gzip-compressed IPFIX file")
     parser.add_argument('--bzip2', '-j', action="store_const", const=True,
                         help="Decompress bz2-compressed IPFIX file")
+    parser.add_argument('--netflow9', '-9', action="store_const", const=True,
+                        help="Decode as NetFlow version 9 instead of IPFIX (with --file or stdin only)")
     parser.add_argument('--collect', '-c', metavar="transport", nargs="?",
                         help="run CP on specified transport")
     parser.add_argument('--bind', '-b', metavar="bind", nargs="?",
                         default="", help="address to bind to as CP (default all)")
     parser.add_argument('--port', '-p', metavar="port", nargs="?", type=int,
                         default="4739", help="port to bind to as CP (default 4739)")
-    args = parser.parse_args()
+    return parser.parse_args()
 
 def init_ipfix(specfiles = None):
     ipfix.ie.use_iana_default()
@@ -58,43 +62,68 @@ def init_ipfix(specfiles = None):
         for sf in specfiles:
             ipfix.ie.use_specfile(sf)
 
-def stream_to_csv(instream, ienames):
+def stream_to_csv(instream, ienames, reader_fn=ipfix.reader.from_stream):
     cols = ipfix.ie.spec_list(ienames)
 
-    r = ipfix.reader.from_stream(instream)
+    r = reader_fn(instream)
     w = csv.writer(stdout, dialect='unix')
 
     w.writerow([e.name for e in cols])
     
     for rec in r.tuple_iterator(cols):
-        w.writerow([str(val) for val in rec])
+        w.writerow([col.unparse(val) for val, col in zip(rec, cols)])
     
-
 class TcpCsvHandler(socketserver.StreamRequestHandler):
     def handle(self):
         stderr.write("connection from "+str(self.client_address)+"\n")
         stream_to_csv(self.rfile, args.ienames)
 
-# set "args" global
-parse_args()
+#######################################################################
+# MAIN PROGRAM 
+#######################################################################
 
-init_ipfix(args.spec)
+if __name__ == "__main__":
 
-if args.collect == 'tcp':
-    stderr.write("starting TCP CP on "+args.bind+":"+
-                     str(args.port)+"; Ctrl-C to stop\n")
-    stderr.flush()
-    ss = socketserver.TCPServer((args.bind, args.port), TcpCsvHandler)
-    ss.serve_forever()
-elif args.collect:
-    raise ValueError("Unsupported transport "+args.collect+"; must be 'tcp'")
-elif args.file:
-    if args.bzip2:
-        with bz2.open (args.file, mode="rb") as f:
-            stream_to_csv(f, args.ienames)
+    # get args
+    args = parse_args()
+
+    # initialize information model
+    init_ipfix(args.spec)
+
+    # select reader creator function
+    if args.netflow9:
+        reader_fn = ipfix.v9pdu.from_stream
     else:
-        with open (args.file, mode="rb") as f:
-            stream_to_csv(f, args.ienames)
-else:
-    stdin = stdin.detach()
-    stream_to_csv(stdin, args.ienames)
+        reader_fn = ipfix.reader.from_stream
+
+    # die on invalid arguments
+    if args.netflow9 and args.collect:
+        raise ValueError("NetFlow9 only supported from files or stdin")
+
+    if args.file is None and (args.bzip2 or args.gzip):
+        raise ValueError("Decompression only supported from file input")
+
+    # now run the gauntlet
+    if args.collect == 'tcp':
+        stderr.write("starting TCP CP on "+args.bind+":"+
+                         str(args.port)+"; Ctrl-C to stop\n")
+        stderr.flush()
+        ss = socketserver.TCPServer((args.bind, args.port), TcpCsvHandler)
+        ss.serve_forever()
+
+    elif args.collect:
+        raise ValueError("Unsupported transport "+args.collect+"; must be 'tcp' in this revision")
+
+    elif args.file:       
+        if args.bzip2:
+            with bz2.open (args.file, mode="rb") as f:
+                stream_to_csv(f, args.ienames, reader_fn)
+        elif args.gzip:
+            with gzip.open (args.file, mode="rb") as f:
+                stream_to_csv(f, args.ienames, reader_fn)
+        else:
+            with open (args.file, mode="rb") as f:
+                stream_to_csv(f, args.ienames, reader_fn)
+    else:
+        stdin = stdin.detach()
+        stream_to_csv(stdin, args.ienames, reader_fn)

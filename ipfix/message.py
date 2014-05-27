@@ -225,8 +225,10 @@ class MessageBuffer:
         
         self.mtu = 65535
         
-        self.add_template_hook = None
-        
+        self.template_record_hook = None
+        self.unknown_data_set_hook = None
+        self.ignored_data_set_hook = None
+
     def __repr__(self):
         if self.cursetid:
             addinf = " (writing set "+str(self.cursetid)+")"
@@ -403,25 +405,30 @@ class MessageBuffer:
                         self.accepted_tids.add((self.odid, tmpl.tid))
                     else:
                         self.accepted_tids.discard((self.odid, tmpl.tid))
-                    if self.add_template_hook:
-                        self.add_template_hook(self, tmpl)
+
+                    if self.template_record_hook:
+                        self.template_record_hook(self, tmpl)
                     
             elif setid < 256:
                 warn("skipping illegal set id "+str(setid))
-            elif (self.odid, setid) in self.accepted_tids:
+            else:
                 try:
                     tmpl = self.templates[(self.odid, setid)]
-                    while offset + tmpl.minlength <= setend:
-                        (rec, offset) = decode_fn(tmpl, self.mbuf, offset, 
-                                                  recinf = recinf)
-                        yield rec
-                        self._increment_sequence()
-                except KeyError:
-                    #FIXME provide set buffer for sets without templates
-                    pass
-            else:
-                #FIXME disable sequence checking on skipped sets
-                pass
+                    if (self.odid, setid) in self.accepted_tids:
+                        while offset + tmpl.minlength <= setend:
+                            (rec, offset) = decode_fn(tmpl, self.mbuf, offset, 
+                                                      recinf = recinf)
+                            yield rec
+                            self._increment_sequence()
+                    elif self.ignored_data_set_hook:
+                        # not in accepted tids - ignored data set
+                        self.ignored_data_set_hook(self, tmpl, 
+                                     self.mbuf[offset-_sethdr_st.size:setend])
+                except KeyError as e:
+                    if self.unknown_data_set_hook:                
+                        # KeyError on template lookup - unknown data set
+                        self.unknown_data_set_hook(self, 
+                                     self.mbuf[offset-_sethdr_st.size:setend])
 
     def namedict_iterator(self):
         """
@@ -513,8 +520,8 @@ class MessageBuffer:
         if export:
             self.export_template(tmpl.tid)
         
-        if self.add_template_hook:
-            self.add_template_hook(self, tmpl)
+        if self.template_record_hook:
+            self.template_record_hook(self, tmpl)
     
     def delete_template(self, tid, export=True):
         """

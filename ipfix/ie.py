@@ -46,6 +46,7 @@ To get an Information Element already specified, an incomplete specification
 can be passed; a name or number is enough:
 
 >>> ipfix.ie.use_iana_default()
+>>> ipfix.ie.use_5103_default()
 >>> str(ipfix.ie.for_spec("octetDeltaCount"))
 'octetDeltaCount(0/1)<unsigned64>[8]'
 >>> str(ipfix.ie.for_spec("(2)"))
@@ -56,6 +57,16 @@ for_length method; this is used internally by templates.
 
 >>> str(e.for_length(32))
 'myNewInformationElement(35566/1)<string>[32]'
+
+An Information Element object can also be used to translate 
+between native Python and string representations of an Information Element value:
+
+>>> ipfix.ie.for_spec("sourceIPv4Address").parse("192.0.2.19")
+IPv4Address('192.0.2.19')
+>>> from datetime import datetime
+>>> ipfix.ie.for_spec("flowEndMilliseconds").unparse(datetime(2013,6,21,14))
+'2013-06-21 14:00:00.000'
+
 
 Most client code will only need the :func:`use_iana_default`, 
 :func:`use_5103_default`, and :func:`use_specfile` functions; 
@@ -96,7 +107,7 @@ class InformationElement:
     
     """
     
-    def __init__(self, name, pen, num, ietype, length, valstr=None, valparse=None):    
+    def __init__(self, name, pen, num, ietype=types._roottypes[0], length=None, valstr=None, valparse=None):    
         if name:
             self.name = name
         else: 
@@ -181,6 +192,16 @@ class InformationElement:
             return self.valparse(s)
         else:
             return self.type.valparse(s)
+
+
+def test_ie_internals():
+    # Tests for full statement coverage of the ipfix.ie module
+    # (not already covered in doctest)
+    assert InformationElement(None, 35566, 9999, length=1).name ==\
+           "_ipfix_35566_9999"
+    assert InformationElement(None, 35566, 9999, length=1) == \
+           InformationElement(None, 35566, 9999, length=4)
+    assert InformationElement(None, 35566, 9999) > InformationElement(None, 35566, 9998)
 
 
 @total_ordering

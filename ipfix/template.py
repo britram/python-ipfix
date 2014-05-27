@@ -127,6 +127,7 @@ class Template:
         is not considered as part of the test for template identity.
         """
 
+        # FIXME this needs to check IE lengths as well
         return (self.ies == other.ies) and (self.scopecount == other.scopecount)
 
     def append(self, ie):

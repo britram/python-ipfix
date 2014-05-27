@@ -6,7 +6,7 @@ with open('README.txt') as file:
     long_description = file.read()
 
 setup(name='ipfix',
-      version='0.9.5',
+      version='0.9.6',
       description='IPFIX implementation for Python 3.3+',
       long_description = long_description,
       author='Brian Trammell',
@@ -14,7 +14,7 @@ setup(name='ipfix',
       url='http://github.com/britram/python-ipfix',
       packages=['ipfix'],
       package_data={'ipfix': ['iana.iespec', 'rfc5103.iespec']},
-      scripts=['scripts/ipfix2csv', 'scripts/nf92csv'],
+      scripts=['scripts/ipfix2csv', 'scripts/ipfixstat'],
       classifiers=["Development Status :: 3 - Alpha",
                    "Intended Audience :: Developers",
                    "License :: OSI Approved :: "
