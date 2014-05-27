@@ -135,4 +135,4 @@ def to_stream(stream, mtu=65535):
     :return: a :class:`MessageStreamWriter` wrapped around the stream.
 
     """
-    return MessageStreamWriter(stream, mtu)          
+    return MessageStreamWriter(stream, mtu)
