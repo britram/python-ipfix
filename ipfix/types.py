@@ -434,3 +434,11 @@ def encode_varlen(buf, offset, length):
         offset += _varlen1_st.size
     return offset
     
+def test_types_internals():
+    try:
+        for_name("bogus")
+        assert False
+    except IpfixTypeError:
+        pass
+
+    
