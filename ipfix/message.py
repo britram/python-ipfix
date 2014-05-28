@@ -170,9 +170,10 @@ The record is, however, still there:
 
 """
 
-from . import template
+from . import template, types
 from .template import IpfixEncodeError, IpfixDecodeError
 
+import io
 import operator
 import functools
 import struct
@@ -253,7 +254,7 @@ class MessageBuffer:
         :returns: export time of the last message read/written.
         
         """
-        return datetime.utcfromtimestamp(self.export_epoch)
+        return types._decode_sec(self.export_epoch)
 
     def set_export_time(self, dt=None):
         """
@@ -266,7 +267,7 @@ class MessageBuffer:
         """
         if not dt:
             dt = datetime.utcnow()
-        self.export_epoch = int(dt.timestamp())        
+        self.export_epoch = types._encode_sec(dt)
         self.auto_export_time = False
                 
     def _increment_sequence(self):
@@ -286,7 +287,7 @@ class MessageBuffer:
         while (offset < self.length):
             (setid, setlen) = _sethdr_st.unpack_from(self.mbuf, offset)
             if offset + setlen > self.length:
-                raise IPFIXDecodeError("Set too long for message")
+                raise IpfixDecodeError("Set too long for message")
             self.setlist.append((offset, setid, setlen))
             offset += setlen
     
@@ -333,9 +334,10 @@ class MessageBuffer:
         
         # populate setlist
         self._scan_setlist()
-            
+
     def from_bytes(self, bytes):
-        """Read an IPFIX message from a byte array.
+        """
+        Read an IPFIX message from a byte array.
         
         This populates message header fields and the internal setlist.
         Call for each new message before iterating over records when reading
@@ -345,26 +347,29 @@ class MessageBuffer:
         :raises: IpfixDecodeError
         
         """
-        # make a copy of the byte array
-        self.mbuf[0:len(bytes)] = bytes
+        return self.read_message(io.BytesIO(bytes))
 
-        # parse message header 
-        if (len(bytes) < _msghdr_st.size):
-            raise IpfixDecodeError("Message too short ("+str(len(msghdr)) +")")
+    # def old_from_bytes(self, bytes):
+    #     # make a copy of the byte array
+    #     self.mbuf[0:len(bytes)] = bytes
 
-        (version, self.length, self.sequence, self.export_epoch, self.odid) = \
-                _msghdr_st.unpack_from(self.mbuf, 0)
+    #     # parse message header 
+    #     if (len(bytes) < _msghdr_st.size):
+    #         raise IpfixDecodeError("Message too short ("+str(len(msghdr)) +")")
+
+    #     (version, self.length, self.sequence, self.export_epoch, self.odid) = \
+    #             _msghdr_st.unpack_from(self.mbuf, 0)
         
-        # verify version and length
-        if version != 10:
-            raise IpfixDecodeError("Illegal or unsupported version " + 
-                                   str(version))
+    #     # verify version and length
+    #     if version != 10:
+    #         raise IpfixDecodeError("Illegal or unsupported version " + 
+    #                                str(version))
         
-        if self.length < 20:
-            raise IpfixDecodeError("Illegal message length" + str(self.length))
+    #     if self.length < 20:
+    #         raise IpfixDecodeError("Illegal message length" + str(self.length))
         
-        # populate setlist
-        self._scan_setlist()
+    #     # populate setlist
+    #     self._scan_setlist()
             
     def record_iterator(self, 
                         decode_fn=template.Template.decode_namedict_from, 

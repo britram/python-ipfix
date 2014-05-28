@@ -269,7 +269,7 @@ class OctetArrayType(IpfixType):
 
 # Utility calls for buildin encoders/decoders
 def dt2epoch(dt):
-    return (dt - datetime(1970,1,1,0,0)).total_seconds()
+    return (dt - datetime(1970,1,1,0,0,tzinfo=None)).total_seconds()
 
 # Builtin encoders/decoders
 
