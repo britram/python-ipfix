@@ -193,17 +193,6 @@ class InformationElement:
         else:
             return self.type.valparse(s)
 
-
-def test_ie_internals():
-    # Tests for full statement coverage of the ipfix.ie module
-    # (not already covered in doctest)
-    assert InformationElement(None, 35566, 9999, length=1).name ==\
-           "_ipfix_35566_9999"
-    assert InformationElement(None, 35566, 9999, length=1) == \
-           InformationElement(None, 35566, 9999, length=4)
-    assert InformationElement(None, 35566, 9999) > InformationElement(None, 35566, 9998)
-
-
 @total_ordering
 class InformationElementList:
     """
@@ -383,3 +372,22 @@ def use_5103_default():
 
     """
     use_specfile(os.path.join(os.path.dirname(__file__), "rfc5103.iespec"))
+
+def test_ie_internals():
+    # Tests for full statement coverage of the ipfix.ie module
+    # (not already covered in doctest or elsewhere)
+    la = InformationElementList([InformationElement(None, 35566, 9999, length=1)])
+    lb = InformationElementList([InformationElement(None, 35566, 9999, length=4)])
+    lc = InformationElementList([InformationElement(None, 35566, 9998)])
+
+    assert la[0].name == "_ipfix_35566_9999"
+    assert la == lb
+    assert la > lc
+
+    try:
+        for_spec("not a spec")
+        assert False
+    except ValueError as e:
+        pass
+
+    assert for_template_entry(35566,9999,4) == InformationElement(None, 35566, 9999, length=4)
