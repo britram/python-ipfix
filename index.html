@@ -6,15 +6,16 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>python-ipfix &mdash; python-ipfix 0.9.4 documentation</title>
+    <title>python-ipfix &mdash; python-ipfix 0.9.6 documentation</title>
     
-    <link rel="stylesheet" href="_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="_static/haiku.css" type="text/css" />
     <link rel="stylesheet" href="_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="_static/print.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    './',
-        VERSION:     '0.9.4',
+        VERSION:     '0.9.6',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,27 +24,24 @@
     <script type="text/javascript" src="_static/jquery.js"></script>
     <script type="text/javascript" src="_static/underscore.js"></script>
     <script type="text/javascript" src="_static/doctools.js"></script>
-    <link rel="top" title="python-ipfix 0.9.4 documentation" href="#" /> 
+    <script type="text/javascript" src="_static/theme_extras.js"></script>
+    <link rel="top" title="python-ipfix 0.9.6 documentation" href="#" /> 
   </head>
   <body>
-    <div class="related">
-      <h3>Navigation</h3>
-      <ul>
-        <li class="right" style="margin-right: 10px">
-          <a href="genindex.html" title="General Index"
-             accesskey="I">index</a></li>
-        <li class="right" >
-          <a href="py-modindex.html" title="Python Module Index"
-             >modules</a> |</li>
-        <li><a href="#">python-ipfix 0.9.4 documentation</a> &raquo;</li> 
-      </ul>
-    </div>  
+      <div class="header"><h1 class="heading"><a href="#">
+          <span>python-ipfix 0.9.6 documentation</span></a></h1>
+        <h2 class="heading"><span>python-ipfix</span></h2>
+      </div>
+      <div class="topnav">
+      
+        <p>
+        <a class="uplink" href="#">Contents</a>
+        </p>
 
-    <div class="document">
-      <div class="documentwrapper">
-        <div class="bodywrapper">
-          <div class="body">
-            
+      </div>
+      <div class="content">
+        
+        
   <div class="section" id="module-ipfix">
 <span id="python-ipfix"></span><h1>python-ipfix<a class="headerlink" href="#module-ipfix" title="Permalink to this headline">¶</a></h1>
 <p>IPFIX implementation for Python 3.3.</p>
@@ -68,7 +66,7 @@ templates; see <a class="reference internal" href="#module-ipfix.template" title
 <p>This module is copyright 2013 Brian Trammell. It is made available under the
 terms of the 
 <a class="reference external" href="http://www.gnu.org/licenses/lgpl.html">GNU Lesser General Public License</a>, 
-version 3 or, at your option, any later version.</p>
+or, at your option, any later version.</p>
 <p>Reference documentation for each module is found in the subsections below.</p>
 <div class="section" id="module-ipfix.types">
 <span id="module-ipfix-types"></span><h2>module ipfix.types<a class="headerlink" href="#module-ipfix.types" title="Permalink to this headline">¶</a></h2>
@@ -206,9 +204,9 @@ We use this to bound the encoded value on subsequent decode.</p>
 <p>...and the timestamps of various precision as a python datetime, 
 encoded as per RFC5101bis:</p>
 <div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">timezone</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">dtfmt</span> <span class="o">=</span> <span class="s">&quot;%Y-%m-</span><span class="si">%d</span><span class="s"> %H:%M:%S.</span><span class="si">%f</span><span class="s">&quot;</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">dt</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="s">&quot;2013-06-21 14:00:03.456789&quot;</span><span class="p">,</span> <span class="n">dtfmt</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">tzinfo</span><span class="o">=</span><span class="n">timezone</span><span class="o">.</span><span class="n">utc</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dtfmt_in</span> <span class="o">=</span> <span class="s">&quot;%Y-%m-</span><span class="si">%d</span><span class="s"> %H:%M:%S.</span><span class="si">%f</span><span class="s"> %z&quot;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dtfmt_out</span> <span class="o">=</span> <span class="s">&quot;%Y-%m-</span><span class="si">%d</span><span class="s"> %H:%M:%S.</span><span class="si">%f</span><span class="s">&quot;</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dt</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="s">&quot;2013-06-21 14:00:03.456789 +0000&quot;</span><span class="p">,</span> <span class="n">dtfmt_in</span><span class="p">)</span>
 </pre></div>
 </div>
 <p>dateTimeSeconds truncates microseconds:</p>
@@ -216,7 +214,7 @@ encoded as per RFC5101bis:</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">length</span> <span class="o">=</span> <span class="n">dateTimeSeconds</span><span class="o">.</span><span class="n">encode_single_value_to</span><span class="p">(</span><span class="n">dt</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">buf</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">length</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
 <span class="go">[81, 196, 92, 99]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">dateTimeSeconds</span><span class="o">.</span><span class="n">decode_single_value_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">dtfmt</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dateTimeSeconds</span><span class="o">.</span><span class="n">decode_single_value_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">dtfmt_out</span><span class="p">)</span>
 <span class="go">&#39;2013-06-21 14:00:03.000000&#39;</span>
 </pre></div>
 </div>
@@ -225,7 +223,7 @@ encoded as per RFC5101bis:</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">length</span> <span class="o">=</span> <span class="n">dateTimeMilliseconds</span><span class="o">.</span><span class="n">encode_single_value_to</span><span class="p">(</span><span class="n">dt</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">buf</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">length</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
 <span class="go">[0, 0, 1, 63, 103, 8, 228, 128]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">dateTimeMilliseconds</span><span class="o">.</span><span class="n">decode_single_value_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">dtfmt</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dateTimeMilliseconds</span><span class="o">.</span><span class="n">decode_single_value_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">dtfmt_out</span><span class="p">)</span>
 <span class="go">&#39;2013-06-21 14:00:03.456000&#39;</span>
 </pre></div>
 </div>
@@ -234,7 +232,7 @@ encoded as per RFC5101bis:</p>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">length</span> <span class="o">=</span> <span class="n">dateTimeMicroseconds</span><span class="o">.</span><span class="n">encode_single_value_to</span><span class="p">(</span><span class="n">dt</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
 <span class="gp">&gt;&gt;&gt; </span><span class="n">buf</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="n">length</span><span class="p">]</span><span class="o">.</span><span class="n">tolist</span><span class="p">()</span>
 <span class="go">[81, 196, 92, 99, 116, 240, 32, 0]</span>
-<span class="gp">&gt;&gt;&gt; </span><span class="n">dateTimeMicroseconds</span><span class="o">.</span><span class="n">decode_single_value_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">dtfmt</span><span class="p">)</span>
+<span class="gp">&gt;&gt;&gt; </span><span class="n">dateTimeMicroseconds</span><span class="o">.</span><span class="n">decode_single_value_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">dtfmt_out</span><span class="p">)</span>
 <span class="go">&#39;2013-06-21 14:00:03.456789&#39;</span>
 </pre></div>
 </div>
@@ -243,7 +241,7 @@ dateTimeMicroseconds, as the datetime class in Python only supports
 microsecond-level timing.</p>
 <dl class="class">
 <dt id="ipfix.types.IpfixType">
-<em class="property">class </em><tt class="descclassname">ipfix.types.</tt><tt class="descname">IpfixType</tt><big>(</big><em>name</em>, <em>num</em>, <em>valenc</em>, <em>valdec</em>, <em>roottype=None</em><big>)</big><a class="reference internal" href="_modules/ipfix/types.html#IpfixType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.types.IpfixType" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descclassname">ipfix.types.</tt><tt class="descname">IpfixType</tt><big>(</big><em>name</em>, <em>num</em>, <em>valenc</em>, <em>valdec</em><big>)</big><a class="reference internal" href="_modules/ipfix/types.html#IpfixType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.types.IpfixType" title="Permalink to this definition">¶</a></dt>
 <dd><p>Abstract interface for all IPFIX types. Used internally.</p>
 </dd></dl>
 
@@ -255,13 +253,13 @@ microsecond-level timing.</p>
 
 <dl class="class">
 <dt id="ipfix.types.OctetArrayType">
-<em class="property">class </em><tt class="descclassname">ipfix.types.</tt><tt class="descname">OctetArrayType</tt><big>(</big><em>name</em>, <em>num</em>, <em>valenc=&lt;function _identity at 0x10424ac20&gt;</em>, <em>valdec=&lt;function _identity at 0x10424ac20&gt;</em>, <em>roottype=None</em><big>)</big><a class="reference internal" href="_modules/ipfix/types.html#OctetArrayType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.types.OctetArrayType" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descclassname">ipfix.types.</tt><tt class="descname">OctetArrayType</tt><big>(</big><em>name</em>, <em>num</em>, <em>valenc=&lt;function _identity at 0x104c155f0&gt;</em>, <em>valdec=&lt;function _identity at 0x104c155f0&gt;</em><big>)</big><a class="reference internal" href="_modules/ipfix/types.html#OctetArrayType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.types.OctetArrayType" title="Permalink to this definition">¶</a></dt>
 <dd><p>Type encoded by byte array packing. Used internally.</p>
 </dd></dl>
 
 <dl class="class">
 <dt id="ipfix.types.StructType">
-<em class="property">class </em><tt class="descclassname">ipfix.types.</tt><tt class="descname">StructType</tt><big>(</big><em>name</em>, <em>num</em>, <em>stel</em>, <em>valenc=&lt;function _identity at 0x10424ac20&gt;</em>, <em>valdec=&lt;function _identity at 0x10424ac20&gt;</em>, <em>roottype=None</em><big>)</big><a class="reference internal" href="_modules/ipfix/types.html#StructType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.types.StructType" title="Permalink to this definition">¶</a></dt>
+<em class="property">class </em><tt class="descclassname">ipfix.types.</tt><tt class="descname">StructType</tt><big>(</big><em>name</em>, <em>num</em>, <em>stel</em>, <em>valenc=&lt;function _identity at 0x104c155f0&gt;</em>, <em>valdec=&lt;function _identity at 0x104c155f0&gt;</em><big>)</big><a class="reference internal" href="_modules/ipfix/types.html#StructType"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.types.StructType" title="Permalink to this definition">¶</a></dt>
 <dd><p>Type encoded by struct packing. Used internally.</p>
 </dd></dl>
 
@@ -289,7 +287,7 @@ microsecond-level timing.</p>
 </tr>
 <tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">IpfixType &#8211; type instance for that name</td>
 </tr>
-<tr class="field-odd field"><th class="field-name">Raises :</th><td class="field-body">IpfixTypeError</td>
+<tr class="field-odd field"><th class="field-name">Raises:</th><td class="field-body">IpfixTypeError</td>
 </tr>
 </tbody>
 </table>
@@ -358,7 +356,7 @@ Used to support reduced-length encoding (RLE).</p>
 </tr>
 <tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">this IE if length matches, or a new IE for the length</td>
 </tr>
-<tr class="field-odd field"><th class="field-name">Raises :</th><td class="field-body">ValueError</td>
+<tr class="field-odd field"><th class="field-name">Raises:</th><td class="field-body">ValueError</td>
 </tr>
 </tbody>
 </table>
@@ -396,7 +394,7 @@ omitted unless creating a new IE in the cache.</td>
 </tr>
 <tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">an IE for the name</td>
 </tr>
-<tr class="field-odd field"><th class="field-name">Raises :</th><td class="field-body">ValueError</td>
+<tr class="field-odd field"><th class="field-name">Raises:</th><td class="field-body">ValueError</td>
 </tr>
 </tbody>
 </table>
@@ -449,7 +447,7 @@ and iterator functions.</p>
 <tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">a new Information Element List, suitable for use with the tuple
 export and iterator functions in <tt class="xref py py-mod docutils literal"><span class="pre">message</span></tt></td>
 </tr>
-<tr class="field-odd field"><th class="field-name">Raises :</th><td class="field-body">ValueError</td>
+<tr class="field-odd field"><th class="field-name">Raises:</th><td class="field-body">ValueError</td>
 </tr>
 </tbody>
 </table>
@@ -481,7 +479,7 @@ using any other part of this module.</p>
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>filename</strong> &#8211; name of file containing IESpecs to open</td>
 </tr>
-<tr class="field-even field"><th class="field-name">Raises :</th><td class="field-body">ValueError</td>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body">ValueError</td>
 </tr>
 </tbody>
 </table>
@@ -493,7 +491,7 @@ using any other part of this module.</p>
 <p>Representation of IPFIX templates.
 Provides template-based packing and unpacking of data in IPFIX messages.</p>
 <p>For reading, templates are handled internally. For writing, use 
-<tt class="xref py py-func docutils literal"><span class="pre">from_ielist()</span></tt> to create a template.</p>
+<a class="reference internal" href="#ipfix.template.from_ielist" title="ipfix.template.from_ielist"><tt class="xref py py-func docutils literal"><span class="pre">from_ielist()</span></tt></a> to create a template.</p>
 <p>See <a class="reference internal" href="#module-ipfix.message" title="ipfix.message"><tt class="xref py py-mod docutils literal"><span class="pre">ipfix.message</span></tt></a> for examples.</p>
 <dl class="exception">
 <dt id="ipfix.template.IpfixDecodeError">
@@ -578,8 +576,10 @@ as an Options Template if setid is OPTIONS_SET_ID.</p>
 <dl class="method">
 <dt id="ipfix.template.Template.encode_tuple_to">
 <tt class="descname">encode_tuple_to</tt><big>(</big><em>buf</em>, <em>offset</em>, <em>rec</em>, <em>recinf=None</em><big>)</big><a class="reference internal" href="_modules/ipfix/template.html#Template.encode_tuple_to"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.template.Template.encode_tuple_to" title="Permalink to this definition">¶</a></dt>
-<dd><p>Encodes a record from a tuple containing values ordered as the IEs 
-in the template.</p>
+<dd><p>Encodes a record from a tuple containing values
+ordered as the IEs in the InformationElementList given as recinf.
+If recinf is not given, assumes the tuple contains all
+IEs in the template in template order.</p>
 </dd></dl>
 
 <dl class="method">
@@ -598,7 +598,7 @@ which can be encoded/decoded efficiently.</p>
 
 <dl class="method">
 <dt id="ipfix.template.Template.packplan_for_ielist">
-<tt class="descname">packplan_for_ielist</tt><big>(</big><em>*args</em>, <em>**kwds</em><big>)</big><a class="reference internal" href="_modules/ipfix/template.html#Template.packplan_for_ielist"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.template.Template.packplan_for_ielist" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">packplan_for_ielist</tt><big>(</big><em>ielist</em><big>)</big><a class="reference internal" href="_modules/ipfix/template.html#Template.packplan_for_ielist"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.template.Template.packplan_for_ielist" title="Permalink to this definition">¶</a></dt>
 <dd><p>Given a list of IEs, devise and cache a packing plan.
 Used by the tuple interfaces.</p>
 </dd></dl>
@@ -621,17 +621,18 @@ as an Options Template if setid is OPTIONS_SET_ID.</p>
 </dd></dl>
 
 <dl class="function">
-<dt id="ipfix.template.for_specs">
-<tt class="descclassname">ipfix.template.</tt><tt class="descname">for_specs</tt><big>(</big><em>tid</em>, <em>*specs</em><big>)</big><a class="reference internal" href="_modules/ipfix/template.html#for_specs"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.template.for_specs" title="Permalink to this definition">¶</a></dt>
-<dd><p>Create a template from a template ID and a list of IESpecs</p>
+<dt id="ipfix.template.from_ielist">
+<tt class="descclassname">ipfix.template.</tt><tt class="descname">from_ielist</tt><big>(</big><em>tid</em>, <em>ielist</em><big>)</big><a class="reference internal" href="_modules/ipfix/template.html#from_ielist"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.template.from_ielist" title="Permalink to this definition">¶</a></dt>
+<dd><p>Create a template from a template ID and an information element list
+(itself available from <a class="reference internal" href="#ipfix.ie.spec_list" title="ipfix.ie.spec_list"><tt class="xref py py-func docutils literal"><span class="pre">ipfix.ie.spec_list()</span></tt></a>).</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
 <li><strong>tid</strong> &#8211; Template ID, must be between 256 and 65535.</li>
-<li><strong>*specs</strong> &#8211; <p>List of IESpecs</p>
-</li>
+<li><strong>ielist</strong> &#8211; List of Information Elements for the Template, see
+<a class="reference internal" href="#ipfix.ie.spec_list" title="ipfix.ie.spec_list"><tt class="xref py py-func docutils literal"><span class="pre">ipfix.ie.spec_list()</span></tt></a>.</li>
 </ul>
 </td>
 </tr>
@@ -760,9 +761,9 @@ accepting many types of data, or diagnostic tools for debugging IPFIX export:</p
 <div class="highlight-python"><div class="highlight"><pre><span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">rec</span> <span class="ow">in</span> <span class="n">msg</span><span class="o">.</span><span class="n">namedict_iterator</span><span class="p">():</span>
 <span class="gp">... </span>   <span class="k">print</span><span class="p">(</span><span class="nb">sorted</span><span class="p">(</span><span class="n">rec</span><span class="o">.</span><span class="n">items</span><span class="p">()))</span>
 <span class="gp">...</span>
-<span class="go">[(&#39;destinationIPv4Address&#39;, IPv4Address(&#39;10.5.6.7&#39;)), (&#39;flowStartMilliseconds&#39;, datetime.datetime(2013, 6, 21, 12, 0, tzinfo=datetime.timezone.utc)), (&#39;packetDeltaCount&#39;, 27), (&#39;sourceIPv4Address&#39;, IPv4Address(&#39;10.1.2.3&#39;))]</span>
-<span class="go">[(&#39;destinationIPv4Address&#39;, IPv4Address(&#39;10.12.13.14&#39;)), (&#39;flowStartMilliseconds&#39;, datetime.datetime(2013, 6, 21, 12, 0, 2, tzinfo=datetime.timezone.utc)), (&#39;packetDeltaCount&#39;, 33), (&#39;sourceIPv4Address&#39;, IPv4Address(&#39;10.8.9.11&#39;))]</span>
-<span class="go">[(&#39;flowStartMilliseconds&#39;, datetime.datetime(2013, 6, 21, 12, 0, 4, tzinfo=datetime.timezone.utc)), (&#39;myNewInformationElement&#39;, &quot;Grüezi, Y&#39;all&quot;)]</span>
+<span class="go">[(&#39;destinationIPv4Address&#39;, IPv4Address(&#39;10.5.6.7&#39;)), (&#39;flowStartMilliseconds&#39;, datetime.datetime(2013, 6, 21, 12, 0)), (&#39;packetDeltaCount&#39;, 27), (&#39;sourceIPv4Address&#39;, IPv4Address(&#39;10.1.2.3&#39;))]</span>
+<span class="go">[(&#39;destinationIPv4Address&#39;, IPv4Address(&#39;10.12.13.14&#39;)), (&#39;flowStartMilliseconds&#39;, datetime.datetime(2013, 6, 21, 12, 0, 2)), (&#39;packetDeltaCount&#39;, 33), (&#39;sourceIPv4Address&#39;, IPv4Address(&#39;10.8.9.11&#39;))]</span>
+<span class="go">[(&#39;flowStartMilliseconds&#39;, datetime.datetime(2013, 6, 21, 12, 0, 4)), (&#39;myNewInformationElement&#39;, &quot;Grüezi, Y&#39;all&quot;)]</span>
 </pre></div>
 </div>
 <p>The tuple interface for reading messages is designed for applications with a
@@ -775,8 +776,8 @@ specified as an <a class="reference internal" href="#ipfix.ie.InformationElement
 <span class="gp">&gt;&gt;&gt; </span><span class="k">for</span> <span class="n">rec</span> <span class="ow">in</span> <span class="n">msg</span><span class="o">.</span><span class="n">tuple_iterator</span><span class="p">(</span><span class="n">ielist</span><span class="p">):</span>
 <span class="gp">... </span>    <span class="k">print</span><span class="p">(</span><span class="n">rec</span><span class="p">)</span>
 <span class="gp">...</span>
-<span class="go">(datetime.datetime(2013, 6, 21, 12, 0, tzinfo=datetime.timezone.utc), 27)</span>
-<span class="go">(datetime.datetime(2013, 6, 21, 12, 0, 2, tzinfo=datetime.timezone.utc), 33)</span>
+<span class="go">(datetime.datetime(2013, 6, 21, 12, 0), 27)</span>
+<span class="go">(datetime.datetime(2013, 6, 21, 12, 0, 2), 33)</span>
 </pre></div>
 </div>
 <p>Notice that the variable-length record written to the message are not returned 
@@ -802,7 +803,7 @@ fails because there is not enough space in the message.</p>
 <dd><p>Implements a buffer for reading or writing IPFIX messages.</p>
 <dl class="method">
 <dt id="ipfix.message.MessageBuffer.active_template_ids">
-<tt class="descname">active_template_ids</tt><big>(</big><big>)</big><a class="reference internal" href="_modules/ipfix/message.html#MessageBuffer.active_template_ids"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.message.MessageBuffer.active_template_ids" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">active_template_ids</tt><big>(</big><big>)</big><a class="headerlink" href="#ipfix.message.MessageBuffer.active_template_ids" title="Permalink to this definition">¶</a></dt>
 <dd><p>Get an iterator over all active template IDs in the current domain.
 Provided to allow callers to export some or all active Templates across
 multiple Messages.</p>
@@ -832,7 +833,7 @@ after adding it.</li>
 </ul>
 </td>
 </tr>
-<tr class="field-even field"><th class="field-name">Raises :</th><td class="field-body"><p class="first last">EndOfMessage</p>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body"><p class="first last">EndOfMessage</p>
 </td>
 </tr>
 </tbody>
@@ -854,7 +855,7 @@ that templates are scoped to observation domain, so
 templates will need to be added after switching to a new
 observation domain ID.</td>
 </tr>
-<tr class="field-even field"><th class="field-name">Raises :</th><td class="field-body">IpfixEncodeError</td>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body">IpfixEncodeError</td>
 </tr>
 </tbody>
 </table>
@@ -875,7 +876,7 @@ Template after deleting it</li>
 </ul>
 </td>
 </tr>
-<tr class="field-even field"><th class="field-name">Raises :</th><td class="field-body"><p class="first last">EndOfMessage</p>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body"><p class="first last">EndOfMessage</p>
 </td>
 </tr>
 </tbody>
@@ -896,7 +897,7 @@ the Template that will be used to encode records into the
 Set. The require Template must have already been added
 to the MessageBuffer, see <a class="reference internal" href="#ipfix.message.MessageBuffer.add_template" title="ipfix.message.MessageBuffer.add_template"><tt class="xref py py-meth docutils literal"><span class="pre">add_template()</span></tt></a>.</td>
 </tr>
-<tr class="field-even field"><th class="field-name">Raises :</th><td class="field-body">IpfixEncodeError, EndOfMessage</td>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body">IpfixEncodeError, EndOfMessage</td>
 </tr>
 </tbody>
 </table>
@@ -915,7 +916,7 @@ dictionary not in the template will be ignored.</p>
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>rec</strong> &#8211; the record to export, as a dictionary</td>
 </tr>
-<tr class="field-even field"><th class="field-name">Raises :</th><td class="field-body">EndOfMessage</td>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body">EndOfMessage</td>
 </tr>
 </tbody>
 </table>
@@ -943,7 +944,7 @@ the Template that will be used to encode records into the
 Set. The require Template must have already been added
 to the MessageBuffer, see <a class="reference internal" href="#ipfix.message.MessageBuffer.add_template" title="ipfix.message.MessageBuffer.add_template"><tt class="xref py py-meth docutils literal"><span class="pre">add_template()</span></tt></a>.</td>
 </tr>
-<tr class="field-even field"><th class="field-name">Raises :</th><td class="field-body">IpfixEncodeError, EndOfMessage</td>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body">IpfixEncodeError, EndOfMessage</td>
 </tr>
 </tbody>
 </table>
@@ -951,7 +952,7 @@ to the MessageBuffer, see <a class="reference internal" href="#ipfix.message.Mes
 
 <dl class="method">
 <dt id="ipfix.message.MessageBuffer.export_record">
-<tt class="descname">export_record</tt><big>(</big><em>rec</em>, <em>encode_fn=&lt;function Template.encode_namedict_to at 0x10427fb00&gt;</em>, <em>recinf=None</em><big>)</big><a class="reference internal" href="_modules/ipfix/message.html#MessageBuffer.export_record"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.message.MessageBuffer.export_record" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">export_record</tt><big>(</big><em>rec</em>, <em>encode_fn=&lt;function Template.encode_namedict_to at 0x104b74950&gt;</em>, <em>recinf=None</em><big>)</big><a class="reference internal" href="_modules/ipfix/message.html#MessageBuffer.export_record"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.message.MessageBuffer.export_record" title="Permalink to this definition">¶</a></dt>
 <dd><p>Low-level interface to record export.</p>
 <p>Export a record to a MessageBuffer, using the template associated with
 the Set ID given to the most recent <a class="reference internal" href="#ipfix.message.MessageBuffer.export_new_set" title="ipfix.message.MessageBuffer.export_new_set"><tt class="xref py py-meth docutils literal"><span class="pre">export_new_set()</span></tt></a> or
@@ -970,7 +971,7 @@ must be an (unbound) &#8220;encode&#8221; instance method of the
 </ul>
 </td>
 </tr>
-<tr class="field-even field"><th class="field-name">Raises :</th><td class="field-body"><p class="first last">EndOfMessage</p>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body"><p class="first last">EndOfMessage</p>
 </td>
 </tr>
 </tbody>
@@ -988,7 +989,7 @@ must be an (unbound) &#8220;encode&#8221; instance method of the
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>tid</strong> &#8211; ID of template to export; must have been added to this
 message previously with <a class="reference internal" href="#ipfix.message.MessageBuffer.add_template" title="ipfix.message.MessageBuffer.add_template"><tt class="xref py py-meth docutils literal"><span class="pre">add_template()</span></tt></a>.</td>
 </tr>
-<tr class="field-even field"><th class="field-name">Raises :</th><td class="field-body">EndOfMessage, KeyError</td>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body">EndOfMessage, KeyError</td>
 </tr>
 </tbody>
 </table>
@@ -996,16 +997,25 @@ message previously with <a class="reference internal" href="#ipfix.message.Messa
 
 <dl class="method">
 <dt id="ipfix.message.MessageBuffer.export_tuple">
-<tt class="descname">export_tuple</tt><big>(</big><em>rec</em><big>)</big><a class="reference internal" href="_modules/ipfix/message.html#MessageBuffer.export_tuple"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.message.MessageBuffer.export_tuple" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">export_tuple</tt><big>(</big><em>rec</em>, <em>ielist=None</em><big>)</big><a class="reference internal" href="_modules/ipfix/message.html#MessageBuffer.export_tuple"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.message.MessageBuffer.export_tuple" title="Permalink to this definition">¶</a></dt>
 <dd><p>Export a record to the message, using the template for the current Set
-ID. The record is a tuple of values in template order.</p>
+ID. The record is a tuple of values, in template order by default.
+If ielist is given, the tuple is in the order if IEs in that list
+instead. The tuple must contain one value for each IE in the template;
+values for IEs in the ielist not in the template will be ignored.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
 <col class="field-body" />
 <tbody valign="top">
-<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>rec</strong> &#8211; the record to export, as a tuple in template order.</td>
+<tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><ul class="first simple">
+<li><strong>rec</strong> &#8211; the record to export, as a tuple</li>
+<li><strong>ielist</strong> &#8211; optional information element list describing the order
+of the rec tuple</li>
+</ul>
+</td>
 </tr>
-<tr class="field-even field"><th class="field-name">Raises :</th><td class="field-body">EndOfMessage</td>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body"><p class="first last">EndOfMessage</p>
+</td>
 </tr>
 </tbody>
 </table>
@@ -1024,7 +1034,7 @@ from a byte array.</p>
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>bytes</strong> &#8211; a byte array containing a complete IPFIX message.</td>
 </tr>
-<tr class="field-even field"><th class="field-name">Raises :</th><td class="field-body">IpfixDecodeError</td>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body">IpfixDecodeError</td>
 </tr>
 </tbody>
 </table>
@@ -1076,7 +1086,7 @@ from a stream.</p>
 <tbody valign="top">
 <tr class="field-odd field"><th class="field-name">Parameters:</th><td class="field-body"><strong>stream</strong> &#8211; stream to read from</td>
 </tr>
-<tr class="field-even field"><th class="field-name">Raises :</th><td class="field-body">IpfixDecodeError</td>
+<tr class="field-even field"><th class="field-name">Raises:</th><td class="field-body">IpfixDecodeError</td>
 </tr>
 </tbody>
 </table>
@@ -1084,7 +1094,7 @@ from a stream.</p>
 
 <dl class="method">
 <dt id="ipfix.message.MessageBuffer.record_iterator">
-<tt class="descname">record_iterator</tt><big>(</big><em>decode_fn=&lt;function Template.decode_namedict_from at 0x10427f8c0&gt;</em>, <em>tmplaccept_fn=&lt;function accept_all_templates at 0x104285290&gt;</em>, <em>recinf=None</em><big>)</big><a class="reference internal" href="_modules/ipfix/message.html#MessageBuffer.record_iterator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.message.MessageBuffer.record_iterator" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">record_iterator</tt><big>(</big><em>decode_fn=&lt;function Template.decode_namedict_from at 0x104b74710&gt;</em>, <em>tmplaccept_fn=&lt;function accept_all_templates at 0x104b53170&gt;</em>, <em>recinf=None</em><big>)</big><a class="reference internal" href="_modules/ipfix/message.html#MessageBuffer.record_iterator"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.message.MessageBuffer.record_iterator" title="Permalink to this definition">¶</a></dt>
 <dd><p>Low-level interface to record iteration.</p>
 <p>Iterate over records in an IPFIX message previously read with 
 <a class="reference internal" href="#ipfix.message.MessageBuffer.read_message" title="ipfix.message.MessageBuffer.read_message"><tt class="xref py py-meth docutils literal"><span class="pre">read_message()</span></tt></a> or <a class="reference internal" href="#ipfix.message.MessageBuffer.from_bytes" title="ipfix.message.MessageBuffer.from_bytes"><tt class="xref py py-meth docutils literal"><span class="pre">from_bytes()</span></tt></a>. Automatically handles 
@@ -1133,7 +1143,7 @@ time updates. By default, sets the export time to the current time.</p>
 
 <dl class="method">
 <dt id="ipfix.message.MessageBuffer.template_for_id">
-<tt class="descname">template_for_id</tt><big>(</big><em>tid</em><big>)</big><a class="reference internal" href="_modules/ipfix/message.html#MessageBuffer.template_for_id"><span class="viewcode-link">[source]</span></a><a class="headerlink" href="#ipfix.message.MessageBuffer.template_for_id" title="Permalink to this definition">¶</a></dt>
+<tt class="descname">template_for_id</tt><big>(</big><em>tid</em><big>)</big><a class="headerlink" href="#ipfix.message.MessageBuffer.template_for_id" title="Permalink to this definition">¶</a></dt>
 <dd><p>Retrieve a Template for a given ID in the current domain.</p>
 <table class="docutils field-list" frame="void" rules="none">
 <col class="field-name" />
@@ -1143,7 +1153,7 @@ time updates. By default, sets the export time to the current time.</p>
 </tr>
 <tr class="field-even field"><th class="field-name">Returns:</th><td class="field-body">the template</td>
 </tr>
-<tr class="field-odd field"><th class="field-name">Raises :</th><td class="field-body">KeyError</td>
+<tr class="field-odd field"><th class="field-name">Raises:</th><td class="field-body">KeyError</td>
 </tr>
 </tbody>
 </table>
@@ -1387,62 +1397,18 @@ the largest possible ipfix message.</li>
 </div>
 
 
-          </div>
-        </div>
       </div>
-      <div class="sphinxsidebar">
-        <div class="sphinxsidebarwrapper">
-  <h3><a href="#">Table Of Contents</a></h3>
-  <ul>
-<li><a class="reference internal" href="#">python-ipfix</a><ul>
-<li><a class="reference internal" href="#module-ipfix.types">module ipfix.types</a></li>
-<li><a class="reference internal" href="#module-ipfix.ie">module ipfix.ie</a></li>
-<li><a class="reference internal" href="#module-ipfix.template">module ipfix.template</a></li>
-<li><a class="reference internal" href="#module-ipfix.message">module ipfix.message</a></li>
-<li><a class="reference internal" href="#module-ipfix.reader">module ipfix.reader</a></li>
-<li><a class="reference internal" href="#module-ipfix.writer">module ipfix.writer</a></li>
-</ul>
-</li>
-<li><a class="reference internal" href="#indices-and-tables">Indices and tables</a></li>
-</ul>
+      <div class="bottomnav">
+      
+        <p>
+        <a class="uplink" href="#">Contents</a>
+        </p>
 
-  <h3>This Page</h3>
-  <ul class="this-page-menu">
-    <li><a href="_sources/index.txt"
-           rel="nofollow">Show Source</a></li>
-  </ul>
-<div id="searchbox" style="display: none">
-  <h3>Quick search</h3>
-    <form class="search" action="search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
-      <input type="hidden" name="check_keywords" value="yes" />
-      <input type="hidden" name="area" value="default" />
-    </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
-</div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
-        </div>
       </div>
-      <div class="clearer"></div>
-    </div>
-    <div class="related">
-      <h3>Navigation</h3>
-      <ul>
-        <li class="right" style="margin-right: 10px">
-          <a href="genindex.html" title="General Index"
-             >index</a></li>
-        <li class="right" >
-          <a href="py-modindex.html" title="Python Module Index"
-             >modules</a> |</li>
-        <li><a href="#">python-ipfix 0.9.4 documentation</a> &raquo;</li> 
-      </ul>
-    </div>
+
     <div class="footer">
-        &copy; Copyright 2013, Brian Trammell.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2b1.
+        &copy; Copyright 2013-2014, Brian Trammell.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.
     </div>
   </body>
 </html>

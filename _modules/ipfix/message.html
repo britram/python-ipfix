@@ -6,15 +6,16 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>ipfix.message &mdash; python-ipfix 0.9.4 documentation</title>
+    <title>ipfix.message &mdash; python-ipfix 0.9.6 documentation</title>
     
-    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/haiku.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/print.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../../',
-        VERSION:     '0.9.4',
+        VERSION:     '0.9.6',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,56 +24,32 @@
     <script type="text/javascript" src="../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../_static/underscore.js"></script>
     <script type="text/javascript" src="../../_static/doctools.js"></script>
-    <link rel="top" title="python-ipfix 0.9.4 documentation" href="../../index.html" />
+    <script type="text/javascript" src="../../_static/theme_extras.js"></script>
+    <link rel="top" title="python-ipfix 0.9.6 documentation" href="../../index.html" />
     <link rel="up" title="Module code" href="../index.html" /> 
   </head>
   <body>
-    <div class="related">
-      <h3>Navigation</h3>
-      <ul>
-        <li class="right" style="margin-right: 10px">
-          <a href="../../genindex.html" title="General Index"
-             accesskey="I">index</a></li>
-        <li class="right" >
-          <a href="../../py-modindex.html" title="Python Module Index"
-             >modules</a> |</li>
-        <li><a href="../../index.html">python-ipfix 0.9.4 documentation</a> &raquo;</li>
-          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
-      </ul>
-    </div>  
+      <div class="header"><h1 class="heading"><a href="../../index.html">
+          <span>python-ipfix 0.9.6 documentation</span></a></h1>
+        <h2 class="heading"><span>ipfix.message</span></h2>
+      </div>
+      <div class="topnav">
+      
+        <p>
+        <a class="uplink" href="../../index.html">Contents</a>
+        </p>
 
-    <div class="document">
-      <div class="documentwrapper">
-        <div class="bodywrapper">
-          <div class="body">
-            
+      </div>
+      <div class="content">
+        
+        
   <h1>Source code for ipfix.message</h1><div class="highlight"><pre>
-<span class="c">#</span>
-<span class="c"># python-ipfix (c) 2013 Brian Trammell.</span>
-<span class="c">#</span>
-<span class="c"># Many thanks to the mPlane consortium (http://www.ict-mplane.eu) for</span>
-<span class="c"># its material support of this effort.</span>
-<span class="c"># </span>
-<span class="c"># This program is free software: you can redistribute it and/or modify it under</span>
-<span class="c"># the terms of the GNU Lesser General Public License as published by the Free</span>
-<span class="c"># Software Foundation, either version 3 of the License, or (at your option) any</span>
-<span class="c"># later version.</span>
-<span class="c">#</span>
-<span class="c"># This program is distributed in the hope that it will be useful, but WITHOUT</span>
-<span class="c"># ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS</span>
-<span class="c"># FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more</span>
-<span class="c"># details.</span>
-<span class="c">#</span>
-<span class="c"># You should have received a copy of the GNU General Public License along with</span>
-<span class="c"># this program.  If not, see &lt;http://www.gnu.org/licenses/&gt;.</span>
-<span class="c">#</span>
-
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">Provides the MessageBuffer class for encoding and decoding IPFIX Messages.</span>
+<span class="sd">Provides the MessageBuffer class for encoding and decoding IPFIX messages.</span>
 
 <span class="sd">This interface allows direct control over Messages; for reading or writing</span>
-<span class="sd">records automatically from/to streams, see :mod:`ipfix.reader` and</span>
-<span class="sd">:mod:`ipfix.writer`, respectively.</span>
+<span class="sd">records automatically from/to streams, see :mod:`reader` and :mod:`writer`,</span>
+<span class="sd">respectively.</span>
 
 <span class="sd">To create a message buffer:</span>
 
@@ -115,7 +92,7 @@
 <span class="sd">the ID of the template. MessageBuffer automatically uses the template matching</span>
 <span class="sd">the set ID for record encoding.</span>
 
-<span class="sd">&gt;&gt;&gt; msg.export_ensure_set(256)</span>
+<span class="sd">&gt;&gt;&gt; msg.export_new_set(256)</span>
 <span class="sd">&gt;&gt;&gt; msg</span>
 <span class="sd">&lt;MessageBuffer domain 8304 length 44 (writing set 256)&gt;</span>
 
@@ -140,25 +117,6 @@
 <span class="sd">&gt;&gt;&gt; msg</span>
 <span class="sd">&lt;MessageBuffer domain 8304 length 92 (writing set 256)&gt;</span>
 
-<span class="sd">Variable-length information elements will be encoded using the native length</span>
-<span class="sd">of the passed value:</span>
-
-<span class="sd">&gt;&gt;&gt; ipfix.ie.for_spec(&quot;myNewInformationElement(35566/1)&lt;string&gt;&quot;)</span>
-<span class="sd">InformationElement(&#39;myNewInformationElement&#39;, 35566, 1, ipfix.types.for_name(&#39;string&#39;), 65535)</span>
-<span class="sd">&gt;&gt;&gt; tmpl = ipfix.template.from_ielist(257, </span>
-<span class="sd">...        ipfix.ie.spec_list((&quot;flowStartMilliseconds&quot;,</span>
-<span class="sd">...                            &quot;myNewInformationElement&quot;)))</span>
-<span class="sd">&gt;&gt;&gt; msg.add_template(tmpl)</span>
-<span class="sd">&gt;&gt;&gt; msg.export_ensure_set(257)</span>
-<span class="sd">&gt;&gt;&gt; msg</span>
-<span class="sd">&lt;MessageBuffer domain 8304 length 116 (writing set 257)&gt;</span>
-<span class="sd">&gt;&gt;&gt; rec = { &quot;flowStartMilliseconds&quot; : datetime.strptime(&quot;2013-06-21 14:00:04&quot;, </span>
-<span class="sd">...                                   &quot;%Y-%m-%d %H:%M:%S&quot;),</span>
-<span class="sd">...         &quot;myNewInformationElement&quot; : &quot;Grüezi, Y&#39;all&quot; }</span>
-<span class="sd">&gt;&gt;&gt; msg.export_namedict(rec)</span>
-<span class="sd">&gt;&gt;&gt; msg</span>
-<span class="sd">&lt;MessageBuffer domain 8304 length 139 (writing set 257)&gt;</span>
-
 <span class="sd">Attempts to write past the end of the message (set via the mtu parameter, </span>
 <span class="sd">default 65535) result in :exc:`EndOfMessage` being raised.</span>
 
@@ -177,45 +135,50 @@
 
 <span class="sd">&gt;&gt;&gt; msg.from_bytes(b)</span>
 <span class="sd">&gt;&gt;&gt; msg</span>
-<span class="sd">&lt;MessageBuffer domain 8304 length 139 (deframed 4 sets)&gt;</span>
+<span class="sd">&lt;MessageBuffer domain 8304 length 92 (deframed 2 sets)&gt;</span>
 
 <span class="sd">Both of these methods scan the message in advance to find the sets within</span>
 <span class="sd">the message. The records within these sets can then be accessed by iterating</span>
 <span class="sd">over the message. As with export, the records can be accessed as a dictionary </span>
 <span class="sd">mapping IE names to values or as tuples. The dictionary interface is</span>
 <span class="sd">designed for general IPFIX processing applications, such as collectors </span>
-<span class="sd">accepting many types of data, or diagnostic tools for debugging IPFIX export:</span>
+<span class="sd">accepting many types of data, or diagnostic tools for debugging IPFIX export. </span>
 
-<span class="sd">&gt;&gt;&gt; for rec in msg.namedict_iterator():</span>
-<span class="sd">...    print(sorted(rec.items()))</span>
-<span class="sd">...</span>
+<span class="sd">&gt;&gt;&gt; iter = msg.namedict_iterator()</span>
+<span class="sd">&gt;&gt;&gt; sorted(next(iter).items())</span>
 <span class="sd">[(&#39;destinationIPv4Address&#39;, IPv4Address(&#39;10.5.6.7&#39;)), (&#39;flowStartMilliseconds&#39;, datetime.datetime(2013, 6, 21, 12, 0)), (&#39;packetDeltaCount&#39;, 27), (&#39;sourceIPv4Address&#39;, IPv4Address(&#39;10.1.2.3&#39;))]</span>
+<span class="sd">&gt;&gt;&gt; sorted(next(iter).items())</span>
 <span class="sd">[(&#39;destinationIPv4Address&#39;, IPv4Address(&#39;10.12.13.14&#39;)), (&#39;flowStartMilliseconds&#39;, datetime.datetime(2013, 6, 21, 12, 0, 2)), (&#39;packetDeltaCount&#39;, 33), (&#39;sourceIPv4Address&#39;, IPv4Address(&#39;10.8.9.11&#39;))]</span>
-<span class="sd">[(&#39;flowStartMilliseconds&#39;, datetime.datetime(2013, 6, 21, 12, 0, 4)), (&#39;myNewInformationElement&#39;, &quot;Grüezi, Y&#39;all&quot;)]</span>
+<span class="sd">&gt;&gt;&gt; next(iter)</span>
+<span class="sd">Traceback (most recent call last):</span>
+<span class="sd">  File &quot;&lt;stdin&gt;&quot;, line 1, in &lt;module&gt;</span>
+<span class="sd">StopIteration</span>
 
 <span class="sd">The tuple interface for reading messages is designed for applications with a</span>
 <span class="sd">specific internal data model. It can be much faster than the dictionary</span>
 <span class="sd">interface, as it skips decoding of IEs not requested by the caller, and can</span>
 <span class="sd">skip entire sets not containing all the requested IEs. Requested IEs are</span>
-<span class="sd">specified as an :class:`ipfix.ie.InformationElementList` instance, from </span>
+<span class="sd">specified as an :cls:`InformationElementList` instance, from </span>
 <span class="sd">:func:`ie.spec_list()`:</span>
 
-<span class="sd">&gt;&gt;&gt; ielist = ipfix.ie.spec_list([&quot;flowStartMilliseconds&quot;, &quot;packetDeltaCount&quot;])</span>
-<span class="sd">&gt;&gt;&gt; for rec in msg.tuple_iterator(ielist):</span>
-<span class="sd">...     print(rec)</span>
-<span class="sd">...</span>
-<span class="sd">(datetime.datetime(2013, 6, 21, 12, 0), 27)</span>
-<span class="sd">(datetime.datetime(2013, 6, 21, 12, 0, 2), 33)</span>
+<span class="sd">&gt;&gt;&gt; msg = ipfix.message.MessageBuffer()</span>
+<span class="sd">&gt;&gt;&gt; msg.from_bytes(b)</span>
+<span class="sd">&gt;&gt;&gt; ielist = ipfix.ie.spec_list((&quot;flowStartMilliseconds&quot;, &quot;packetDeltaCount&quot;))</span>
+<span class="sd">&gt;&gt;&gt; iter = msg.tuple_iterator(ielist)</span>
+<span class="sd">&gt;&gt;&gt; next(iter)</span>
+<span class="sd">[datetime.datetime(2013, 6, 21, 12, 0), 27]</span>
+<span class="sd">&gt;&gt;&gt; next(iter)</span>
+<span class="sd">[datetime.datetime(2013, 6, 21, 12, 0, 2), 33]</span>
+<span class="sd">&gt;&gt;&gt; next(iter)</span>
+<span class="sd">Traceback (most recent call last):</span>
+<span class="sd">  File &quot;&lt;stdin&gt;&quot;, line 1, in &lt;module&gt;</span>
+<span class="sd">StopIteration</span>
 
-<span class="sd">Notice that the variable-length record written to the message are not returned </span>
-<span class="sd">by this iterator, since that record doesn&#39;t include a packetDeltaCount IE. </span>
-<span class="sd">The record is, however, still there:</span>
+<span class="sd">.. warning::</span>
 
-<span class="sd">&gt;&gt;&gt; ielist = ipfix.ie.spec_list([&quot;myNewInformationElement&quot;])</span>
-<span class="sd">&gt;&gt;&gt; for rec in msg.tuple_iterator(ielist):</span>
-<span class="sd">...     print(rec)</span>
-<span class="sd">...</span>
-<span class="sd">(&quot;Grüezi, Y&#39;all&quot;,)</span>
+<span class="sd">A MessageBuffer using the tuple interface can *only* be used for a single</span>
+<span class="sd">IE list; changing lists, or switching between the dictionary and tuple</span>
+<span class="sd">interfaces on a given MessageBuffer, will result in undefined behavior.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
 
@@ -269,8 +232,6 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">cursetid</span> <span class="o">=</span> <span class="bp">None</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">curtmpl</span> <span class="o">=</span> <span class="bp">None</span>
         
-        <span class="bp">self</span><span class="o">.</span><span class="n">last_tuple_iterator_ielist</span> <span class="o">=</span> <span class="bp">None</span>
-        
         <span class="bp">self</span><span class="o">.</span><span class="n">mtu</span> <span class="o">=</span> <span class="mi">65535</span>
         
     <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
@@ -290,7 +251,7 @@
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Return the export time of this message. When reading, returns the </span>
 <span class="sd">        export time as read from the message header. When writing, this is </span>
-<span class="sd">        the argument of the last call to :meth:`set_export_time`, or, if </span>
+<span class="sd">        the argument of the last call to :meth:`setExportTime`, or, if </span>
 <span class="sd">        :attr:auto_export_time is True, the time of the last message</span>
 <span class="sd">        export.</span>
 <span class="sd">        </span>
@@ -299,17 +260,16 @@
 <span class="sd">        &quot;&quot;&quot;</span>
         <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcfromtimestamp</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">export_epoch</span><span class="p">)</span>
 </div>
-<div class="viewcode-block" id="MessageBuffer.set_export_time"><a class="viewcode-back" href="../../index.html#ipfix.message.MessageBuffer.set_export_time">[docs]</a>    <span class="k">def</span> <span class="nf">set_export_time</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+<div class="viewcode-block" id="MessageBuffer.set_export_time"><a class="viewcode-back" href="../../index.html#ipfix.message.MessageBuffer.set_export_time">[docs]</a>    <span class="k">def</span> <span class="nf">set_export_time</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">dt</span><span class="o">=</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()):</span>
         <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">        Set the export time for the next message written with </span>
-<span class="sd">        :meth:`write_message` or :meth:`to_bytes`. Disables automatic export </span>
+<span class="sd">        :meth:`writeMessage` or :meth:`to_bytes`. Disables automatic export </span>
 <span class="sd">        time updates. By default, sets the export time to the current time.</span>
 <span class="sd">        </span>
-<span class="sd">        :param dt: export time to set, as a datetime</span>
+<span class="sd">        :param dt: :cls:`datetime.datetime` export time to set</span>
 <span class="sd">        </span>
 <span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="ow">not</span> <span class="n">dt</span><span class="p">:</span>
-            <span class="n">dt</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span>
+        
         <span class="bp">self</span><span class="o">.</span><span class="n">export_epoch</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">dt</span><span class="o">.</span><span class="n">timestamp</span><span class="p">())</span>        
         <span class="bp">self</span><span class="o">.</span><span class="n">auto_export_time</span> <span class="o">=</span> <span class="bp">False</span>
                 </div>
@@ -333,7 +293,7 @@
                 <span class="k">raise</span> <span class="n">IPFIXDecodeError</span><span class="p">(</span><span class="s">&quot;Set too long for message&quot;</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">setlist</span><span class="o">.</span><span class="n">append</span><span class="p">((</span><span class="n">offset</span><span class="p">,</span> <span class="n">setid</span><span class="p">,</span> <span class="n">setlen</span><span class="p">))</span>
             <span class="n">offset</span> <span class="o">+=</span> <span class="n">setlen</span>
-    
+        
 <div class="viewcode-block" id="MessageBuffer.read_message"><a class="viewcode-back" href="../../index.html#ipfix.message.MessageBuffer.read_message">[docs]</a>    <span class="k">def</span> <span class="nf">read_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stream</span><span class="p">):</span>
         <span class="sd">&quot;&quot;&quot;Read a IPFIX message from a stream.</span>
 <span class="sd">        </span>
@@ -413,33 +373,32 @@
 <div class="viewcode-block" id="MessageBuffer.record_iterator"><a class="viewcode-back" href="../../index.html#ipfix.message.MessageBuffer.record_iterator">[docs]</a>    <span class="k">def</span> <span class="nf">record_iterator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> 
                         <span class="n">decode_fn</span><span class="o">=</span><span class="n">template</span><span class="o">.</span><span class="n">Template</span><span class="o">.</span><span class="n">decode_namedict_from</span><span class="p">,</span> 
                         <span class="n">tmplaccept_fn</span><span class="o">=</span><span class="n">accept_all_templates</span><span class="p">,</span> 
-                        <span class="n">recinf</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Low-level interface to record iteration.</span>
+                        <span class="n">recinf</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Low-level interface to record iteration.</span>
 <span class="sd">        </span>
 <span class="sd">        Iterate over records in an IPFIX message previously read with </span>
-<span class="sd">        :meth:`read_message()` or :meth:`from_bytes()`. Automatically handles </span>
-<span class="sd">        templates in set order. By default, iterates over each record in the </span>
-<span class="sd">        stream as a dictionary mapping IE name to value </span>
-<span class="sd">        (i.e., the same as :meth:`namedict_iterator`)</span>
+<span class="sd">        :meth:read_message() or from_bytes(). Automatically handles templates in</span>
+<span class="sd">        set order. By default, iterates over each record in the stream as a</span>
+<span class="sd">        dictionary mapping information element name to value.</span>
 <span class="sd">        </span>
-<span class="sd">        :param decode_fn: Function used to decode a record; </span>
-<span class="sd">                          must be an (unbound) &quot;decode&quot; instance method of the </span>
-<span class="sd">                          :class:`ipfix.template.Template` class.</span>
-<span class="sd">        :param tmplaccept_fn: Function returning True if the given template</span>
-<span class="sd">                              is of interest to the caller, False if not.</span>
-<span class="sd">                              Default accepts all templates. Sets described by</span>
-<span class="sd">                              templates for which this function returns False</span>
-<span class="sd">                              will be skipped.</span>
-<span class="sd">        :param recinf: Record information opaquely passed to decode function</span>
-<span class="sd">        :returns: an iterator over records decoded by decode_fn.</span>
+<span class="sd">        Keyword arguments:</span>
+<span class="sd">        decode_fn -- Decode function, with signature f(template, buffer, </span>
+<span class="sd">                     offset, recinf) -&gt; record. This is generally an instance</span>
+<span class="sd">                     method of the Template class providing the type of record </span>
+<span class="sd">                     desired. Default is Template.decode_namedict_from.</span>
+<span class="sd">        tmplaccept_fn -- Template acceptance function, with signature </span>
+<span class="sd">                         f(template) -&gt; boolean. Passed a template after the</span>
+<span class="sd">                         template is decoded, returns True if the caller wants</span>
+<span class="sd">                         to receive records in data sets for that template.</span>
+<span class="sd">                         Default is to accept every template.</span>
+<span class="sd">        recinf -- Record information, opaquely passed to decode function; see</span>
+<span class="sd">                  recinf on each decode function for more.</span>
 
 <span class="sd">        &quot;&quot;&quot;</span>        
         <span class="k">for</span> <span class="p">(</span><span class="n">offset</span><span class="p">,</span> <span class="n">setid</span><span class="p">,</span> <span class="n">setlen</span><span class="p">)</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">setlist</span><span class="p">:</span>
             <span class="n">setend</span> <span class="o">=</span> <span class="n">offset</span> <span class="o">+</span> <span class="n">setlen</span>
             <span class="n">offset</span> <span class="o">+=</span> <span class="n">_sethdr_st</span><span class="o">.</span><span class="n">size</span> <span class="c"># skip set header in decode</span>
-            <span class="k">if</span> <span class="n">setid</span> <span class="o">==</span> <span class="n">template</span><span class="o">.</span><span class="n">TEMPLATE_SET_ID</span> <span class="ow">or</span>\
-               <span class="n">setid</span> <span class="o">==</span> <span class="n">template</span><span class="o">.</span><span class="n">OPTIONS_SET_ID</span><span class="p">:</span>
+            <span class="k">if</span> <span class="n">setid</span> <span class="o">==</span> <span class="mi">2</span> <span class="ow">or</span> <span class="n">setid</span> <span class="o">==</span> <span class="mi">3</span><span class="p">:</span>
                 <span class="k">while</span> <span class="n">offset</span> <span class="o">&lt;</span> <span class="n">setend</span><span class="p">:</span>
                     <span class="p">(</span><span class="n">tmpl</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span> <span class="o">=</span> <span class="n">template</span><span class="o">.</span><span class="n">decode_template_from</span><span class="p">(</span>
                                               <span class="bp">self</span><span class="o">.</span><span class="n">mbuf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">setid</span><span class="p">)</span>
@@ -468,63 +427,26 @@
                 <span class="k">pass</span>
 </div>
 <div class="viewcode-block" id="MessageBuffer.namedict_iterator"><a class="viewcode-back" href="../../index.html#ipfix.message.MessageBuffer.namedict_iterator">[docs]</a>    <span class="k">def</span> <span class="nf">namedict_iterator</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Iterate over all records in the Message, as dicts mapping IE names</span>
-<span class="sd">        to values.</span>
-<span class="sd">        </span>
-<span class="sd">        :returns: a name dictionary iterator</span>
-<span class="sd">        </span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">record_iterator</span><span class="p">(</span>
                 <span class="n">decode_fn</span> <span class="o">=</span> <span class="n">template</span><span class="o">.</span><span class="n">Template</span><span class="o">.</span><span class="n">decode_namedict_from</span><span class="p">)</span>
     </div>
-    <span class="k">def</span> <span class="nf">_recache_accepted_tids</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tmplaccept_fn</span><span class="p">):</span>
-        <span class="k">for</span> <span class="n">tid</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">active_template_ids</span><span class="p">():</span>
-            <span class="k">if</span> <span class="n">tmplaccept_fn</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">templates</span><span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">odid</span><span class="p">,</span> <span class="n">tid</span><span class="p">)]):</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">accepted_tids</span><span class="o">.</span><span class="n">add</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">odid</span><span class="p">,</span> <span class="n">tid</span><span class="p">))</span>
-            <span class="k">else</span><span class="p">:</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">accepted_tids</span><span class="o">.</span><span class="n">discard</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">odid</span><span class="p">,</span> <span class="n">tid</span><span class="p">))</span>
-
 <div class="viewcode-block" id="MessageBuffer.tuple_iterator"><a class="viewcode-back" href="../../index.html#ipfix.message.MessageBuffer.tuple_iterator">[docs]</a>    <span class="k">def</span> <span class="nf">tuple_iterator</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">ielist</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Iterate over all records in the Message containing all the IEs in </span>
-<span class="sd">        the given ielist. Records are returned as tuples in ielist order.</span>
-<span class="sd">        </span>
-<span class="sd">        :param ielist: an instance of :class:`ipfix.ie.InformationElementList`</span>
-<span class="sd">                       listing IEs to return as a tuple</span>
-<span class="sd">        :returns: a tuple iterator for tuples as in ielist order</span>
-<span class="sd">        </span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        
         <span class="n">tmplaccept_fn</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">tmpl</span><span class="p">:</span> \
                 <span class="n">functools</span><span class="o">.</span><span class="n">reduce</span><span class="p">(</span><span class="n">operator</span><span class="o">.</span><span class="n">__and__</span><span class="p">,</span> 
-                                 <span class="p">(</span><span class="n">ie</span> <span class="ow">in</span> <span class="n">tmpl</span><span class="o">.</span><span class="n">ies</span> <span class="k">for</span> <span class="n">ie</span> <span class="ow">in</span> <span class="n">ielist</span><span class="p">))</span>        
-
-        <span class="k">if</span> <span class="p">((</span><span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_tuple_iterator_ielist</span><span class="p">)</span> <span class="ow">or</span>
-            <span class="p">(</span><span class="n">ielist</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">last_tuple_iterator_ielist</span><span class="p">)):</span>
-                <span class="bp">self</span><span class="o">.</span><span class="n">_recache_accepted_tids</span><span class="p">(</span><span class="n">tmplaccept_fn</span><span class="p">)</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">last_tuple_iterator_ielist</span> <span class="o">=</span> <span class="n">ielist</span>
-
+                                 <span class="p">(</span><span class="n">ie</span> <span class="ow">in</span> <span class="n">tmpl</span><span class="o">.</span><span class="n">ies</span> <span class="k">for</span> <span class="n">ie</span> <span class="ow">in</span> <span class="n">ielist</span><span class="p">))</span>
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">record_iterator</span><span class="p">(</span>
                 <span class="n">decode_fn</span> <span class="o">=</span> <span class="n">template</span><span class="o">.</span><span class="n">Template</span><span class="o">.</span><span class="n">decode_tuple_from</span><span class="p">,</span> 
                 <span class="n">tmplaccept_fn</span> <span class="o">=</span> <span class="n">tmplaccept_fn</span><span class="p">,</span> 
                 <span class="n">recinf</span> <span class="o">=</span> <span class="n">ielist</span><span class="p">)</span>          
 </div>
 <div class="viewcode-block" id="MessageBuffer.to_bytes"><a class="viewcode-back" href="../../index.html#ipfix.message.MessageBuffer.to_bytes">[docs]</a>    <span class="k">def</span> <span class="nf">to_bytes</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Convert this MessageBuffer to a byte array, suitable for writing</span>
-<span class="sd">        to a binary file, socket, or datagram. Finalizes the message by</span>
-<span class="sd">        rewriting the message header with current length, and export time. </span>
-<span class="sd">        </span>
-<span class="sd">        :returns: message as a byte array</span>
-<span class="sd">        </span>
-<span class="sd">        &quot;&quot;&quot;</span>
-
         <span class="c"># Close final set </span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_export_close_set</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">export_close_set</span><span class="p">()</span>
         
-        <span class="c"># Update export time if necessary</span>
+        <span class="c"># Get sequence number and export time if necessary</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sequences</span><span class="o">.</span><span class="n">setdefault</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">odid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">streamid</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span> <span class="c"># FIXME why do we need this?</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">sequence</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sequences</span><span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">odid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">streamid</span><span class="p">)]</span>
+        
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">auto_export_time</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">export_epoch</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">datetime</span><span class="o">.</span><span class="n">utcnow</span><span class="p">()</span><span class="o">.</span><span class="n">timestamp</span><span class="p">())</span>
         
@@ -536,83 +458,22 @@
         <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">mbuf</span><span class="p">[</span><span class="mi">0</span><span class="p">:</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">]</span><span class="o">.</span><span class="n">tobytes</span><span class="p">()</span>
 </div>
 <div class="viewcode-block" id="MessageBuffer.write_message"><a class="viewcode-back" href="../../index.html#ipfix.message.MessageBuffer.write_message">[docs]</a>    <span class="k">def</span> <span class="nf">write_message</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">stream</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Convenience method to write a message to a stream; see :meth:`to_bytes`.</span>
-<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">stream</span><span class="o">.</span><span class="n">write</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">to_bytes</span><span class="p">())</span>
 </div>
 <div class="viewcode-block" id="MessageBuffer.add_template"><a class="viewcode-back" href="../../index.html#ipfix.message.MessageBuffer.add_template">[docs]</a>    <span class="k">def</span> <span class="nf">add_template</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tmpl</span><span class="p">,</span> <span class="n">export</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Add a template to this MessageBuffer. Adding a template makes it </span>
-<span class="sd">        available for use for exporting records; see :meth:`export_new_set`. </span>
-<span class="sd">        </span>
-<span class="sd">        :param tmpl: the template to add</span>
-<span class="sd">        :param export: If True, export this template to the MessageBuffer</span>
-<span class="sd">                       after adding it.</span>
-<span class="sd">        :raises: EndOfMessage</span>
-<span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">templates</span><span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">odid</span><span class="p">,</span> <span class="n">tmpl</span><span class="o">.</span><span class="n">tid</span><span class="p">)]</span> <span class="o">=</span> <span class="n">tmpl</span>
         <span class="k">if</span> <span class="n">export</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">export_template</span><span class="p">(</span><span class="n">tmpl</span><span class="o">.</span><span class="n">tid</span><span class="p">)</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">export_template</span><span class="p">(</span><span class="n">tmpl</span><span class="p">)</span>
     </div>
 <div class="viewcode-block" id="MessageBuffer.delete_template"><a class="viewcode-back" href="../../index.html#ipfix.message.MessageBuffer.delete_template">[docs]</a>    <span class="k">def</span> <span class="nf">delete_template</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tid</span><span class="p">,</span> <span class="n">export</span><span class="o">=</span><span class="bp">True</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Delete a template by ID from this MessageBuffer.</span>
-<span class="sd">        </span>
-<span class="sd">        :param tid: ID of the template to delete</span>
-<span class="sd">        :param export: if True, export a Template Withdrawal for this</span>
-<span class="sd">                       Template after deleting it</span>
-<span class="sd">        :raises: EndOfMessage</span>
-<span class="sd">        </span>
-<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">setid</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">templates</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">odid</span><span class="p">,</span> <span class="n">tid</span><span class="p">]</span><span class="o">.</span><span class="n">native_setid</span><span class="p">()</span>
         <span class="k">del</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">templates</span><span class="p">[</span><span class="bp">self</span><span class="o">.</span><span class="n">odid</span><span class="p">,</span> <span class="n">tid</span><span class="p">])</span>
         <span class="k">if</span> <span class="n">export</span><span class="p">:</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">export_template_withdrawal</span><span class="p">(</span><span class="n">setid</span><span class="p">,</span> <span class="n">tid</span><span class="p">)</span>
-</div>
-<div class="viewcode-block" id="MessageBuffer.active_template_ids"><a class="viewcode-back" href="../../index.html#ipfix.message.MessageBuffer.active_template_ids">[docs]</a>    <span class="k">def</span> <span class="nf">active_template_ids</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Get an iterator over all active template IDs in the current domain.</span>
-<span class="sd">        Provided to allow callers to export some or all active Templates across</span>
-<span class="sd">        multiple Messages.</span>
-<span class="sd">        </span>
-<span class="sd">        :returns: a template ID iterator</span>
-<span class="sd">        </span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">for</span> <span class="n">tk</span> <span class="ow">in</span> <span class="nb">filter</span><span class="p">(</span><span class="k">lambda</span> <span class="n">k</span><span class="p">:</span> <span class="n">k</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">odid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">templates</span><span class="p">):</span>
-            <span class="k">yield</span> <span class="n">tk</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span>  
     </div>
-<div class="viewcode-block" id="MessageBuffer.template_for_id"><a class="viewcode-back" href="../../index.html#ipfix.message.MessageBuffer.template_for_id">[docs]</a>    <span class="k">def</span> <span class="nf">template_for_id</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tid</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Retrieve a Template for a given ID in the current domain.</span>
-<span class="sd">        </span>
-<span class="sd">        :param tid: template ID to get</span>
-<span class="sd">        :returns: the template</span>
-<span class="sd">        :raises: KeyError</span>
-<span class="sd">        </span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">templates</span><span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">odid</span><span class="p">,</span> <span class="n">tid</span><span class="p">)]</span>    
-    
-    </div>
-<div class="viewcode-block" id="MessageBuffer.begin_export"><a class="viewcode-back" href="../../index.html#ipfix.message.MessageBuffer.begin_export">[docs]</a>    <span class="k">def</span> <span class="nf">begin_export</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">odid</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Start exporting a new message. Clears any previous message content,</span>
-<span class="sd">        but keeps template information intact. Sets the message sequence number.</span>
-<span class="sd">        </span>
-<span class="sd">        :param odid: Observation domain ID to use for export. By default, uses</span>
-<span class="sd">                     the observation domain ID of the previous message. Note</span>
-<span class="sd">                     that templates are scoped to observation domain, so</span>
-<span class="sd">                     templates will need to be added after switching to a new</span>
-<span class="sd">                     observation domain ID.</span>
-<span class="sd">        :raises: IpfixEncodeError</span>
-<span class="sd">        </span>
-<span class="sd">        &quot;&quot;&quot;</span>
+<div class="viewcode-block" id="MessageBuffer.begin_export"><a class="viewcode-back" href="../../index.html#ipfix.message.MessageBuffer.begin_export">[docs]</a>    <span class="k">def</span> <span class="nf">begin_export</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">odid</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
         <span class="c"># We&#39;re exporting. Clear setlist from any previously read message.</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">setlist</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
-        
-        <span class="c"># Set sequence number</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">sequences</span><span class="o">.</span><span class="n">setdefault</span><span class="p">((</span><span class="bp">self</span><span class="o">.</span><span class="n">odid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">streamid</span><span class="p">),</span> <span class="mi">0</span><span class="p">)</span> <span class="c"># FIXME why do we need this?</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">sequence</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">sequences</span><span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">odid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">streamid</span><span class="p">)]</span>
         
         <span class="c"># set new domain if necessary</span>
         <span class="k">if</span> <span class="n">odid</span><span class="p">:</span>
@@ -630,20 +491,8 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">cursetid</span> <span class="o">=</span> <span class="bp">None</span>
         </div>
 <div class="viewcode-block" id="MessageBuffer.export_new_set"><a class="viewcode-back" href="../../index.html#ipfix.message.MessageBuffer.export_new_set">[docs]</a>    <span class="k">def</span> <span class="nf">export_new_set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">setid</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Start exporting a new Set with the given set ID. Creates a new set</span>
-<span class="sd">        even if the current Set has the given set ID; client code should in most</span>
-<span class="sd">        cases use :meth:`export_ensure_set` instead.</span>
-<span class="sd">        </span>
-<span class="sd">        :param setid: Set ID of the new Set; corresponds to the Template ID of</span>
-<span class="sd">                      the Template that will be used to encode records into the</span>
-<span class="sd">                      Set. The require Template must have already been added</span>
-<span class="sd">                      to the MessageBuffer, see :meth:`add_template`.</span>
-<span class="sd">        :raises: IpfixEncodeError, EndOfMessage</span>
-<span class="sd">        </span>
-<span class="sd">        &quot;&quot;&quot;</span>
         <span class="c"># close current set if any</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">_export_close_set</span><span class="p">()</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">export_close_set</span><span class="p">()</span>
 
         <span class="k">if</span> <span class="n">setid</span> <span class="o">&gt;=</span> <span class="mi">256</span><span class="p">:</span>
             <span class="c"># make sure we have a template for the set</span>
@@ -666,50 +515,23 @@
         <span class="n">_sethdr_st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mbuf</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">,</span> <span class="n">setid</span><span class="p">,</span> <span class="mi">0</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">+=</span> <span class="n">_sethdr_st</span><span class="o">.</span><span class="n">size</span>
         </div>
-<div class="viewcode-block" id="MessageBuffer.export_ensure_set"><a class="viewcode-back" href="../../index.html#ipfix.message.MessageBuffer.export_ensure_set">[docs]</a>    <span class="k">def</span> <span class="nf">export_ensure_set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">setid</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Ensure that the current set for export has the given Set ID.</span>
-<span class="sd">        Starts a new set if not using :meth:`export_new_set`</span>
-<span class="sd">        </span>
-<span class="sd">        :param setid: Set ID of the new Set; corresponds to the Template ID of</span>
-<span class="sd">                      the Template that will be used to encode records into the</span>
-<span class="sd">                      Set. The require Template must have already been added</span>
-<span class="sd">                      to the MessageBuffer, see :meth:`add_template`.</span>
-<span class="sd">        :raises: IpfixEncodeError, EndOfMessage</span>
-<span class="sd">        </span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cursetid</span> <span class="o">!=</span> <span class="n">setid</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">export_new_set</span><span class="p">(</span><span class="n">setid</span><span class="p">)</span>
-</div>
-<div class="viewcode-block" id="MessageBuffer.export_needs_flush"><a class="viewcode-back" href="../../index.html#ipfix.message.MessageBuffer.export_needs_flush">[docs]</a>    <span class="k">def</span> <span class="nf">export_needs_flush</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        True if content has been written to this MessageBuffer since the</span>
-<span class="sd">        last call to :meth:`begin_export`</span>
-<span class="sd">        </span>
-<span class="sd">        &quot;&quot;&quot;</span>
-        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">&lt;=</span> <span class="n">_msghdr_st</span><span class="o">.</span><span class="n">size</span> <span class="o">+</span> <span class="n">_sethdr_st</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">False</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="bp">True</span>
-</div>
-    <span class="k">def</span> <span class="nf">_export_close_set</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">export_close_set</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cursetid</span><span class="p">:</span>
             <span class="n">_sethdr_st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mbuf</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">cursetoff</span><span class="p">,</span> 
                                  <span class="bp">self</span><span class="o">.</span><span class="n">cursetid</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">-</span> <span class="bp">self</span><span class="o">.</span><span class="n">cursetoff</span><span class="p">)</span>
             <span class="bp">self</span><span class="o">.</span><span class="n">cursetid</span> <span class="o">=</span> <span class="bp">None</span>
-   
-<div class="viewcode-block" id="MessageBuffer.export_template"><a class="viewcode-back" href="../../index.html#ipfix.message.MessageBuffer.export_template">[docs]</a>    <span class="k">def</span> <span class="nf">export_template</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tid</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Export a template to this Message given its template ID.</span>
-<span class="sd">        </span>
-<span class="sd">        :param tid: ID of template to export; must have been added to this</span>
-<span class="sd">                    message previously with :meth:`add_template`.</span>
-<span class="sd">        :raises: EndOfMessage, KeyError</span>
-<span class="sd">        </span>
-<span class="sd">        &quot;&quot;&quot;</span>
         
-        <span class="n">tmpl</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">templates</span><span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">odid</span><span class="p">,</span> <span class="n">tid</span><span class="p">)]</span>
-        
+<div class="viewcode-block" id="MessageBuffer.export_ensure_set"><a class="viewcode-back" href="../../index.html#ipfix.message.MessageBuffer.export_ensure_set">[docs]</a>    <span class="k">def</span> <span class="nf">export_ensure_set</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">setid</span><span class="p">):</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">cursetid</span> <span class="o">!=</span> <span class="n">setid</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">export_new_set</span><span class="p">(</span><span class="n">setid</span><span class="p">)</span>
+</div>
+<div class="viewcode-block" id="MessageBuffer.export_needs_flush"><a class="viewcode-back" href="../../index.html#ipfix.message.MessageBuffer.export_needs_flush">[docs]</a>    <span class="k">def</span> <span class="nf">export_needs_flush</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="ow">not</span> <span class="bp">self</span><span class="o">.</span><span class="n">cursetid</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">&lt;=</span> <span class="n">_msghdr_st</span><span class="o">.</span><span class="n">size</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">False</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">True</span>
+        </div>
+<div class="viewcode-block" id="MessageBuffer.export_template"><a class="viewcode-back" href="../../index.html#ipfix.message.MessageBuffer.export_template">[docs]</a>    <span class="k">def</span> <span class="nf">export_template</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">tmpl</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">export_ensure_set</span><span class="p">(</span><span class="n">tmpl</span><span class="o">.</span><span class="n">native_setid</span><span class="p">())</span>
         
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">+</span> <span class="n">tmpl</span><span class="o">.</span><span class="n">enclength</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">mtu</span><span class="p">:</span>
@@ -718,7 +540,7 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">=</span> <span class="n">tmpl</span><span class="o">.</span><span class="n">encode_template_to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mbuf</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">,</span> 
                                               <span class="n">tmpl</span><span class="o">.</span><span class="n">native_setid</span><span class="p">())</span>
 </div>
-    <span class="k">def</span> <span class="nf">_export_template_withdrawal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">setid</span><span class="p">,</span> <span class="n">tid</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">export_template_withdrawal</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">setid</span><span class="p">,</span> <span class="n">tid</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">export_ensure_set</span><span class="p">(</span><span class="n">setid</span><span class="p">)</span>
         
         <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">+</span> <span class="n">template</span><span class="o">.</span><span class="n">withdrawal_length</span><span class="p">(</span><span class="n">setid</span><span class="p">)</span> <span class="o">&gt;</span> <span class="bp">self</span><span class="o">.</span><span class="n">mtu</span><span class="p">:</span>
@@ -726,26 +548,10 @@
         
         <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">=</span> <span class="n">template</span><span class="o">.</span><span class="n">encode_withdrawal_to</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">mbuf</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">,</span> 
                                                     <span class="n">setid</span><span class="p">,</span> <span class="n">tid</span><span class="p">)</span>
-    
+        
 <div class="viewcode-block" id="MessageBuffer.export_record"><a class="viewcode-back" href="../../index.html#ipfix.message.MessageBuffer.export_record">[docs]</a>    <span class="k">def</span> <span class="nf">export_record</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rec</span><span class="p">,</span> 
                       <span class="n">encode_fn</span><span class="o">=</span><span class="n">template</span><span class="o">.</span><span class="n">Template</span><span class="o">.</span><span class="n">encode_namedict_to</span><span class="p">,</span> 
                       <span class="n">recinf</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Low-level interface to record export.</span>
-<span class="sd">        </span>
-<span class="sd">        Export a record to a MessageBuffer, using the template associated with</span>
-<span class="sd">        the Set ID given to the most recent :meth:`export_new_set` or</span>
-<span class="sd">        :meth:`export_ensure_set` call, and the given encode function. By</span>
-<span class="sd">        default, the record is assumed to be a dictionary mapping IE names</span>
-<span class="sd">        to values (i.e., the same as :meth:`export_namedict`).</span>
-<span class="sd">        </span>
-<span class="sd">        :param encode_fn: Function used to encode a record; </span>
-<span class="sd">                          must be an (unbound) &quot;encode&quot; instance method of the </span>
-<span class="sd">                          :class:`ipfix.template.Template` class.</span>
-<span class="sd">        :param recinf: Record information opaquely passed to decode function</span>
-<span class="sd">        :raises: EndOfMessage</span>
-
-<span class="sd">        &quot;&quot;&quot;</span>
         <span class="n">savelength</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span>
         
         <span class="k">try</span><span class="p">:</span>
@@ -762,68 +568,24 @@
         <span class="bp">self</span><span class="o">.</span><span class="n">_increment_sequence</span><span class="p">()</span>
 </div>
 <div class="viewcode-block" id="MessageBuffer.export_namedict"><a class="viewcode-back" href="../../index.html#ipfix.message.MessageBuffer.export_namedict">[docs]</a>    <span class="k">def</span> <span class="nf">export_namedict</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rec</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Export a record to the message, using the template for the current Set</span>
-<span class="sd">        ID. The record is a dictionary mapping IE names to values. The</span>
-<span class="sd">        dictionary must contain a value for each IE in the template. Keys in the</span>
-<span class="sd">        dictionary not in the template will be ignored.</span>
-<span class="sd">        </span>
-<span class="sd">        :param rec: the record to export, as a dictionary</span>
-<span class="sd">        :raises: EndOfMessage</span>
-<span class="sd">        </span>
-<span class="sd">        &quot;&quot;&quot;</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">export_record</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="n">template</span><span class="o">.</span><span class="n">Template</span><span class="o">.</span><span class="n">encode_namedict_to</span><span class="p">)</span>
     </div>
-<div class="viewcode-block" id="MessageBuffer.export_tuple"><a class="viewcode-back" href="../../index.html#ipfix.message.MessageBuffer.export_tuple">[docs]</a>    <span class="k">def</span> <span class="nf">export_tuple</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rec</span><span class="p">):</span>
-        <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">        Export a record to the message, using the template for the current Set</span>
-<span class="sd">        ID. The record is a tuple of values in template order.</span>
-<span class="sd">        </span>
-<span class="sd">        :param rec: the record to export, as a tuple in template order.</span>
-<span class="sd">        :raises: EndOfMessage</span>
-<span class="sd">        </span>
-<span class="sd">        &quot;&quot;&quot;</span>       
-        <span class="bp">self</span><span class="o">.</span><span class="n">export_record</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="n">template</span><span class="o">.</span><span class="n">Template</span><span class="o">.</span><span class="n">encode_tuple_to</span><span class="p">)</span></div></div>
+<div class="viewcode-block" id="MessageBuffer.export_tuple"><a class="viewcode-back" href="../../index.html#ipfix.message.MessageBuffer.export_tuple">[docs]</a>    <span class="k">def</span> <span class="nf">export_tuple</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">rec</span><span class="p">,</span> <span class="n">ielist</span> <span class="o">=</span> <span class="bp">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">export_record</span><span class="p">(</span><span class="n">rec</span><span class="p">,</span> <span class="n">template</span><span class="o">.</span><span class="n">Template</span><span class="o">.</span><span class="n">encode_tuple_to</span><span class="p">,</span> <span class="n">ielist</span><span class="p">)</span></div></div>
 </pre></div>
 
-          </div>
-        </div>
       </div>
-      <div class="sphinxsidebar">
-        <div class="sphinxsidebarwrapper">
-<div id="searchbox" style="display: none">
-  <h3>Quick search</h3>
-    <form class="search" action="../../search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
-      <input type="hidden" name="check_keywords" value="yes" />
-      <input type="hidden" name="area" value="default" />
-    </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
-</div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
-        </div>
+      <div class="bottomnav">
+      
+        <p>
+        <a class="uplink" href="../../index.html">Contents</a>
+        </p>
+
       </div>
-      <div class="clearer"></div>
-    </div>
-    <div class="related">
-      <h3>Navigation</h3>
-      <ul>
-        <li class="right" style="margin-right: 10px">
-          <a href="../../genindex.html" title="General Index"
-             >index</a></li>
-        <li class="right" >
-          <a href="../../py-modindex.html" title="Python Module Index"
-             >modules</a> |</li>
-        <li><a href="../../index.html">python-ipfix 0.9.4 documentation</a> &raquo;</li>
-          <li><a href="../index.html" >Module code</a> &raquo;</li> 
-      </ul>
-    </div>
+
     <div class="footer">
-        &copy; Copyright 2013, Brian Trammell.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2b1.
+        &copy; Copyright 2013-2014, Brian Trammell.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.
     </div>
   </body>
 </html>

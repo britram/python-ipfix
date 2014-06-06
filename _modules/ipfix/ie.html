@@ -6,15 +6,16 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>ipfix.ie &mdash; python-ipfix 0.9.4 documentation</title>
+    <title>ipfix.ie &mdash; python-ipfix 0.9.6 documentation</title>
     
-    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/haiku.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/print.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../../',
-        VERSION:     '0.9.4',
+        VERSION:     '0.9.6',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,50 +24,26 @@
     <script type="text/javascript" src="../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../_static/underscore.js"></script>
     <script type="text/javascript" src="../../_static/doctools.js"></script>
-    <link rel="top" title="python-ipfix 0.9.4 documentation" href="../../index.html" />
+    <script type="text/javascript" src="../../_static/theme_extras.js"></script>
+    <link rel="top" title="python-ipfix 0.9.6 documentation" href="../../index.html" />
     <link rel="up" title="Module code" href="../index.html" /> 
   </head>
   <body>
-    <div class="related">
-      <h3>Navigation</h3>
-      <ul>
-        <li class="right" style="margin-right: 10px">
-          <a href="../../genindex.html" title="General Index"
-             accesskey="I">index</a></li>
-        <li class="right" >
-          <a href="../../py-modindex.html" title="Python Module Index"
-             >modules</a> |</li>
-        <li><a href="../../index.html">python-ipfix 0.9.4 documentation</a> &raquo;</li>
-          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
-      </ul>
-    </div>  
+      <div class="header"><h1 class="heading"><a href="../../index.html">
+          <span>python-ipfix 0.9.6 documentation</span></a></h1>
+        <h2 class="heading"><span>ipfix.ie</span></h2>
+      </div>
+      <div class="topnav">
+      
+        <p>
+        <a class="uplink" href="../../index.html">Contents</a>
+        </p>
 
-    <div class="document">
-      <div class="documentwrapper">
-        <div class="bodywrapper">
-          <div class="body">
-            
+      </div>
+      <div class="content">
+        
+        
   <h1>Source code for ipfix.ie</h1><div class="highlight"><pre>
-<span class="c">#</span>
-<span class="c"># python-ipfix (c) 2013 Brian Trammell.</span>
-<span class="c">#</span>
-<span class="c"># Many thanks to the mPlane consortium (http://www.ict-mplane.eu) for</span>
-<span class="c"># its material support of this effort.</span>
-<span class="c"># </span>
-<span class="c"># This program is free software: you can redistribute it and/or modify it under</span>
-<span class="c"># the terms of the GNU Lesser General Public License as published by the Free</span>
-<span class="c"># Software Foundation, either version 3 of the License, or (at your option) any</span>
-<span class="c"># later version.</span>
-<span class="c">#</span>
-<span class="c"># This program is distributed in the hope that it will be useful, but WITHOUT</span>
-<span class="c"># ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS</span>
-<span class="c"># FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more</span>
-<span class="c"># details.</span>
-<span class="c">#</span>
-<span class="c"># You should have received a copy of the GNU General Public License along with</span>
-<span class="c"># this program.  If not, see &lt;http://www.gnu.org/licenses/&gt;.</span>
-<span class="c">#</span>
-
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">IESpec-based interface to IPFIX information elements,</span>
 <span class="sd">and interface to use the default IPFIX IANA Information Model</span>
@@ -336,9 +313,6 @@
     <span class="n">_ieForName</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
     <span class="n">_ieForNum</span><span class="o">.</span><span class="n">clear</span><span class="p">()</span>
 </div>
-<span class="k">def</span> <span class="nf">dump_infomodel</span><span class="p">():</span>
-    <span class="k">return</span> <span class="nb">sorted</span><span class="p">([</span><span class="n">_ieForNum</span><span class="p">[</span><span class="n">x</span><span class="p">]</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">_ieForNum</span><span class="p">])</span>
-
 <div class="viewcode-block" id="use_specfile"><a class="viewcode-back" href="../../index.html#ipfix.ie.use_specfile">[docs]</a><span class="k">def</span> <span class="nf">use_specfile</span><span class="p">(</span><span class="n">filename</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Load a file listing IESpecs into the cache of known IEs</span>
@@ -370,44 +344,18 @@
     <span class="n">use_specfile</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">os</span><span class="o">.</span><span class="n">path</span><span class="o">.</span><span class="n">dirname</span><span class="p">(</span><span class="n">__file__</span><span class="p">),</span> <span class="s">&quot;rfc5103.iespec&quot;</span><span class="p">))</span></div>
 </pre></div>
 
-          </div>
-        </div>
       </div>
-      <div class="sphinxsidebar">
-        <div class="sphinxsidebarwrapper">
-<div id="searchbox" style="display: none">
-  <h3>Quick search</h3>
-    <form class="search" action="../../search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
-      <input type="hidden" name="check_keywords" value="yes" />
-      <input type="hidden" name="area" value="default" />
-    </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
-</div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
-        </div>
+      <div class="bottomnav">
+      
+        <p>
+        <a class="uplink" href="../../index.html">Contents</a>
+        </p>
+
       </div>
-      <div class="clearer"></div>
-    </div>
-    <div class="related">
-      <h3>Navigation</h3>
-      <ul>
-        <li class="right" style="margin-right: 10px">
-          <a href="../../genindex.html" title="General Index"
-             >index</a></li>
-        <li class="right" >
-          <a href="../../py-modindex.html" title="Python Module Index"
-             >modules</a> |</li>
-        <li><a href="../../index.html">python-ipfix 0.9.4 documentation</a> &raquo;</li>
-          <li><a href="../index.html" >Module code</a> &raquo;</li> 
-      </ul>
-    </div>
+
     <div class="footer">
-        &copy; Copyright 2013, Brian Trammell.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2b1.
+        &copy; Copyright 2013-2014, Brian Trammell.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.
     </div>
   </body>
 </html>

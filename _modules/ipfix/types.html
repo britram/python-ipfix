@@ -6,15 +6,16 @@
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
     
-    <title>ipfix.types &mdash; python-ipfix 0.9.4 documentation</title>
+    <title>ipfix.types &mdash; python-ipfix 0.9.6 documentation</title>
     
-    <link rel="stylesheet" href="../../_static/default.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/haiku.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/print.css" type="text/css" />
     
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../../',
-        VERSION:     '0.9.4',
+        VERSION:     '0.9.6',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
         HAS_SOURCE:  true
@@ -23,54 +24,31 @@
     <script type="text/javascript" src="../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../_static/underscore.js"></script>
     <script type="text/javascript" src="../../_static/doctools.js"></script>
-    <link rel="top" title="python-ipfix 0.9.4 documentation" href="../../index.html" />
+    <script type="text/javascript" src="../../_static/theme_extras.js"></script>
+    <link rel="top" title="python-ipfix 0.9.6 documentation" href="../../index.html" />
     <link rel="up" title="Module code" href="../index.html" /> 
   </head>
   <body>
-    <div class="related">
-      <h3>Navigation</h3>
-      <ul>
-        <li class="right" style="margin-right: 10px">
-          <a href="../../genindex.html" title="General Index"
-             accesskey="I">index</a></li>
-        <li class="right" >
-          <a href="../../py-modindex.html" title="Python Module Index"
-             >modules</a> |</li>
-        <li><a href="../../index.html">python-ipfix 0.9.4 documentation</a> &raquo;</li>
-          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
-      </ul>
-    </div>  
+      <div class="header"><h1 class="heading"><a href="../../index.html">
+          <span>python-ipfix 0.9.6 documentation</span></a></h1>
+        <h2 class="heading"><span>ipfix.types</span></h2>
+      </div>
+      <div class="topnav">
+      
+        <p>
+        <a class="uplink" href="../../index.html">Contents</a>
+        </p>
 
-    <div class="document">
-      <div class="documentwrapper">
-        <div class="bodywrapper">
-          <div class="body">
-            
+      </div>
+      <div class="content">
+        
+        
   <h1>Source code for ipfix.types</h1><div class="highlight"><pre>
-<span class="c">#</span>
-<span class="c"># python-ipfix (c) 2013 Brian Trammell.</span>
-<span class="c">#</span>
-<span class="c"># Many thanks to the mPlane consortium (http://www.ict-mplane.eu) for</span>
-<span class="c"># its material support of this effort.</span>
-<span class="c"># </span>
-<span class="c"># This program is free software: you can redistribute it and/or modify it under</span>
-<span class="c"># the terms of the GNU Lesser General Public License as published by the Free</span>
-<span class="c"># Software Foundation, either version 3 of the License, or (at your option) any</span>
-<span class="c"># later version.</span>
-<span class="c">#</span>
-<span class="c"># This program is distributed in the hope that it will be useful, but WITHOUT</span>
-<span class="c"># ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS</span>
-<span class="c"># FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more</span>
-<span class="c"># details.</span>
-<span class="c">#</span>
-<span class="c"># You should have received a copy of the GNU General Public License along with</span>
-<span class="c"># this program.  If not, see &lt;http://www.gnu.org/licenses/&gt;.</span>
-<span class="c">#</span>
-
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">Implementation of IPFIX abstract data types (ADT) and mappings to Python types.</span>
+<span class="sd">Implementation of IPFIX abstract data types and mappings to Python types.</span>
 
-<span class="sd">Maps each IPFIX ADT to the corresponding Python type, as below:</span>
+<span class="sd">Based largely on the pack and unpack facilities in the struct package. This</span>
+<span class="sd">module maps IPFIX types to the corresponding Python type, as below:</span>
 
 <span class="sd">======================= =============</span>
 <span class="sd">       IPFIX Type        Python Type</span>
@@ -97,108 +75,12 @@
 <span class="sd">ipv6Address             ipaddress</span>
 <span class="sd">======================= =============</span>
 
-<span class="sd">Though client code generally will not use this module directly, it defines how</span>
-<span class="sd">each IPFIX abstract data type will be represented in Python, and the concrete</span>
-<span class="sd">IPFIX representation of each type. Type methods operate on buffers, as used</span>
-<span class="sd">internally by the :class:`ipfix.message.MessageBuffer` class, so we&#39;ll create </span>
-<span class="sd">one to illustrate encoding and decoding:</span>
-
-<span class="sd">&gt;&gt;&gt; import ipfix.types</span>
-<span class="sd">&gt;&gt;&gt; buf = memoryview(bytearray(16))</span>
-
-<span class="sd">Each of the encoding methods returns the offset into the buffer of the first</span>
-<span class="sd">byte after the encoded value; since we&#39;re always encoding to the beginning</span>
-<span class="sd">of the buffer in this example, this is equivalent to the length. </span>
-<span class="sd">We use this to bound the encoded value on subsequent decode.</span>
-
-<span class="sd">Integers are represented by the python int type:</span>
-
-<span class="sd">&gt;&gt;&gt; unsigned32 = ipfix.types.for_name(&quot;unsigned32&quot;)</span>
-<span class="sd">&gt;&gt;&gt; length = unsigned32.encode_single_value_to(42, buf, 0)</span>
-<span class="sd">&gt;&gt;&gt; buf[0:length].tolist()</span>
-<span class="sd">[0, 0, 0, 42]</span>
-<span class="sd">&gt;&gt;&gt; unsigned32.decode_single_value_from(buf, 0, length)</span>
-<span class="sd">42</span>
-
-<span class="sd">...floats by the float type, with the usual caveats about precision:</span>
-
-<span class="sd">&gt;&gt;&gt; float32 = ipfix.types.for_name(&quot;float32&quot;)</span>
-<span class="sd">&gt;&gt;&gt; length = float32.encode_single_value_to(42.03579, buf, 0)</span>
-<span class="sd">&gt;&gt;&gt; buf[0:length].tolist()</span>
-<span class="sd">[66, 40, 36, 166]</span>
-<span class="sd">&gt;&gt;&gt; float32.decode_single_value_from(buf, 0, length)</span>
-<span class="sd">42.035789489746094</span>
-
-<span class="sd">...strings by the str type, encoded as UTF-8:</span>
-
-<span class="sd">&gt;&gt;&gt; string = ipfix.types.for_name(&quot;string&quot;)</span>
-<span class="sd">&gt;&gt;&gt; length = string.encode_single_value_to(&quot;Grüezi&quot;, buf, 0)</span>
-<span class="sd">&gt;&gt;&gt; buf[0:length].tolist()</span>
-<span class="sd">[71, 114, 195, 188, 101, 122, 105]</span>
-<span class="sd">&gt;&gt;&gt; string.decode_single_value_from(buf, 0, length)</span>
-<span class="sd">&#39;Grüezi&#39;</span>
-
-<span class="sd">...addresses as the IPv4Address and IPv6Address types in the ipaddress module:</span>
-
-<span class="sd">&gt;&gt;&gt; from ipaddress import ip_address</span>
-<span class="sd">&gt;&gt;&gt; ipv4Address = ipfix.types.for_name(&quot;ipv4Address&quot;)</span>
-<span class="sd">&gt;&gt;&gt; length = ipv4Address.encode_single_value_to(ip_address(&quot;198.51.100.27&quot;), buf, 0)</span>
-<span class="sd">&gt;&gt;&gt; buf[0:length].tolist()</span>
-<span class="sd">[198, 51, 100, 27]</span>
-<span class="sd">&gt;&gt;&gt; ipv4Address.decode_single_value_from(buf, 0, length)</span>
-<span class="sd">IPv4Address(&#39;198.51.100.27&#39;)</span>
-<span class="sd">&gt;&gt;&gt; ipv6Address = ipfix.types.for_name(&quot;ipv6Address&quot;)</span>
-<span class="sd">&gt;&gt;&gt; length = ipv6Address.encode_single_value_to(ip_address(&quot;2001:db8::c0:ffee&quot;), buf, 0)</span>
-<span class="sd">&gt;&gt;&gt; buf[0:length].tolist()</span>
-<span class="sd">[32, 1, 13, 184, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 255, 238]</span>
-<span class="sd">&gt;&gt;&gt; ipv6Address.decode_single_value_from(buf, 0, length)</span>
-<span class="sd">IPv6Address(&#39;2001:db8::c0:ffee&#39;)</span>
-
-<span class="sd">...and the timestamps of various precision as a python datetime, </span>
-<span class="sd">encoded as per RFC5101bis:</span>
-
-<span class="sd">&gt;&gt;&gt; from datetime import datetime</span>
-<span class="sd">&gt;&gt;&gt; dtfmt_in = &quot;%Y-%m-%d %H:%M:%S.%f %z&quot;</span>
-<span class="sd">&gt;&gt;&gt; dtfmt_out = &quot;%Y-%m-%d %H:%M:%S.%f&quot;</span>
-<span class="sd">&gt;&gt;&gt; dt = datetime.strptime(&quot;2013-06-21 14:00:03.456789 +0000&quot;, dtfmt_in)</span>
-
-<span class="sd">dateTimeSeconds truncates microseconds:</span>
-
-<span class="sd">&gt;&gt;&gt; dateTimeSeconds = ipfix.types.for_name(&quot;dateTimeSeconds&quot;)</span>
-<span class="sd">&gt;&gt;&gt; length = dateTimeSeconds.encode_single_value_to(dt, buf, 0)</span>
-<span class="sd">&gt;&gt;&gt; buf[0:length].tolist()</span>
-<span class="sd">[81, 196, 92, 99]</span>
-<span class="sd">&gt;&gt;&gt; dateTimeSeconds.decode_single_value_from(buf, 0, length).strftime(dtfmt_out)</span>
-<span class="sd">&#39;2013-06-21 14:00:03.000000&#39;</span>
-
-<span class="sd">dateTimeMilliseconds truncates microseconds to the nearest millisecond:</span>
-
-<span class="sd">&gt;&gt;&gt; dateTimeMilliseconds = ipfix.types.for_name(&quot;dateTimeMilliseconds&quot;)</span>
-<span class="sd">&gt;&gt;&gt; length = dateTimeMilliseconds.encode_single_value_to(dt, buf, 0)</span>
-<span class="sd">&gt;&gt;&gt; buf[0:length].tolist()</span>
-<span class="sd">[0, 0, 1, 63, 103, 8, 228, 128]</span>
-<span class="sd">&gt;&gt;&gt; dateTimeMilliseconds.decode_single_value_from(buf, 0, length).strftime(dtfmt_out)</span>
-<span class="sd">&#39;2013-06-21 14:00:03.456000&#39;</span>
-
-<span class="sd">dateTimeMicroseconds exports microseconds fully in NTP format:</span>
-
-<span class="sd">&gt;&gt;&gt; dateTimeMicroseconds = ipfix.types.for_name(&quot;dateTimeMicroseconds&quot;)</span>
-<span class="sd">&gt;&gt;&gt; length = dateTimeMicroseconds.encode_single_value_to(dt, buf, 0)</span>
-<span class="sd">&gt;&gt;&gt; buf[0:length].tolist()</span>
-<span class="sd">[81, 196, 92, 99, 116, 240, 32, 0]</span>
-<span class="sd">&gt;&gt;&gt; dateTimeMicroseconds.decode_single_value_from(buf, 0, length).strftime(dtfmt_out)</span>
-<span class="sd">&#39;2013-06-21 14:00:03.456789&#39;</span>
-
-<span class="sd">dateTimeNanoseconds is also supported, but is identical to</span>
-<span class="sd">dateTimeMicroseconds, as the datetime class in Python only supports</span>
-<span class="sd">microsecond-level timing.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
 <span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
 <span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">total_ordering</span>
 <span class="kn">from</span> <span class="nn">ipaddress</span> <span class="kn">import</span> <span class="n">ip_address</span>
 <span class="kn">import</span> <span class="nn">struct</span>
-<span class="kn">import</span> <span class="nn">math</span>
 
 <span class="n">VARLEN</span> <span class="o">=</span> <span class="mi">65535</span>
 
@@ -234,15 +116,11 @@
 <span class="nd">@total_ordering</span>
 <div class="viewcode-block" id="IpfixType"><a class="viewcode-back" href="../../index.html#ipfix.types.IpfixType">[docs]</a><span class="k">class</span> <span class="nc">IpfixType</span><span class="p">:</span>
     <span class="sd">&quot;&quot;&quot;Abstract interface for all IPFIX types. Used internally. &quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">valenc</span><span class="p">,</span> <span class="n">valdec</span><span class="p">,</span> <span class="n">roottype</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">valenc</span><span class="p">,</span> <span class="n">valdec</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">num</span> <span class="o">=</span> <span class="n">num</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span> <span class="o">=</span> <span class="n">valenc</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span> <span class="o">=</span> <span class="n">valdec</span>
-        <span class="k">if</span> <span class="n">roottype</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">roottype</span> <span class="o">=</span> <span class="n">roottype</span>
-        <span class="k">else</span><span class="p">:</span>
-            <span class="bp">self</span><span class="o">.</span><span class="n">roottype</span> <span class="o">=</span> <span class="bp">self</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">=</span> <span class="mi">0</span>
 
     <span class="k">def</span> <span class="nf">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
@@ -259,8 +137,8 @@
 </div>
 <div class="viewcode-block" id="StructType"><a class="viewcode-back" href="../../index.html#ipfix.types.StructType">[docs]</a><span class="k">class</span> <span class="nc">StructType</span><span class="p">(</span><span class="n">IpfixType</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Type encoded by struct packing. Used internally.&quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">stel</span><span class="p">,</span> <span class="n">valenc</span><span class="o">=</span><span class="n">_identity</span><span class="p">,</span> <span class="n">valdec</span><span class="o">=</span><span class="n">_identity</span><span class="p">,</span> <span class="n">roottype</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">valenc</span><span class="p">,</span> <span class="n">valdec</span><span class="p">,</span> <span class="n">roottype</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">stel</span><span class="p">,</span> <span class="n">valenc</span> <span class="o">=</span> <span class="n">_identity</span><span class="p">,</span> <span class="n">valdec</span> <span class="o">=</span> <span class="n">_identity</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">valenc</span><span class="p">,</span> <span class="n">valdec</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">stel</span> <span class="o">=</span> <span class="n">stel</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">st</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">Struct</span><span class="p">(</span><span class="s">&quot;!&quot;</span><span class="o">+</span><span class="n">stel</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">st</span><span class="o">.</span><span class="n">size</span>
@@ -269,48 +147,38 @@
     <span class="k">def</span> <span class="nf">for_length</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">length</span> <span class="ow">or</span> <span class="n">length</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span>
-        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">roottype</span> <span class="ow">is</span> <span class="n">_roottypes</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
-            <span class="c"># FIXME this is kind of a hack to allow any-length encoding of octet arrays</span>
-            <span class="k">return</span> <span class="n">StructType</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">length</span><span class="p">)</span><span class="o">+</span><span class="s">&quot;s&quot;</span><span class="p">,</span>
-                              <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">roottype</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">StructType</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num</span><span class="p">,</span> 
-                                  <span class="n">_stel_rle</span><span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">stel</span><span class="p">,</span> <span class="n">length</span><span class="p">)],</span> 
-                                  <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">roottype</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">StructType</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num</span><span class="p">,</span> <span class="n">_stel_rle</span><span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">stel</span><span class="p">,</span> <span class="n">length</span><span class="p">)],</span> <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">IpfixTypeError</span><span class="p">(</span><span class="s">&quot;No RLE for &lt;</span><span class="si">%s</span><span class="s">&gt;[</span><span class="si">%u</span><span class="s">]&quot;</span> <span class="o">%</span> 
-                                     <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">length</span><span class="p">))</span>
+                <span class="k">raise</span> <span class="n">IpfixTypeError</span><span class="p">(</span><span class="s">&quot;Reduced length encoding not supported &lt;</span><span class="si">%s</span><span class="s">&gt;[</span><span class="si">%u</span><span class="s">]&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">length</span><span class="p">))</span>
 
-    <span class="k">def</span> <span class="nf">encode_single_value_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">):</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">(</span><span class="n">val</span><span class="p">))</span>
-        <span class="k">return</span> <span class="n">offset</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span>
-    
-    <span class="k">def</span> <span class="nf">decode_single_value_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">encode_single_value_to</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
         <span class="k">assert</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">==</span> <span class="n">length</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">st</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">(</span><span class="n">val</span><span class="p">))</span>
+    
+    <span class="k">def</span> <span class="nf">decode_single_value_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
+        <span class="k">assert</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">==</span> <span class="n">length</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">st</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">))</span>
 
 </div>
 <div class="viewcode-block" id="OctetArrayType"><a class="viewcode-back" href="../../index.html#ipfix.types.OctetArrayType">[docs]</a><span class="k">class</span> <span class="nc">OctetArrayType</span><span class="p">(</span><span class="n">IpfixType</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Type encoded by byte array packing. Used internally.&quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">valenc</span><span class="o">=</span><span class="n">_identity</span><span class="p">,</span> <span class="n">valdec</span><span class="o">=</span><span class="n">_identity</span><span class="p">,</span> <span class="n">roottype</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">valenc</span><span class="p">,</span> <span class="n">valdec</span><span class="p">,</span> <span class="n">roottype</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">valenc</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">,</span> <span class="n">valdec</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">valenc</span><span class="p">,</span> <span class="n">valdec</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">=</span> <span class="n">VARLEN</span>
     
     <span class="k">def</span> <span class="nf">for_length</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">length</span> <span class="ow">or</span> <span class="n">length</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">StructType</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">length</span><span class="p">)</span><span class="o">+</span><span class="s">&quot;s&quot;</span><span class="p">,</span> 
-                              <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">roottype</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">StructType</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">length</span><span class="p">)</span><span class="o">+</span><span class="s">&quot;s&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">encode_single_value_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">):</span>
-        <span class="n">enc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
-        <span class="n">buf</span><span class="p">[</span><span class="n">offset</span><span class="p">:</span><span class="n">offset</span><span class="o">+</span><span class="nb">len</span><span class="p">(</span><span class="n">enc</span><span class="p">)]</span> <span class="o">=</span> <span class="n">enc</span>
-        <span class="k">return</span> <span class="n">offset</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">enc</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">encode_single_value_to</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
+        <span class="n">buf</span><span class="p">[</span><span class="n">offset</span><span class="p">:</span><span class="n">offset</span><span class="o">+</span><span class="n">length</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">decode_single_value_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">(</span><span class="n">buf</span><span class="p">[</span><span class="n">offset</span><span class="p">:</span><span class="n">offset</span><span class="o">+</span><span class="n">length</span><span class="p">]</span><span class="o">.</span><span class="n">tobytes</span><span class="p">())</span>
+    <span class="k">def</span> <span class="nf">decode_single_value_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">(</span><span class="n">buf</span><span class="p">[</span><span class="n">offset</span><span class="p">:</span><span class="n">offset</span><span class="o">+</span><span class="n">length</span><span class="p">])</span>
 
 <span class="c"># Builtin encoders/decoders</span>
 </div>
@@ -339,19 +207,16 @@
     <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcfromtimestamp</span><span class="p">(</span><span class="n">epoch</span><span class="p">)</span>
     
 <span class="k">def</span> <span class="nf">_encode_msec</span><span class="p">(</span><span class="n">dt</span><span class="p">):</span>
-    <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">dt</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">)</span>
+    <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">dt</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span> <span class="o">*</span> <span class="mi">1000</span> <span class="o">+</span> <span class="n">dt</span><span class="o">.</span><span class="n">microsecond</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">)</span>
     
 <span class="k">def</span> <span class="nf">_decode_msec</span><span class="p">(</span><span class="n">epoch</span><span class="p">):</span>
-    <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcfromtimestamp</span><span class="p">(</span><span class="n">epoch</span><span class="o">/</span><span class="mi">1000</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcfromtimestamp</span><span class="p">(</span><span class="n">epoch</span><span class="o">/</span><span class="mi">1000</span><span class="p">)</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">milliseconds</span> <span class="o">=</span> <span class="n">epoch</span> <span class="o">%</span> <span class="mi">1000</span><span class="p">)</span>
     
 <span class="k">def</span> <span class="nf">_encode_ntp</span><span class="p">(</span><span class="n">dt</span><span class="p">):</span>
-    <span class="p">(</span><span class="n">tsf</span><span class="p">,</span> <span class="n">tsi</span><span class="p">)</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">modf</span><span class="p">(</span><span class="n">dt</span><span class="o">.</span><span class="n">timestamp</span><span class="p">())</span>
-    <span class="k">return</span> <span class="nb">int</span><span class="p">((</span><span class="nb">int</span><span class="p">(</span><span class="n">tsi</span><span class="p">)</span> <span class="o">&lt;&lt;</span> <span class="mi">32</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">tsf</span> <span class="o">*</span> <span class="mi">2</span><span class="o">**</span><span class="mi">32</span><span class="p">))</span>
+    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
 <span class="k">def</span> <span class="nf">_decode_ntp</span><span class="p">(</span><span class="n">ntp</span><span class="p">):</span>
-    <span class="n">tsf</span> <span class="o">=</span> <span class="n">ntp</span> <span class="o">&amp;</span> <span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">32</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
-    <span class="n">tsi</span> <span class="o">=</span> <span class="n">ntp</span> <span class="o">&gt;&gt;</span> <span class="mi">32</span>
-    <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcfromtimestamp</span><span class="p">(</span><span class="n">tsi</span> <span class="o">+</span> <span class="n">tsf</span> <span class="o">/</span> <span class="mi">2</span><span class="o">**</span><span class="mi">32</span><span class="p">)</span>
+    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
 
 <span class="k">def</span> <span class="nf">_encode_ip</span><span class="p">(</span><span class="n">ipaddr</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">ipaddr</span><span class="o">.</span><span class="n">packed</span>
@@ -360,7 +225,7 @@
     <span class="k">return</span> <span class="n">ip_address</span><span class="p">(</span><span class="n">octets</span><span class="p">)</span>
 
 <span class="c"># builtin type registry</span>
-<span class="n">_roottypes</span> <span class="o">=</span> <span class="p">[</span>
+<span class="n">_Types</span> <span class="o">=</span> <span class="p">[</span>
     <span class="n">OctetArrayType</span><span class="p">(</span><span class="s">&quot;octetArray&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
     <span class="n">StructType</span><span class="p">(</span><span class="s">&quot;unsigned8&quot;</span><span class="p">,</span>  <span class="mi">1</span><span class="p">,</span> <span class="s">&quot;B&quot;</span><span class="p">),</span>
     <span class="n">StructType</span><span class="p">(</span><span class="s">&quot;unsigned16&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="s">&quot;H&quot;</span><span class="p">),</span>
@@ -383,8 +248,8 @@
     <span class="n">StructType</span><span class="p">(</span><span class="s">&quot;ipv6Address&quot;</span><span class="p">,</span> <span class="mi">19</span><span class="p">,</span> <span class="s">&quot;16s&quot;</span><span class="p">,</span> <span class="n">_encode_ip</span><span class="p">,</span> <span class="n">_decode_ip</span><span class="p">)</span>
 <span class="p">]</span>
 
-<span class="n">_TypeForName</span> <span class="o">=</span> <span class="p">{</span> <span class="n">ietype</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">ietype</span> <span class="k">for</span> <span class="n">ietype</span> <span class="ow">in</span> <span class="n">_roottypes</span> <span class="p">}</span>
-<span class="n">_TypeForNum</span> <span class="o">=</span> <span class="p">{</span> <span class="n">ietype</span><span class="o">.</span><span class="n">num</span><span class="p">:</span> <span class="n">ietype</span> <span class="k">for</span> <span class="n">ietype</span> <span class="ow">in</span> <span class="n">_roottypes</span> <span class="p">}</span>
+<span class="n">_TypeForName</span> <span class="o">=</span> <span class="p">{</span> <span class="n">ietype</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">ietype</span> <span class="k">for</span> <span class="n">ietype</span> <span class="ow">in</span> <span class="n">_Types</span> <span class="p">}</span>
+<span class="n">_TypeForNum</span> <span class="o">=</span> <span class="p">{</span> <span class="n">ietype</span><span class="o">.</span><span class="n">num</span><span class="p">:</span> <span class="n">ietype</span> <span class="k">for</span> <span class="n">ietype</span> <span class="ow">in</span> <span class="n">_Types</span> <span class="p">}</span>
 
 <div class="viewcode-block" id="for_name"><a class="viewcode-back" href="../../index.html#ipfix.types.for_name">[docs]</a><span class="k">def</span> <span class="nf">for_name</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
@@ -402,65 +267,39 @@
 </div>
 <div class="viewcode-block" id="decode_varlen"><a class="viewcode-back" href="../../index.html#ipfix.types.decode_varlen">[docs]</a><span class="k">def</span> <span class="nf">decode_varlen</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Decode a IPFIX varlen encoded length; used internally by template&quot;&quot;&quot;</span>
-    <span class="n">length</span> <span class="o">=</span> <span class="n">_varlen1_st</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+    <span class="n">length</span> <span class="o">=</span> <span class="n">_varlen1_st</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
     <span class="n">offset</span> <span class="o">+=</span> <span class="n">_varlen1_st</span><span class="o">.</span><span class="n">size</span>
     <span class="k">if</span> <span class="n">length</span> <span class="o">==</span> <span class="mi">255</span><span class="p">:</span>
-        <span class="n">length</span> <span class="o">=</span> <span class="n">_varlen2_st</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
+        <span class="n">length</span> <span class="o">=</span> <span class="n">_varlen2_st</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
         <span class="n">offset</span> <span class="o">+=</span> <span class="n">_varlen2_st</span><span class="o">.</span><span class="n">size</span>
     <span class="k">return</span> <span class="p">(</span><span class="n">length</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
     </div>
 <div class="viewcode-block" id="encode_varlen"><a class="viewcode-back" href="../../index.html#ipfix.types.encode_varlen">[docs]</a><span class="k">def</span> <span class="nf">encode_varlen</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Encode a IPFIX varlen encoded length; used internally by template&quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">length</span> <span class="o">&gt;=</span> <span class="mi">255</span><span class="p">:</span>
-        <span class="n">_varlen1_st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="mi">255</span><span class="p">)</span>
+        <span class="n">_varlen1</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="mi">255</span><span class="p">)</span>
         <span class="n">offset</span> <span class="o">+=</span> <span class="n">_varlen1_st</span><span class="o">.</span><span class="n">size</span>
-        <span class="n">_varlen2_st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span>
+        <span class="n">_varlen2</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span>
         <span class="n">offset</span> <span class="o">+=</span> <span class="n">_varlen2_st</span><span class="o">.</span><span class="n">size</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">_varlen1_st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span>
+        <span class="n">_varlen1</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span>
         <span class="n">offset</span> <span class="o">+=</span> <span class="n">_varlen1_st</span><span class="o">.</span><span class="n">size</span>
     <span class="k">return</span> <span class="n">offset</span>
     </div>
 </pre></div>
 
-          </div>
-        </div>
       </div>
-      <div class="sphinxsidebar">
-        <div class="sphinxsidebarwrapper">
-<div id="searchbox" style="display: none">
-  <h3>Quick search</h3>
-    <form class="search" action="../../search.html" method="get">
-      <input type="text" name="q" />
-      <input type="submit" value="Go" />
-      <input type="hidden" name="check_keywords" value="yes" />
-      <input type="hidden" name="area" value="default" />
-    </form>
-    <p class="searchtip" style="font-size: 90%">
-    Enter search terms or a module, class or function name.
-    </p>
-</div>
-<script type="text/javascript">$('#searchbox').show(0);</script>
-        </div>
+      <div class="bottomnav">
+      
+        <p>
+        <a class="uplink" href="../../index.html">Contents</a>
+        </p>
+
       </div>
-      <div class="clearer"></div>
-    </div>
-    <div class="related">
-      <h3>Navigation</h3>
-      <ul>
-        <li class="right" style="margin-right: 10px">
-          <a href="../../genindex.html" title="General Index"
-             >index</a></li>
-        <li class="right" >
-          <a href="../../py-modindex.html" title="Python Module Index"
-             >modules</a> |</li>
-        <li><a href="../../index.html">python-ipfix 0.9.4 documentation</a> &raquo;</li>
-          <li><a href="../index.html" >Module code</a> &raquo;</li> 
-      </ul>
-    </div>
+
     <div class="footer">
-        &copy; Copyright 2013, Brian Trammell.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2b1.
+        &copy; Copyright 2013-2014, Brian Trammell.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.
     </div>
   </body>
 </html>
