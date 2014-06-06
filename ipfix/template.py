@@ -202,11 +202,6 @@ class Template:
             
         return (vals, offset)
 
-    def decode_iedict_from(self, buf, offset, recinf = None):
-        """Decodes a record from a buffer into a dict keyed by IE"""
-        (vals, offset) = self.decode_from(buf, offset)
-        return ({ k: v for k,v in zip((ie for ie in self.ies), vals)}, offset)
-
     def decode_namedict_from(self, buf, offset, recinf = None):
         """Decodes a record from a buffer into a dict keyed by IE name."""
         (vals, offset) = self.decode_from(buf, offset)
@@ -263,10 +258,6 @@ class Template:
                 offset = ie.type.encode_single_value_to(val, buf, offset)
                 
         return offset
-    
-    def encode_iedict_to(self, buf, offset, rec, recinf = None):
-        """Encodes a record from a dict containing values keyed by IE"""
-        return self.encode_to(buf, offset, [rec[ie] for ie in self.ies])
     
     def encode_namedict_to(self, buf, offset, rec, recinf = None):
         """Encodes a record from a dict containing values keyed by IE name"""
