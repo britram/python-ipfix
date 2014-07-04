@@ -18,3 +18,5 @@ v0.9.5, 2014-03-01 -- Various bugfixes (fix timestamps for real), IANA updates,
 v0.9.6, 2014-06-06 -- Test coverage improvements, consolidation of scripts,
                       bugfixes (export time, reduced-length encoding), 
                       update to latest IANA Information Element registry.
+
+v0.9.7, 2014-07-04 -- Bugfix (export time and sequence number reversed)
