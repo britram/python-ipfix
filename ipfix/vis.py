@@ -306,11 +306,11 @@ class OctetFieldDrawing:
         # return document
         return dwg.tostring()
 
-def draw_msg_header(ofd, version, length, sequence, export_time, odid):
+def draw_msg_header(ofd, version, length, export_time, sequence, odid):
     ofd.add(2, version, label="Version")
     ofd.add(2, length, label="Length")
-    ofd.add(4, sequence, label="Sequence")
     ofd.add(4, export_time, render_fn=render_dt8601, label="Export Time")
+    ofd.add(4, sequence, label="Sequence")
     ofd.add(4, odid, label="Observation Domain")
     
 def draw_set_header(ofd, setid, setlen):
@@ -350,8 +350,9 @@ class MessageBufferRenderer:
         if fill:
             self.ofd.set_fill(fill)
 
-        draw_msg_header(self.ofd, 10, self.msg.length, self.msg.sequence, 
-                        self.msg.get_export_time(), self.msg.odid)
+        draw_msg_header(self.ofd, 10, self.msg.length, 
+                        self.msg.get_export_time(),
+                        self.msg.sequence, self.msg.odid)
     
     def add_set_header(self, setid, setlen, fill=None):
         if fill:
