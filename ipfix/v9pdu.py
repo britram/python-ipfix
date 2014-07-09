@@ -59,6 +59,7 @@ class PduBuffer:
         self.sysuptime_ms = None
         self.base_epoch = None
         self.odid = 0
+        self.sesid = 0
 
         self.templates = {}
         self.accepted_tids = set()
@@ -135,7 +136,7 @@ class PduBuffer:
                     (tmpl, offset) = template.decode_template_from(
                                               mbuf, offset, setid)
                     # FIXME handle withdrawal
-                    self.templates[(self.odid, tmpl.tid)] = tmpl
+                    self.templates[(self.sesid, self.odid, tmpl.tid)] = tmpl
                     if tmplaccept_fn(tmpl):
                         self.accepted_tids.add((self.odid, tmpl.tid))
                     else:
@@ -149,7 +150,7 @@ class PduBuffer:
 
             else:
                 try:
-                    tmpl = self.templates[(self.odid, setid)]
+                    tmpl = self.templates[(self.sesid, self.odid, setid)]
                     if (self.odid, setid) in self.accepted_tids:
                         while offset + tmpl.minlength <= setend:
                             (rec, offset) = decode_fn(tmpl, self.mbuf, offset, 
@@ -180,14 +181,14 @@ class PduBuffer:
 
     def active_template_ids(self):
         """
-        Get an iterator over all active template IDs in the current domain.
-        Provided to allow callers to export some or all active Templates across
-        multiple Messages.
+        Get an iterator over all active template IDs in the 
+        current session and domain.
         
         :returns: a template ID iterator
         
         """
-        for tk in filter(lambda k: k[0] == self.odid, self.templates):
+        # FIXME make sure this is correct
+        for tk in filter(lambda k: k[0:1] == (self.sesid, self.odid), self.templates):
             yield tk[1]  
     
     def _recache_accepted_tids(self, tmplaccept_fn):
