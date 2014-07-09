@@ -229,6 +229,7 @@ class MessageBuffer:
         self.template_record_hook = None
         self.unknown_data_set_hook = None
         self.ignored_data_set_hook = None
+        self.message_header_hook = None
 
     def __repr__(self):
         if self.cursetid:
@@ -332,6 +333,10 @@ class MessageBuffer:
                                    str(self.length - _msghdr_st.size)+")")
         self.mbuf[_msghdr_st.size:self.length] = msgbody
         
+        # call the message header hook
+        if self.message_header_hook:
+            self.message_header_hook(self)
+
         # populate setlist
         self._scan_setlist()
 
