@@ -68,6 +68,9 @@ class PduBuffer:
         self.last_tuple_iterator_ielist = None
         
         self.template_record_hook = None
+        self.unknown_data_set_hook = None
+        self.ignored_data_set_hook = None
+        self.message_header_hook = None
 
     def __repr__(self):
         return "<PDUBuffer domain "+str(self.odid)+\
@@ -88,6 +91,8 @@ class PduBuffer:
         
         self._increment_sequence(self.reccount)
         self.basetime_epoch = self.export_epoch - (self.sysuptime_ms / 1000)
+        if self.message_header_hook:
+            self.message_header_hook(self)
 
     def set_iterator(self):
         """
