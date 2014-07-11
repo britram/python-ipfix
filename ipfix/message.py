@@ -201,9 +201,9 @@ class MessageBuffer:
     Implements a buffer for reading or writing IPFIX messages.
     
     """
-    def __init__(self):
+    def __init__(self, buf_sz=65536):
         """Create a new MessageBuffer instance."""
-        self.mbuf = memoryview(bytearray(65536))
+        self.mbuf = memoryview(bytearray(buf_sz))
 
         self.length = 0
         self.sequence = None
@@ -660,6 +660,7 @@ class MessageBuffer:
         last call to :meth:`begin_export`
         
         """
+        # FIXME we don't prewrite a set, do we?
         if self.length <= _msghdr_st.size + _sethdr_st.size:
             return False
         else:
