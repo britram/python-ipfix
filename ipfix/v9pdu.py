@@ -46,9 +46,9 @@ class PduBuffer:
     Abstract class; use the :meth:`from_stream` to get an instance for
     reading from a stream instead.
     """
-    def __init__(self):
+    def __init__(self, mbuf):
         """Create a new PduBuffer instance."""
-        self.mbuf = memoryview(bytearray(65536))
+        self.mbuf = mbuf
 
         self.length = 0
         self.cur = 0
@@ -228,10 +228,19 @@ class PduBuffer:
                 tmplaccept_fn = tmplaccept_fn, 
                 recinf = ielist)          
 
+    def save_state(self):
+        return {'t': self.templates.copy(), 's': self.sequences.copy()}
+
+    def restore_state(self, state):
+        for k in state['t'].keys():
+            self.templates[k] = state['t'][k]
+        for k in state['s'].keys():
+            self.sequences[k] = state['s'][k]
+
 class StreamPduBuffer(PduBuffer):
     """Create a new StreamPduBuffer instance."""
-    def __init__(self, stream):
-        super().__init__()
+    def __init__(self, stream, buf_sz=65536):
+        super().__init__(mbuf=memoryview(bytearray(buf_sz)))
         
         self.stream = stream
     
@@ -283,7 +292,20 @@ class StreamPduBuffer(PduBuffer):
         # return pointers for set_iterator
         return (self.mbuf, 0, setid, setlen)
 
-def from_stream(stream):
+class SinglePduBuffer(PduBuffer):
+    """Create a new SinglePduBuffer instance."""
+    def __init__(self, bytes_in):
+        super().__init__(mbuf=memoryview(bytes_in))
+        self._parse_pdu_header()
+        self._next_set_ptr = _pduhdr_st.size
+
+    def next_set(self):
+        setloc = self._next_set_ptr
+        (setid, setlen) = _sethdr_st.unpack_from(self.mbuf, self._next_set_ptr)
+        self._next_set_ptr += setlen
+        return (self.mbuf, setloc, setid, setlen)
+
+def from_stream(stream, buf_sz=65536):
     """
     Get a StreamPduBuffer for a given stream
     
@@ -291,7 +313,7 @@ def from_stream(stream):
     :return: a :class:`PduBuffer` wrapped around the stream.
 
     """
-    return StreamPduBuffer(stream)
+    return StreamPduBuffer(stream, buf_sz=buf_sz)
 
 class TimeAdapter:
     """
