@@ -353,28 +353,6 @@ class MessageBuffer:
         
         """
         return self.read_message(io.BytesIO(bytes))
-
-    # def old_from_bytes(self, bytes):
-    #     # make a copy of the byte array
-    #     self.mbuf[0:len(bytes)] = bytes
-
-    #     # parse message header 
-    #     if (len(bytes) < _msghdr_st.size):
-    #         raise IpfixDecodeError("Message too short ("+str(len(msghdr)) +")")
-
-    #     (version, self.length, self.sequence, self.export_epoch, self.odid) = \
-    #             _msghdr_st.unpack_from(self.mbuf, 0)
-        
-    #     # verify version and length
-    #     if version != 10:
-    #         raise IpfixDecodeError("Illegal or unsupported version " + 
-    #                                str(version))
-        
-    #     if self.length < 20:
-    #         raise IpfixDecodeError("Illegal message length" + str(self.length))
-        
-    #     # populate setlist
-    #     self._scan_setlist()
             
     def record_iterator(self, 
                         decode_fn=template.Template.decode_namedict_from, 
@@ -505,7 +483,6 @@ class MessageBuffer:
         # Update message header in buffer
         _msghdr_st.pack_into(self.mbuf, 0, 10, self.length, 
                              self.export_epoch, self.sequence, self.odid)
-    
         
         return self.mbuf[0:self.length].tobytes()
 
