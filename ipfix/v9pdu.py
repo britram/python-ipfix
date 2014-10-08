@@ -24,6 +24,7 @@ Units (PDUs) from a stream.
 
 """
 
+from __future__ import division
 from . import template, types, ie
 from .template import IpfixEncodeError, IpfixDecodeError
 from .message import accept_all_templates
@@ -33,13 +34,14 @@ import functools
 import struct
 from datetime import datetime
 from warnings import warn
+from itertools import ifilter
 
 NETFLOW9_VERSION = 9
 
 _sethdr_st = struct.Struct("!HH")
 _pduhdr_st = struct.Struct("!HHLLLL")
 
-class PduBuffer:
+class PduBuffer(object):
     """
     Implements a buffer for reading NetFlow V9 PDUs from a stream or packet.
     
@@ -160,7 +162,7 @@ class PduBuffer:
                         # not in accepted tids - ignored data set
                         self.ignored_data_set_hook(self, tmpl, 
                                      self.mbuf[offset-_sethdr_st.size:setend])
-                except KeyError as e:
+                except KeyError, e:
                     if self.unknown_data_set_hook:                
                         # KeyError on template lookup - unknown data set
                         self.unknown_data_set_hook(self, 
@@ -187,7 +189,7 @@ class PduBuffer:
         :returns: a template ID iterator
         
         """
-        for tk in filter(lambda k: k[0] == self.odid, self.templates):
+        for tk in ifilter(lambda k: k[0] == self.odid, self.templates):
             yield tk[1]  
     
     def _recache_accepted_tids(self, tmplaccept_fn):
@@ -209,7 +211,7 @@ class PduBuffer:
         """
         
         tmplaccept_fn = lambda tmpl: \
-                functools.reduce(operator.__and__, 
+                reduce(operator.__and__, 
                                  (ie in tmpl.ies for ie in ielist))        
 
         if ((not self.last_tuple_iterator_ielist) or
@@ -225,7 +227,7 @@ class PduBuffer:
 class StreamPduBuffer(PduBuffer):
     """Create a new StreamPduBuffer instance."""
     def __init__(self, stream):
-        super().__init__()
+        super(self.__class__, self).__init__()
         
         self.stream = stream
     
@@ -287,7 +289,7 @@ def from_stream(stream):
     """
     return StreamPduBuffer(stream)
 
-class TimeAdapter:
+class TimeAdapter(object):
     """
     Wraps around a PduBuffer and adds flowStartMilliseconds and 
     flowEndMilliseconds Information Elements to each record, turning

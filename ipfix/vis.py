@@ -24,6 +24,7 @@
 # It's not documented, and that's intentional.
 # It's entirely possible that I'll come back and clean this up one day.
 
+from __future__ import division
 from . import message
 from . import template
 from . import types
@@ -34,9 +35,10 @@ import math
 import svgwrite
 import string
 import random
+from itertools import izip
 
 def scale_tuple(t, scale):
-    return tuple([x * s for x,s in zip(t, scale)])
+    return tuple([x * s for x,s in izip(t, scale)])
 
 def scale_tupletuple(tt, scale):
     return tuple([scale_tuple(x, scale) for x in tt])
@@ -52,7 +54,7 @@ def render_ienumber(ie):
     return midtrunc(ie.name,6,4) + "(" + str(num) + ")"
 
 def random_id(length = 16):
-    return ''.join(random.choice(string.ascii_lowercase + string.digits) for x in range(length))
+    return ''.join(random.choice(string.ascii_lowercase + string.digits) for x in xrange(length))
 
 def midtrunc(s, front, back):
     if len(s) <= (front + back + 3):
@@ -60,7 +62,7 @@ def midtrunc(s, front, back):
     else:
         return s[:front] + "..." + s[-back:]
 
-class OctetField:
+class OctetField(object):
     def __init__(self, origin, size, value, label, fill):
         self.origin = origin;
         self.size = size;
@@ -79,7 +81,7 @@ class RectField(OctetField):
     def __init__(self, col, row, width, height, value, label, fill):
         origin = (col, row)
         size = (width, height)
-        super().__init__(origin, size, value, label, fill)
+        super(self.__class__, self).__init__(origin, size, value, label, fill)
         
     def add_box_to_drawing(self, g, dwg, scale):
         g.add(dwg.rect(insert = scale_tuple(self.origin, scale), 
@@ -93,7 +95,7 @@ class RectField(OctetField):
 
 class PolylineField(OctetField):
     def __init__(self, points, origin, size, value, label, fill):
-        super().__init__(origin, size, value, label, fill)
+        super(self.__class__, self).__init__(origin, size, value, label, fill)
         self.points = points
 
     def add_box_to_drawing(self, g, dwg, scale):
@@ -117,7 +119,7 @@ class LeftPolylineField(PolylineField):
                   (0, row))
         origin = (0, row)
         size = (width, height-1)
-        super().__init__(points, origin, size, value, label, fill)
+        super(self.__class__, self).__init__(points, origin, size, value, label, fill)
 
 class RightPolylineField(PolylineField):
     def __init__(self, row, width, height, topwidth, 
@@ -131,7 +133,7 @@ class RightPolylineField(PolylineField):
                   (width - topwidth, row))
         origin = (0, row+1)          
         size = (width, height-1)
-        super().__init__(points, origin, size, value, label, fill)        
+        super(self.__class__, self).__init__(points, origin, size, value, label, fill)        
 
 class MidPolylineField(PolylineField):
     def __init__(self, row, width, height, topwidth, botwidth, 
@@ -147,9 +149,9 @@ class MidPolylineField(PolylineField):
                   (width - topwidth, row))
         origin = (0, row+1)
         size = (width, height-2)
-        super().__init__(points, origin, size, value, label, fill)   
+        super(self.__class__, self).__init__(points, origin, size, value, label, fill)   
 
-class OctetFieldDrawing:     
+class OctetFieldDrawing(object):     
     
     def __init__(self, raster=8, offset=0):
         self.raster = raster
@@ -166,7 +168,7 @@ class OctetFieldDrawing:
         self.fields.append(field)
     
     def _row_extend(self, count):
-        for i in range(count):
+        for i in xrange(count):
             self.row += 1
             self.rowaddrs.append(self.rowaddrs[-1] + self.raster)
     
@@ -262,7 +264,7 @@ class OctetFieldDrawing:
                    font_size=fontsize)
         
         # draw text where appropriate
-        for i in range(0, self.raster):
+        for i in xrange(0, self.raster):
             gc.add(dwg.text(i, ((i + 1) * scale[0] - scale[0]/5, 0),
                             style="text-anchor: right; "
                                   "dominant-baseline: hanging;"))
@@ -331,7 +333,7 @@ def draw_template(ofd, tmpl, setid=None):
         if ie.pen:
             ofd.add(4, ie.pen, label="PEN")
 
-class MessageBufferRenderer:
+class MessageBufferRenderer(object):
     def __init__(self, msg, scale=(90,30), raster=8):
         self.msg = msg
         self.scale = scale
@@ -370,7 +372,7 @@ class MessageBufferRenderer:
             self.ofd.set_fill(fill)
         
         (values, offset) = tmpl.decode_tuple_from(self.msg.mbuf, offset)
-        for v, ie in zip(values, tmpl.ies):
+        for v, ie in izip(values, tmpl.ies):
             # prefix with varlen
             if ie.length == types.VARLEN:
                 ielen = len(ie.type.valenc(v))
@@ -454,7 +456,7 @@ class MessageBufferRenderer:
 
 class MessageStreamRenderer(MessageBufferRenderer):
     def __init__(self, stream, scale=(90,30), raster=8):
-        super().__init__(message.MessageBuffer(), scale, raster)
+        super(self.__class__, self).__init__(message.MessageBuffer(), scale, raster)
         self.stream = stream
         
     def render_next_message(self, length=65535):

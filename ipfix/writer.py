@@ -20,7 +20,7 @@
 
 from . import message
 
-class MessageStreamWriter:
+class MessageStreamWriter(object):
     """
     Writes records to a stream of IPFIX messages.
     
