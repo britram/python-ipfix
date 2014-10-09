@@ -190,8 +190,10 @@ _varlen2_st = struct.Struct("!H")
 def _identity(x):
     return x
 
-# Builtin type implementation
+
+@total_ordering
 class IpfixType(object):
+    # Builtin type implementation
     """Abstract interface for all IPFIX types. Used internally. """
     def __init__(self, name, num, valenc, valdec, valstr, valparse, roottype=None):
         self.name = name
@@ -218,7 +220,7 @@ class IpfixType(object):
     def __repr__(self):
         return "ipfix.types.for_name(%s)" % repr(self.name)
 
-IpfixType = total_ordering(IpfixType)
+
 class StructType(IpfixType):
     """Type encoded by struct packing. Used internally."""
     def __init__(self, name, num, stel, valenc=_identity, valdec=_identity, valstr=str, valparse=int, roottype=None):

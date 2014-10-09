@@ -391,7 +391,7 @@ def test_ie_internals():
     try:
         for_spec("not a spec")
         assert False
-    except ValueError, e:
+    except ValueError as e:
         pass
 
     assert for_template_entry(35566,9999,4) == InformationElement(None, 35566, 9999, length=4)

@@ -446,7 +446,7 @@ class MessageBuffer(object):
                         # not in accepted tids - ignored data set
                         self.ignored_data_set_hook(self, tmpl,
                                      self.mbuf[offset-_sethdr_st.size:setend])
-                except KeyError, e:
+                except KeyError as e:
                     if self.unknown_data_set_hook:
                         # KeyError on template lookup - unknown data set
                         self.unknown_data_set_hook(self,

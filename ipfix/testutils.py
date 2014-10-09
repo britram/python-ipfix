@@ -95,7 +95,7 @@ def test_message_write_internals():
     try:
         mktest_message(rec_count=65536)
         assert(False)
-    except message.EndOfMessage, m:
+    except message.EndOfMessage as m:
         pass
 
 def test_message_read_internals():
@@ -112,7 +112,7 @@ def test_message_read_errors():
     try:
         msg.from_bytes(str(short_read_test_message_hdr))
         assert(False)
-    except IpfixDecodeError, e:
+    except IpfixDecodeError as e:
         pass
 
     short_read_test_message_body = bytearray(_stored_test_message)
@@ -121,7 +121,7 @@ def test_message_read_errors():
     try:
         msg.from_bytes(str(short_read_test_message_body))
         assert(False)
-    except IpfixDecodeError, e:
+    except IpfixDecodeError as e:
         pass
 
     bad_msg_version_test_message = bytearray(_stored_test_message)
@@ -131,7 +131,7 @@ def test_message_read_errors():
     try:
         msg.from_bytes(str(bad_msg_version_test_message))
         assert(False)
-    except IpfixDecodeError, e:
+    except IpfixDecodeError as e:
         pass
 
     bad_msg_length_test_message = bytearray(_stored_test_message)
@@ -141,7 +141,7 @@ def test_message_read_errors():
     try:
         msg.from_bytes(str(bad_msg_length_test_message))
         assert(False)
-    except IpfixDecodeError, e:
+    except IpfixDecodeError as e:
         pass
 
     bad_set_length_test_message_short = bytearray(_stored_test_message)
@@ -151,7 +151,7 @@ def test_message_read_errors():
     try:
         msg.from_bytes(str(bad_set_length_test_message_short))
         assert(False)
-    except IpfixDecodeError, e:
+    except IpfixDecodeError as e:
         pass
 
     bad_set_length_test_message_long = bytearray(_stored_test_message)
@@ -161,5 +161,5 @@ def test_message_read_errors():
     try:
         msg.from_bytes(str(bad_set_length_test_message_long))
         assert(False)
-    except IpfixDecodeError, e:
+    except IpfixDecodeError as e:
         pass
