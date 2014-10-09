@@ -18,8 +18,6 @@
 # this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
-
 """
 IESpec-based interface to IPFIX information elements,
 and interface to use the default IPFIX IANA Information Model
@@ -36,7 +34,7 @@ must be passed to for_spec():
 
 >>> import ipfix.ie
 >>> e = ipfix.ie.for_spec("myNewInformationElement(35566/1)<string>")
->>> e
+>>> e  #doctest: +IGNORE_UNICODE
 InformationElement('myNewInformationElement', 35566, 1, ipfix.types.for_name('string'), 65535)
 
 The string representation of an InformationElement is its IESpec:
@@ -66,7 +64,7 @@ between native Python and string representations of an Information Element value
 >>> ipfix.ie.for_spec("sourceIPv4Address").parse("192.0.2.19")
 IPv4Address('192.0.2.19')
 >>> from datetime import datetime
->>> ipfix.ie.for_spec("flowEndMilliseconds").unparse(datetime(2013,6,21,14))
+>>> ipfix.ie.for_spec("flowEndMilliseconds").unparse(datetime(2013,6,21,14))  #doctest: +IGNORE_UNICODE
 '2013-06-21 14:00:00.000'
 
 
@@ -75,7 +73,7 @@ Most client code will only need the :func:`use_iana_default`,
 client code using tuple interfaces will need :func:`spec_list` as well.
 
 """
-from __future__ import with_statement
+from __future__ import with_statement, unicode_literals
 import re
 import os.path
 from . import types
@@ -96,6 +94,8 @@ def _register_ie(ie):
 
     return ie
 
+
+@total_ordering
 class InformationElement(object):
     """
     An IPFIX Information Element (IE). This is essentially a five-tuple of
@@ -196,7 +196,8 @@ class InformationElement(object):
         else:
             return self.type.valparse(s)
 
-InformationElement = total_ordering(InformationElement)
+
+@total_ordering
 class InformationElementList(object):
     """
     A hashable ordered list of Information Elements.
@@ -246,7 +247,6 @@ class InformationElementList(object):
         self.inner.append(ie)
         self.hashcache = None
 
-InformationElementList = total_ordering(InformationElementList)
 def parse_spec(spec):
     """Parse an IESpec into name, pen, number, typename, and length fields"""
     (name, pen, num, typename, length) = _iespec_re.match(spec).group(1,4,5,7,9)
@@ -290,12 +290,12 @@ def for_spec(spec):
         raise ValueError("unrecognized IE spec "+spec)
 
     if name and not pen and not num and name in _ieForName:
-            # lookup in name registry
-            return _ieForName[name].for_length(length)
+        # lookup in name registry
+        return _ieForName[name].for_length(length)
 
     if num and (pen, num) in _ieForNum:
-            # lookup in number registry
-            return _ieForNum[(pen, num)].for_length(length)
+        # lookup in number registry
+        return _ieForNum[(pen, num)].for_length(length)
 
     # try to create new registered IE
     if not typename:

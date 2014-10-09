@@ -19,8 +19,6 @@
 # this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
-
 """
 Provides the MessageBuffer class for encoding and decoding IPFIX Messages.
 
@@ -30,6 +28,7 @@ records automatically from/to streams, see :mod:`ipfix.reader` and
 
 To create a message buffer:
 
+>>> from __future__ import unicode_literals
 >>> import ipfix.message
 >>> msg = ipfix.message.MessageBuffer()
 >>> msg
@@ -97,7 +96,7 @@ or as tuples in template order:
 Variable-length information elements will be encoded using the native length
 of the passed value:
 
->>> ipfix.ie.for_spec("myNewInformationElement(35566/1)<string>")
+>>> ipfix.ie.for_spec("myNewInformationElement(35566/1)<string>")  #doctest: +IGNORE_UNICODE
 InformationElement('myNewInformationElement', 35566, 1, ipfix.types.for_name('string'), 65535)
 >>> tmpl = ipfix.template.from_ielist(257,
 ...        ipfix.ie.spec_list(("flowStartMilliseconds",
@@ -140,12 +139,24 @@ mapping IE names to values or as tuples. The dictionary interface is
 designed for general IPFIX processing applications, such as collectors
 accepting many types of data, or diagnostic tools for debugging IPFIX export:
 
->>> for rec in msg.namedict_iterator():
-...    print(sorted(rec.items()))
+>>> def print_msg(msg):
+...     for rec in msg.namedict_iterator():
+...         key = 'myNewInformationElement'
+...         if key in rec:
+...             unicode_recs = [(key, rec[key])]
+...             recs = [item for item in sorted(rec.items()) if item[0] != key]
+...         else:
+...             unicode_recs = []
+...             recs = sorted(rec.items())
+...         print(recs)
+...         for key, value in unicode_recs:
+...             print("{}: {}".format(key, value))
 ...
+>>> print_msg(msg)  #doctest: +IGNORE_UNICODE
 [('destinationIPv4Address', IPv4Address('10.5.6.7')), ('flowStartMilliseconds', datetime.datetime(2013, 6, 21, 14, 0)), ('packetDeltaCount', 27), ('sourceIPv4Address', IPv4Address('10.1.2.3'))]
 [('destinationIPv4Address', IPv4Address('10.12.13.14')), ('flowStartMilliseconds', datetime.datetime(2013, 6, 21, 14, 0, 2)), ('packetDeltaCount', 33), ('sourceIPv4Address', IPv4Address('10.8.9.11'))]
-[('flowStartMilliseconds', datetime.datetime(2013, 6, 21, 14, 0, 4)), ('myNewInformationElement', "Grüezi, Y'all")]
+[('flowStartMilliseconds', datetime.datetime(2013, 6, 21, 14, 0, 4))]
+myNewInformationElement: Grüezi, Y'all
 
 The tuple interface for reading messages is designed for applications with a
 specific internal data model. It can be much faster than the dictionary
@@ -167,13 +178,14 @@ The record is, however, still there:
 
 >>> ielist = ipfix.ie.spec_list(["myNewInformationElement"])
 >>> for rec in msg.tuple_iterator(ielist):
-...     print(rec)
+...     print(rec[0])
 ...
-("Grüezi, Y'all",)
+Grüezi, Y'all
 
 """
 
-from . import template, types
+from __future__ import unicode_literals
+from . import template, types, compat
 from .template import IpfixEncodeError, IpfixDecodeError
 
 import io
@@ -201,14 +213,6 @@ class EndOfMessage(Exception):
 def accept_all_templates(tmpl):
     return True
 
-class _FakeMemoryView(bytearray):
-    def __getitem__(self, key):
-        _slice = bytearray.__getitem__(self, key)
-        return _FakeMemoryView(_slice)
-
-    def tobytes(self):
-        return self
-
 class MessageBuffer(object):
     """
     Implements a buffer for reading or writing IPFIX messages.
@@ -216,7 +220,7 @@ class MessageBuffer(object):
     """
     def __init__(self):
         """Create a new MessageBuffer instance."""
-        self.mbuf = _FakeMemoryView(65536)  # memoryview(self._bytearray)
+        self.mbuf = compat.get_buffer(65536)
 
         self.length = 0
         self.sequence = None
@@ -507,8 +511,8 @@ class MessageBuffer(object):
 
         # Update export time if necessary
         if self.auto_export_time:
-            self.export_epoch = int(datetime.utcnow()
-                                    .replace(tzinfo=timezone.utc).timestamp())
+            dt = datetime.utcnow().replace(tzinfo=timezone.utc)
+            self.export_epoch = int(compat.datetime_to_timestamp(dt))
 
         # Update message header in buffer
         _msghdr_st.pack_into(self.mbuf, 0, 10, self.length,

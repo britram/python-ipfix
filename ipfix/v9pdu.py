@@ -3,7 +3,7 @@
 #
 # Many thanks to the mPlane consortium (http://www.ict-mplane.eu) for
 # its material support of this effort.
-# 
+#
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
 # Software Foundation, either version 3 of the License, or (at your option) any
@@ -19,13 +19,13 @@
 #
 
 """
-Provides the PduBuffer class for decoding NetFlow V9 Protocol Data 
+Provides the PduBuffer class for decoding NetFlow V9 Protocol Data
 Units (PDUs) from a stream.
 
 """
 
 from __future__ import division
-from . import template, types, ie
+from . import template, types, ie, compat
 from .template import IpfixEncodeError, IpfixDecodeError
 from .message import accept_all_templates
 
@@ -44,17 +44,17 @@ _pduhdr_st = struct.Struct("!HHLLLL")
 class PduBuffer(object):
     """
     Implements a buffer for reading NetFlow V9 PDUs from a stream or packet.
-    
+
     Abstract class; use the :meth:`from_stream` to get an instance for
     reading from a stream instead.
     """
     def __init__(self):
         """Create a new PduBuffer instance."""
-        self.mbuf = memoryview(bytearray(65536))
+        self.mbuf = compat.get_buffer(65536)
 
         self.length = 0
         self.cur = 0
-        
+
         self.reccount = None
         self.sequence = None
         self.export_epoch = None
@@ -65,9 +65,9 @@ class PduBuffer(object):
         self.templates = {}
         self.accepted_tids = set()
         self.sequences = {}
-        
+
         self.last_tuple_iterator_ielist = None
-        
+
         self.template_record_hook = None
 
     def __repr__(self):
@@ -79,14 +79,14 @@ class PduBuffer(object):
         self.sequences[self.odid] += inc
 
     def _parse_pdu_header(self):
-        (version, self.reccount, self.sysuptime_ms, 
+        (version, self.reccount, self.sysuptime_ms,
              self.export_epoch, self.sequence, self.odid) = \
              _pduhdr_st.unpack_from(self.mbuf, 0)
-        
+
         if version != NETFLOW9_VERSION:
-            raise IpfixDecodeError("Illegal or unsupported version " + 
+            raise IpfixDecodeError("Illegal or unsupported version " +
                                    str(version))
-        
+
         self._increment_sequence(self.reccount)
         self.basetime_epoch = self.export_epoch - (self.sysuptime_ms / 1000)
 
@@ -101,22 +101,22 @@ class PduBuffer(object):
             except EOFError:
                 break
 
-    def record_iterator(self, 
-                        decode_fn=template.Template.decode_namedict_from, 
-                        tmplaccept_fn=accept_all_templates, 
+    def record_iterator(self,
+                        decode_fn=template.Template.decode_namedict_from,
+                        tmplaccept_fn=accept_all_templates,
                         recinf=None):
         """
         Low-level interface to record iteration.
-        
-        Iterate over records in a PDU; the buffer must either be attached to 
-        a stream via :meth:`attach_stream` or have been preloaded with 
-        :meth:`from_bytes`. Automatically handles 
-        templates in set order. By default, iterates over each record in the 
-        stream as a dictionary mapping IE name to value 
+
+        Iterate over records in a PDU; the buffer must either be attached to
+        a stream via :meth:`attach_stream` or have been preloaded with
+        :meth:`from_bytes`. Automatically handles
+        templates in set order. By default, iterates over each record in the
+        stream as a dictionary mapping IE name to value
         (i.e., the same as :meth:`namedict_iterator`)
-        
-        :param decode_fn: Function used to decode a record; 
-                          must be an (unbound) "decode" instance method of the 
+
+        :param decode_fn: Function used to decode a record;
+                          must be an (unbound) "decode" instance method of the
                           :class:`ipfix.template.Template` class.
         :param tmplaccept_fn: Function returning True if the given template
                               is of interest to the caller, False if not.
@@ -125,10 +125,10 @@ class PduBuffer(object):
                               will be skipped.
         :param recinf: Record information opaquely passed to decode function
         :returns: an iterator over records decoded by decode_fn.
-        
+
         """
         for (mbuf, offset, setid, setlen) in self.set_iterator():
-                
+
             setend = offset + setlen
             offset += _sethdr_st.size # skip set header in decode
             if setid == template.V9_TEMPLATE_SET_ID or \
@@ -154,29 +154,29 @@ class PduBuffer(object):
                     tmpl = self.templates[(self.odid, setid)]
                     if (self.odid, setid) in self.accepted_tids:
                         while offset + tmpl.minlength <= setend:
-                            (rec, offset) = decode_fn(tmpl, self.mbuf, offset, 
+                            (rec, offset) = decode_fn(tmpl, self.mbuf, offset,
                                                       recinf = recinf)
                             yield rec
                             self._increment_sequence()
                     elif self.ignored_data_set_hook:
                         # not in accepted tids - ignored data set
-                        self.ignored_data_set_hook(self, tmpl, 
+                        self.ignored_data_set_hook(self, tmpl,
                                      self.mbuf[offset-_sethdr_st.size:setend])
                 except KeyError, e:
-                    if self.unknown_data_set_hook:                
+                    if self.unknown_data_set_hook:
                         # KeyError on template lookup - unknown data set
-                        self.unknown_data_set_hook(self, 
+                        self.unknown_data_set_hook(self,
                                      self.mbuf[offset-_sethdr_st.size:setend])
 
     def namedict_iterator(self):
         """
         Iterate over all records in the Message, as dicts mapping IE names
         to values.
-        
+
         :returns: a name dictionary iterator
-        
+
         """
-        
+
         return self.record_iterator(
                 decode_fn = template.Template.decode_namedict_from)
 
@@ -185,13 +185,13 @@ class PduBuffer(object):
         Get an iterator over all active template IDs in the current domain.
         Provided to allow callers to export some or all active Templates across
         multiple Messages.
-        
+
         :returns: a template ID iterator
-        
+
         """
         for tk in ifilter(lambda k: k[0] == self.odid, self.templates):
-            yield tk[1]  
-    
+            yield tk[1]
+
     def _recache_accepted_tids(self, tmplaccept_fn):
         for tid in self.active_template_ids():
             if tmplaccept_fn(self.templates[(self.odid, tid)]):
@@ -201,18 +201,18 @@ class PduBuffer(object):
 
     def tuple_iterator(self, ielist):
         """
-        Iterate over all records in the PDU containing all the IEs in 
+        Iterate over all records in the PDU containing all the IEs in
         the given ielist. Records are returned as tuples in ielist order.
-        
+
         :param ielist: an instance of :class:`ipfix.ie.InformationElementList`
                        listing IEs to return as a tuple
         :returns: a tuple iterator for tuples as in ielist order
-        
+
         """
-        
+
         tmplaccept_fn = lambda tmpl: \
-                reduce(operator.__and__, 
-                                 (ie in tmpl.ies for ie in ielist))        
+                reduce(operator.__and__,
+                                 (ie in tmpl.ies for ie in ielist))
 
         if ((not self.last_tuple_iterator_ielist) or
             (ielist is not self.last_tuple_iterator_ielist)):
@@ -220,69 +220,69 @@ class PduBuffer(object):
         self.last_tuple_iterator_ielist = ielist
 
         return self.record_iterator(
-                decode_fn = template.Template.decode_tuple_from, 
-                tmplaccept_fn = tmplaccept_fn, 
-                recinf = ielist)          
+                decode_fn = template.Template.decode_tuple_from,
+                tmplaccept_fn = tmplaccept_fn,
+                recinf = ielist)
 
 class StreamPduBuffer(PduBuffer):
     """Create a new StreamPduBuffer instance."""
     def __init__(self, stream):
         super(self.__class__, self).__init__()
-        
+
         self.stream = stream
-    
+
     def next_set(self):
         """
         Reads the next set from the stream. Automatically reads PDU headers, as
         well, since PDU headers are treated as a special case of set header in
         streamed PDU reading.
-    
+
         Raises EOF to signal end of stream.
-    
+
         Yes, NetFlow V9 really is that broken as a storage format,
-        and this is the only way to stream it without counting records 
+        and this is the only way to stream it without counting records
         (which we can't do in the tuple-reading case).
-    
+
         """
         sethdr = self.stream.read(_sethdr_st.size)
         if (len(sethdr) == 0):
             raise EOFError()
         elif (len(sethdr) < _sethdr_st.size):
-            raise IpfixDecodeError("Short read in V9 set header ("+ 
+            raise IpfixDecodeError("Short read in V9 set header ("+
                                        str(len(sethdr)) +")")
-        
+
         self.mbuf[0:_sethdr_st.size] = sethdr
         (setid, setlen) = _sethdr_st.unpack_from(self.mbuf)
-    
+
         while setid == NETFLOW9_VERSION:
             # Actually, this is the first part of a message header.
             # Grab the rest from the stream, then parse it.
             resthdr = self.stream.read(_pduhdr_st.size - _sethdr_st.size)
             if (len(resthdr) < _pduhdr_st.size - _sethdr_st.size):
-                raise IpfixDecodeError("Short read in V9 pdu header ("+ 
+                raise IpfixDecodeError("Short read in V9 pdu header ("+
                                        str(len(resthdr)) +")")
-            
+
             self.mbuf[_sethdr_st.size:_pduhdr_st.size] = resthdr
             self._parse_pdu_header()
             # Now try again to get a set header
             self.mbuf[0:_sethdr_st.size]= self.stream.read(_sethdr_st.size)
             (setid, setlen) = _sethdr_st.unpack_from(self.mbuf)
-    
+
         # read the set body into the buffer
         setbody = self.stream.read(setlen - _sethdr_st.size)
         if (len(setbody) < setlen - _sethdr_st.size):
-            raise IpfixDecodeError("Short read in V9 set body ("+ 
+            raise IpfixDecodeError("Short read in V9 set body ("+
                                     str(len(setbody)) +")")
 
         self.mbuf[_sethdr_st.size:setlen] = setbody
-    
+
         # return pointers for set_iterator
         return (self.mbuf, 0, setid, setlen)
 
 def from_stream(stream):
     """
     Get a StreamPduBuffer for a given stream
-    
+
     :param stream: stream to read
     :return: a :class:`PduBuffer` wrapped around the stream.
 
@@ -291,7 +291,7 @@ def from_stream(stream):
 
 class TimeAdapter(object):
     """
-    Wraps around a PduBuffer and adds flowStartMilliseconds and 
+    Wraps around a PduBuffer and adds flowStartMilliseconds and
     flowEndMilliseconds Information Elements to each record, turning
     the basetime-dependent timestamps common in V9 export into
     absolute timestamps.
@@ -301,44 +301,43 @@ class TimeAdapter(object):
     the TimeAdapter.
 
     """
-    
+
     def __init__(self, pdubuf):
         self.pdubuf = pdubuf
-        
+
     def namedict_iterator(self):
         for rec in self.pdubuf.namedict_iterator(ienames):
-            try: 
+            try:
                 rec["flowStartMilliseconds"] = \
                     types._decode_msec(rec["flowStartSysUpTime"] / 1000 +
                                        self.pdubuf.basetime_epoch)
             except KeyError:
                 pass
-        
-            try: 
+
+            try:
                 rec["flowEndMilliseconds"] = \
                     types._decode_msec(rec["flowEndSysUpTime"] / 1000 +
                                        self.pdubuf.basetime_epoch)
             except KeyError:
                 pass
-        
+
             yield rec
-        
+
     def tuple_iterator(self, ielist):
         flowStartSysUpTime = ie.for_spec("flowStartSysUpTime")
         flowEndSysUpTime = ie.for_spec("flowEndSysUpTime")
-        
+
         if (flowStartSysUpTime in ielist) and \
            (flowEndSysUpTime in ielist):
             start_index = ielist.index(flowStartSysUpTime)
             end_index = ielist.index(flowEndSysUpTime)
 
-            for rec in self.pdubuf.tuple_iterator(ielist):                
-                start_ms = types._decode_msec(rec[start_index] / 1000 + 
+            for rec in self.pdubuf.tuple_iterator(ielist):
+                start_ms = types._decode_msec(rec[start_index] / 1000 +
                                  self.pdubuf.basetime_epoch)
-                end_ms = types._decode_msec(rec[end_index] / 1000 + 
+                end_ms = types._decode_msec(rec[end_index] / 1000 +
                                   self.pdubuf.basetime_epoch)
                 yield rec + (start_ms, end_ms)
         else:
             for rec in self.pdubuf.tuple_iterator(ielist):
                 yield rec
-    

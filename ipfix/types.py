@@ -19,8 +19,6 @@
 # this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
-
 """
 Implementation of IPFIX abstract data types (ADT) and mappings to Python types.
 
@@ -57,8 +55,10 @@ IPFIX representation of each type. Type methods operate on buffers, as used
 internally by the :class:`ipfix.message.MessageBuffer` class, so we'll create
 one to illustrate encoding and decoding:
 
+>>> from __future__ import unicode_literals
+>>> import ipfix.compat
 >>> import ipfix.types
->>> buf = memoryview(bytearray(16))
+>>> buf = ipfix.compat.get_buffer(16)
 
 Each of the encoding methods returns the offset into the buffer of the first
 byte after the encoded value; since we're always encoding to the beginning
@@ -83,14 +83,16 @@ Integers are represented by the python int type:
 >>> float32.decode_single_value_from(buf, 0, length)
 42.035789489746094
 
-...strings by the str type, encoded as UTF-8:
+...strings by the str type, encoded as UTF-8 (note that the Python 2
+interpreter prints unicode characters as hex escapes, but using 'print'
+avoids this, and produces the same result in Python 2/3):
 
 >>> string = ipfix.types.for_name("string")
 >>> length = string.encode_single_value_to("Grüezi", buf, 0)
 >>> buf[0:length].tolist()
 [71, 114, 195, 188, 101, 122, 105]
->>> string.decode_single_value_from(buf, 0, length)
-'Grüezi'
+>>> print (string.decode_single_value_from(buf, 0, length))
+Grüezi
 
 ...addresses as the IPv4Address and IPv6Address types in the ipaddress module:
 
@@ -147,6 +149,7 @@ dateTimeMicroseconds, as the datetime class in Python only supports
 microsecond-level timing.
 
 """
+from __future__ import unicode_literals
 from __future__ import division
 from datetime import datetime, timedelta
 from functools import total_ordering
