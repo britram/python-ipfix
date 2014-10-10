@@ -329,7 +329,7 @@ class MessageBuffer(object):
                                        str(len(msghdr)) +")")
 
         self.mbuf[0:_msghdr_st.size] = msghdr
-        (version, self.length, self.sequence, self.export_epoch, self.odid) = \
+        (version, self.length, self.export_epoch, self.sequence, self.odid) = \
                 _msghdr_st.unpack_from(self.mbuf, 0)
 
         # verify version and length
@@ -516,7 +516,7 @@ class MessageBuffer(object):
 
         # Update message header in buffer
         _msghdr_st.pack_into(self.mbuf, 0, 10, self.length,
-                             self.sequence, self.export_epoch, self.odid)
+                             self.export_epoch, self.sequence, self.odid)
 
         return self.mbuf[0:self.length].tobytes()
 
