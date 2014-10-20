@@ -609,7 +609,7 @@ class MessageBuffer(object):
         # reset message and zero header
         self.length = _msghdr_st.size
         self.cursetoff = self.length
-        self.mbuf[0:_msghdr_st.size] = b'\x00' * _msghdr_st.size
+        self.mbuf[0:_msghdr_st.size] = bytearray([0] * _msghdr_st.size)
 
         if self.mtu <= self.length:
             raise IpfixEncodeError("MTU too small: "+str(self.mtu))

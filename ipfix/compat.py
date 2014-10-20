@@ -8,8 +8,12 @@ def _get_fake_memoryview_buffer(bufsize):
 
 class _FakeMemoryView(bytearray):
     """
-    Python 2.7.8 has a bug wherein a slice assignment to a memoryview
-    that wraps a bytearray causes a "cannot "
+    Python 2.7.8 has a bug that prevents struct.pack_into from
+    working with a memoryview: http://bugs.python.org/issue22113
+
+    This class just acts like a memoryview from the perspective
+    of the rest of the library (though it lacks the performance benefits).
+    It can and should go away if this bug gets fixed in a later 2.7 version.
     """
 
     def __getitem__(self, key):
@@ -23,12 +27,15 @@ class _FakeMemoryView(bytearray):
         return list(self)
 
 try:
-    mv = memoryview(bytearray(10))
-    mv[1:4] = str([42] * 10)
+    length = 10
+    mv = memoryview(bytearray(length))
+    mv[0:length] = bytearray([0] * length)
+    import struct
+    struct.pack_into("!HLL", mv, 0, 42, 17, 21)
 
     # if slice assignment succeeded, no bug.
     get_buffer = _get_memoryview_buffer
-except ValueError:
+except TypeError:
     # slice assignment bug exists.
     # return a bytearray with the few extra methods that
     # the MessageBuffer wants. Less efficient, but not broken.
