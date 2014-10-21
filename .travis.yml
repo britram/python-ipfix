@@ -1,7 +1,6 @@
 language: python
 python:
     - "2.7"
-    - "3.2"
     - "3.3"
     - "3.4"
 install:
@@ -11,4 +10,5 @@ install:
           pip install pytz;
       fi
     - pip install doctest-ignore-unicode
+    - pip install svgwrite
 script: nosetests
