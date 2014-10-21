@@ -1,0 +1,12 @@
+language: python
+python:
+    - "2.7"
+    - "3.4"
+install:
+    - if [[ $TRAVIS_PYTHON_VERSION == 2* ]]; then
+          pip install functools32
+          pip install py2-ipaddress
+          pip install pytz
+      fi
+    - pip install doctest-ignore-unicode
+script: nosetests
