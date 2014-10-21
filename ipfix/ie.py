@@ -76,7 +76,8 @@ client code using tuple interfaces will need :func:`spec_list` as well.
 from __future__ import with_statement, unicode_literals
 import re
 import os.path
-from . import types
+from . import types, compat
+from .compat import reduce
 from functools import total_ordering
 import operator
 from io import open

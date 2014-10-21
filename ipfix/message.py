@@ -187,16 +187,13 @@ Grüezi, Y'all
 from __future__ import unicode_literals
 from . import template, types, compat
 from .template import IpfixEncodeError, IpfixDecodeError
+from .compat import timezone, ifilter, reduce
 
 import io
 import operator
-import functools
 import struct
 from datetime import datetime
-# from datetime import timezone
-import pytz as timezone
 from warnings import warn
-from itertools import ifilter
 
 _sethdr_st = struct.Struct("!HH")
 _msghdr_st = struct.Struct("!HHLLL")
@@ -352,7 +349,7 @@ class MessageBuffer(object):
         # populate setlist
         self._scan_setlist()
 
-    def from_bytes(self, str):
+    def from_bytes(self, str_):
         """
         Read an IPFIX message from a byte array.
 
@@ -364,7 +361,7 @@ class MessageBuffer(object):
         :raises: IpfixDecodeError
 
         """
-        return self.read_message(io.BytesIO(str))
+        return self.read_message(io.BytesIO(str_))
 
     # def old_from_bytes(self, bytes):
     #     # make a copy of the byte array

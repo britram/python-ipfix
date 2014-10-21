@@ -28,11 +28,11 @@ For reading, templates are handled internally. For writing, use
 See :mod:`ipfix.message` for examples.
 
 """
-from . import ie
-from . import types
-from functools32 import lru_cache
+from . import ie, types, compat
+from .compat import izip, xrange, lru_cache
+
 import struct
-from itertools import izip
+
 
 # Builtin exceptions
 class IpfixEncodeError(Exception):

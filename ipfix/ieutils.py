@@ -20,11 +20,10 @@
 
 from __future__ import with_statement
 import xml.etree.ElementTree as etree
-import urllib2 as urlreq
 from warnings import warn
 
-from . import types
-from . import ie
+from . import types, ie, compat
+from .compat import urlreq
 from io import open
 
 def iana_xml_to_iespec(uri = "http://www.iana.org/assignments/ipfix/ipfix.xml"):

@@ -1,3 +1,24 @@
+try:
+    # Python 3 imports
+    from datetime import timezone
+    import urllib.request as urlreq
+    from functools import lru_cache
+
+    # These will succeed in Python 2, but we won't get here due to
+    # ImportError from the previous lines.
+    izip = zip
+    xrange = range
+    ifilter = filter
+    from functools import reduce
+except ImportError:
+    import pytz as timezone
+    import urllib2 as urlreq
+    from functools32 import lru_cache
+
+    from itertools import izip, ifilter
+    xrange = xrange
+    reduce = reduce
+
 def _get_memoryview_buffer(bufsize):
     return memoryview(bytearray(bufsize))
 
@@ -44,7 +65,6 @@ except TypeError:
 
 def _datetime_to_timestamp_by_duration(datetime_):
     # from python3 docs
-    import pytz as timezone
     dur = (datetime_ - datetime.datetime(1970, 1, 1, tzinfo=timezone.utc))
     return dur.total_seconds()
 

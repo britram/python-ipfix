@@ -20,8 +20,9 @@
 #
 
 from __future__ import unicode_literals, division
-from . import ie, template, message
+from . import ie, template, message, compat
 from .template import IpfixEncodeError, IpfixDecodeError
+from .compat import xrange
 from datetime import datetime, timedelta
 from ipaddress import ip_address
 import base64
@@ -110,7 +111,7 @@ def test_message_read_errors():
     short_read_test_message_hdr = short_read_test_message_hdr[0:12]
     msg = message.MessageBuffer()
     try:
-        msg.from_bytes(str(short_read_test_message_hdr))
+        msg.from_bytes(short_read_test_message_hdr)
         assert(False)
     except IpfixDecodeError as e:
         pass
@@ -119,7 +120,7 @@ def test_message_read_errors():
     short_read_test_message_body = short_read_test_message_body[0:33]
     msg = message.MessageBuffer()
     try:
-        msg.from_bytes(str(short_read_test_message_body))
+        msg.from_bytes(short_read_test_message_body)
         assert(False)
     except IpfixDecodeError as e:
         pass
@@ -129,7 +130,7 @@ def test_message_read_errors():
     bad_msg_version_test_message[1] = 2
     msg = message.MessageBuffer()
     try:
-        msg.from_bytes(str(bad_msg_version_test_message))
+        msg.from_bytes(bad_msg_version_test_message)
         assert(False)
     except IpfixDecodeError as e:
         pass
@@ -139,7 +140,7 @@ def test_message_read_errors():
     bad_msg_length_test_message[3] = 17
     msg = message.MessageBuffer()
     try:
-        msg.from_bytes(str(bad_msg_length_test_message))
+        msg.from_bytes(bad_msg_length_test_message)
         assert(False)
     except IpfixDecodeError as e:
         pass
@@ -149,7 +150,7 @@ def test_message_read_errors():
     bad_set_length_test_message_short[19] = 1
     msg = message.MessageBuffer()
     try:
-        msg.from_bytes(str(bad_set_length_test_message_short))
+        msg.from_bytes(bad_set_length_test_message_short)
         assert(False)
     except IpfixDecodeError as e:
         pass
@@ -159,7 +160,7 @@ def test_message_read_errors():
     bad_set_length_test_message_long[19] = 255
     msg = message.MessageBuffer()
     try:
-        msg.from_bytes(str(bad_set_length_test_message_long))
+        msg.from_bytes(bad_set_length_test_message_long)
         assert(False)
     except IpfixDecodeError as e:
         pass

@@ -28,13 +28,11 @@ from __future__ import division
 from . import template, types, ie, compat
 from .template import IpfixEncodeError, IpfixDecodeError
 from .message import accept_all_templates
+from .compat import ifilter
 
 import operator
-import functools
 import struct
-from datetime import datetime
 from warnings import warn
-from itertools import ifilter
 
 NETFLOW9_VERSION = 9
 
