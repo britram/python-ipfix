@@ -14,4 +14,8 @@ install:
       fi
     - pip install doctest-ignore-unicode
     - pip install svgwrite
-script: nosetests
+    - pip install python-coveralls
+script: 
+    - nosetests
+after_success:
+    - coveralls
