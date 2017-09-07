@@ -24,9 +24,9 @@
 # It's not documented, and that's intentional.
 # It's entirely possible that I'll come back and clean this up one day.
 
-from . import message
-from . import template
-from . import types
+from ipfix import message
+from ipfix import template
+from ipfix import types
 from datetime import datetime
 
 import math
