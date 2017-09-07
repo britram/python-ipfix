@@ -156,6 +156,9 @@ VARLEN = 65535
 
 ISO8601_FMT = "%Y-%m-%d %H:%M:%S"
 
+# Seconds between NTP epoch and Unix epoch
+NTP_EPOCH_TO_UNIX_EPOCH = 0x83AA7E80
+
 class IpfixTypeError(ValueError):
     """Raised when attempting to do an unsupported operation on a type"""
     def __init__(self, *args):
@@ -330,11 +333,11 @@ def _parse_msec(string):
 
 def _encode_ntp(dt):
     (tsf, tsi) = math.modf(dt2epoch(dt))
-    return int((int(tsi) << 32) + (tsf * 2**32))
+    return int(((int(tsi) + NTP_EPOCH_TO_UNIX_EPOCH) << 32) + (tsf * 2**32))
 
 def _decode_ntp(ntp):
     tsf = ntp & (2**32 - 1)
-    tsi = ntp >> 32
+    tsi = (ntp >> 32) - NTP_EPOCH_TO_UNIX_EPOCH
     return datetime.utcfromtimestamp(tsi + tsf / 2**32)
 
 def _str_usec(dt):
