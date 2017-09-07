@@ -3,7 +3,7 @@
 #
 # Many thanks to the mPlane consortium (http://www.ict-mplane.eu) for
 # its material support of this effort.
-# 
+#
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
 # Software Foundation, either version 3 of the License, or (at your option) any
@@ -18,21 +18,22 @@
 # this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
+from __future__ import with_statement
 import xml.etree.ElementTree as etree
-import urllib.request as urlreq
 from warnings import warn
 
-from . import types
-from . import ie
+from . import types, ie, compat
+from .compat import urlreq
+from io import open
 
 def iana_xml_to_iespec(uri = "http://www.iana.org/assignments/ipfix/ipfix.xml"):
     iespecs = []
 
     nsmap = { "iana" : "http://www.iana.org/assignments" }
 
-    res = urlreq.urlopen(uri)    
+    res = urlreq.urlopen(uri)
     root = etree.parse(res).getroot()
-    
+
     for recelem in root.iterfind("iana:registry[@id='ipfix-information-elements']/iana:record", nsmap):
         (name, typename, num) = (None, None, None)
         for fieldelem in recelem.iter():
@@ -50,7 +51,7 @@ def iana_xml_to_iespec(uri = "http://www.iana.org/assignments/ipfix/ipfix.xml"):
                 iespecs.append("%s(%u)<%s>[%u]" % (name, int(num), ietype.name, ietype.length))
             except:
                 pass
-        
+
     return iespecs
 
 
@@ -62,7 +63,7 @@ def reverse_iespec(iespec):
     else:
         pen = 29305
 
-    return "%s(%u/%u)<%s>[%u]" % (revname, pen, num, typename, length)    
+    return "%s(%u/%u)<%s>[%u]" % (revname, pen, num, typename, length)
 
 
 def write_specfile(filename, iespecs):

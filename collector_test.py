@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python
 
 import socketserver
 import ipfix.reader
@@ -17,10 +17,10 @@ if args.spec:
 
 
 class CollectorDictHandler(socketserver.StreamRequestHandler):
-    
+
     def handle(self):
         reccount = 0
-        
+
         print ("connection from "+str(self.client_address))
         r = ipfix.reader.from_stream(self.rfile)
         for rec in r.records_as_dict():
@@ -29,7 +29,7 @@ class CollectorDictHandler(socketserver.StreamRequestHandler):
             reccount += 1
             for key in rec:
                  print("  %30s => %s" % (key, str(rec[key])))
-    
-    
+
+
 ss = socketserver.TCPServer(("", 4739), CollectorDictHandler)
 ss.serve_forever()

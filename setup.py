@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
+from __future__ import with_statement
 from setuptools import setup
+from io import open
 
 with open('README.txt') as file:
     long_description = file.read()

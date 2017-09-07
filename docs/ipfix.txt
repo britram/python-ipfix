@@ -93,8 +93,9 @@ methods operate on buffers, as used internally by the
 "ipfix.message.MessageBuffer" class, so we'll create  one to
 illustrate encoding and decoding:
 
+>>> import ipfix.compat
 >>> import ipfix.types
->>> buf = memoryview(bytearray(16))
+>>> buf = ipfix.compat.get_buffer(16)
 
 Each of the encoding methods returns the offset into the buffer of the
 first byte after the encoded value; since we're always encoding to the
@@ -529,7 +530,7 @@ To write records to the buffer, first you'll need a template:
 >>> import ipfix.ie
 >>> ipfix.ie.use_iana_default()
 >>> import ipfix.template
->>> tmpl = ipfix.template.from_ielist(256, 
+>>> tmpl = ipfix.template.from_ielist(256,
 ...        ipfix.ie.spec_list(("flowStartMilliseconds",
 ...                            "sourceIPv4Address",
 ...                            "destinationIPv4Address",
@@ -560,7 +561,7 @@ name:
 
 >>> from datetime import datetime
 >>> from ipaddress import ip_address
->>> rec = { "flowStartMilliseconds" : datetime.strptime("2013-06-21 14:00:00", 
+>>> rec = { "flowStartMilliseconds" : datetime.strptime("2013-06-21 14:00:00",
 ...                                       "%Y-%m-%d %H:%M:%S"),
 ...         "sourceIPv4Address" : ip_address("10.1.2.3"),
 ...         "destinationIPv4Address" : ip_address("10.5.6.7"),
@@ -582,14 +583,14 @@ length of the passed value:
 
 >>> ipfix.ie.for_spec("myNewInformationElement(35566/1)<string>")
 InformationElement('myNewInformationElement', 35566, 1, ipfix.types.for_name('string'), 65535)
->>> tmpl = ipfix.template.from_ielist(257, 
+>>> tmpl = ipfix.template.from_ielist(257,
 ...        ipfix.ie.spec_list(("flowStartMilliseconds",
 ...                            "myNewInformationElement")))
 >>> msg.add_template(tmpl)
 >>> msg.export_ensure_set(257)
 >>> msg
 <MessageBuffer domain 8304 length 116 (writing set 257)>
->>> rec = { "flowStartMilliseconds" : datetime.strptime("2013-06-21 14:00:04", 
+>>> rec = { "flowStartMilliseconds" : datetime.strptime("2013-06-21 14:00:04",
 ...                                   "%Y-%m-%d %H:%M:%S"),
 ...         "myNewInformationElement" : "Grüezi, Y'all" }
 >>> msg.export_namedict(rec)
@@ -606,7 +607,7 @@ reset before starting to write again.
 
 >>> b = msg.to_bytes()
 >>> msg.begin_export()
->>> msg 
+>>> msg
 <MessageBuffer domain 8304 length 16 (writing)>
 
 Reading happens more or less in reverse. To begin, a message is read

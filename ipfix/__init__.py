@@ -1,9 +1,10 @@
+# coding: utf8
 #
 # python-ipfix (c) 2013 Brian Trammell.
 #
 # Many thanks to the mPlane consortium (http://www.ict-mplane.eu) for
 # its material support of this effort.
-# 
+#
 # This program is free software: you can redistribute it and/or modify it under
 # the terms of the GNU Lesser General Public License as published by the Free
 # Software Foundation, either version 3 of the License, or (at your option) any
@@ -17,6 +18,8 @@
 # You should have received a copy of the GNU General Public License along with
 # this program.  If not, see <http://www.gnu.org/licenses/>.
 #
+
+from __future__ import unicode_literals
 
 """
 IPFIX implementation for Python 3.3.
@@ -34,8 +37,8 @@ the information model with Information Elements.
 :func:`ipfix.ie.use_iana_default` populates the default IANA IPFIX Information
 Element Registry shipped with the module; this is the current registry as of
 release time. :func:`ipfix.ie.use_5103_default` populates the reverse
-counterpart IEs as in :rfc:`5103`. The module also supports the definition of 
-enterprise-specific Information Elements via :func:`ipfix.ie.for_spec()` and 
+counterpart IEs as in :rfc:`5103`. The module also supports the definition of
+enterprise-specific Information Elements via :func:`ipfix.ie.for_spec()` and
 :func:`ipfix.ie.use_specfile()`; see :mod:`ipfix.ie` for more.
 
 For reading and writing of records to IPFIX message streams with automatic
@@ -45,8 +48,8 @@ messages, see :mod:`ipfix.message`. In any case, exporters will need to define
 templates; see :mod:`ipfix.template`.
 
 This module is copyright 2013 Brian Trammell. It is made available under the
-terms of the 
-`GNU Lesser General Public License <http://www.gnu.org/licenses/lgpl.html>`_, 
+terms of the
+`GNU Lesser General Public License <http://www.gnu.org/licenses/lgpl.html>`_,
 version 3 or, at your option, any later version.
 
 """
