@@ -351,16 +351,9 @@ class MessageBufferRenderer(object):
         if fill:
             self.ofd.set_fill(fill)
 
-<<<<<<< HEAD:vis-package/visipfix.py
-        draw_msg_header(self.ofd, 10, self.msg.length, 
-                        self.msg.get_export_time(),
-                        self.msg.sequence, self.msg.odid)
-    
-=======
         draw_msg_header(self.ofd, 10, self.msg.length, self.msg.sequence,
                         self.msg.get_export_time(), self.msg.odid)
 
->>>>>>> brettdh/python-2.7:ipfix/vis.py
     def add_set_header(self, setid, setlen, fill=None):
         if fill:
             self.ofd.set_fill(fill)
