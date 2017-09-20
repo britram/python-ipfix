@@ -1,39 +1,35 @@
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-
 
 <html xmlns="http://www.w3.org/1999/xhtml">
   <head>
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    
-    <title>ipfix.types &mdash; python-ipfix 0.9.6 documentation</title>
-    
+    <title>ipfix.types &#8212; python-ipfix 0.9.8 documentation</title>
     <link rel="stylesheet" href="../../_static/haiku.css" type="text/css" />
     <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
-    <link rel="stylesheet" href="../../_static/print.css" type="text/css" />
-    
     <script type="text/javascript">
       var DOCUMENTATION_OPTIONS = {
         URL_ROOT:    '../../',
-        VERSION:     '0.9.6',
+        VERSION:     '0.9.8',
         COLLAPSE_INDEX: false,
         FILE_SUFFIX: '.html',
-        HAS_SOURCE:  true
+        HAS_SOURCE:  true,
+        SOURCELINK_SUFFIX: '.txt'
       };
     </script>
     <script type="text/javascript" src="../../_static/jquery.js"></script>
     <script type="text/javascript" src="../../_static/underscore.js"></script>
     <script type="text/javascript" src="../../_static/doctools.js"></script>
-    <script type="text/javascript" src="../../_static/theme_extras.js"></script>
-    <link rel="top" title="python-ipfix 0.9.6 documentation" href="../../index.html" />
-    <link rel="up" title="Module code" href="../index.html" /> 
+    <link rel="index" title="Index" href="../../genindex.html" />
+    <link rel="search" title="Search" href="../../search.html" /> 
   </head>
   <body>
-      <div class="header"><h1 class="heading"><a href="../../index.html">
-          <span>python-ipfix 0.9.6 documentation</span></a></h1>
+      <div class="header" role="banner"><h1 class="heading"><a href="../../index.html">
+          <span>python-ipfix 0.9.8 documentation</span></a></h1>
         <h2 class="heading"><span>ipfix.types</span></h2>
       </div>
-      <div class="topnav">
+      <div class="topnav" role="navigation" aria-label="top navigation">
       
         <p>
         <a class="uplink" href="../../index.html">Contents</a>
@@ -44,11 +40,31 @@
         
         
   <h1>Source code for ipfix.types</h1><div class="highlight"><pre>
-<span class="sd">&quot;&quot;&quot;</span>
-<span class="sd">Implementation of IPFIX abstract data types and mappings to Python types.</span>
+<span></span><span class="c1"># coding: utf8</span>
+<span class="c1">#</span>
+<span class="c1"># python-ipfix (c) 2013-2014 Brian Trammell.</span>
+<span class="c1">#</span>
+<span class="c1"># Many thanks to the mPlane consortium (http://www.ict-mplane.eu) for</span>
+<span class="c1"># its material support of this effort.</span>
+<span class="c1">#</span>
+<span class="c1"># This program is free software: you can redistribute it and/or modify it under</span>
+<span class="c1"># the terms of the GNU Lesser General Public License as published by the Free</span>
+<span class="c1"># Software Foundation, either version 3 of the License, or (at your option) any</span>
+<span class="c1"># later version.</span>
+<span class="c1">#</span>
+<span class="c1"># This program is distributed in the hope that it will be useful, but WITHOUT</span>
+<span class="c1"># ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS</span>
+<span class="c1"># FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public License for more</span>
+<span class="c1"># details.</span>
+<span class="c1">#</span>
+<span class="c1"># You should have received a copy of the GNU General Public License along with</span>
+<span class="c1"># this program.  If not, see &lt;http://www.gnu.org/licenses/&gt;.</span>
+<span class="c1">#</span>
 
-<span class="sd">Based largely on the pack and unpack facilities in the struct package. This</span>
-<span class="sd">module maps IPFIX types to the corresponding Python type, as below:</span>
+<span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">Implementation of IPFIX abstract data types (ADT) and mappings to Python types.</span>
+
+<span class="sd">Maps each IPFIX ADT to the corresponding Python type, as below:</span>
 
 <span class="sd">======================= =============</span>
 <span class="sd">       IPFIX Type        Python Type</span>
@@ -75,113 +91,241 @@
 <span class="sd">ipv6Address             ipaddress</span>
 <span class="sd">======================= =============</span>
 
+<span class="sd">Though client code generally will not use this module directly, it defines how</span>
+<span class="sd">each IPFIX abstract data type will be represented in Python, and the concrete</span>
+<span class="sd">IPFIX representation of each type. Type methods operate on buffers, as used</span>
+<span class="sd">internally by the :class:`ipfix.message.MessageBuffer` class, so we&#39;ll create</span>
+<span class="sd">one to illustrate encoding and decoding:</span>
+
+<span class="sd">&gt;&gt;&gt; from __future__ import unicode_literals</span>
+<span class="sd">&gt;&gt;&gt; import ipfix.compat</span>
+<span class="sd">&gt;&gt;&gt; import ipfix.types</span>
+<span class="sd">&gt;&gt;&gt; buf = ipfix.compat.get_buffer(16)</span>
+
+<span class="sd">Each of the encoding methods returns the offset into the buffer of the first</span>
+<span class="sd">byte after the encoded value; since we&#39;re always encoding to the beginning</span>
+<span class="sd">of the buffer in this example, this is equivalent to the length.</span>
+<span class="sd">We use this to bound the encoded value on subsequent decode.</span>
+
+<span class="sd">Integers are represented by the python int type:</span>
+
+<span class="sd">&gt;&gt;&gt; unsigned32 = ipfix.types.for_name(&quot;unsigned32&quot;)</span>
+<span class="sd">&gt;&gt;&gt; length = unsigned32.encode_single_value_to(42, buf, 0)</span>
+<span class="sd">&gt;&gt;&gt; buf[0:length].tolist()</span>
+<span class="sd">[0, 0, 0, 42]</span>
+<span class="sd">&gt;&gt;&gt; unsigned32.decode_single_value_from(buf, 0, length)</span>
+<span class="sd">42</span>
+
+<span class="sd">...floats by the float type, with the usual caveats about precision:</span>
+
+<span class="sd">&gt;&gt;&gt; float32 = ipfix.types.for_name(&quot;float32&quot;)</span>
+<span class="sd">&gt;&gt;&gt; length = float32.encode_single_value_to(42.03579, buf, 0)</span>
+<span class="sd">&gt;&gt;&gt; buf[0:length].tolist()</span>
+<span class="sd">[66, 40, 36, 166]</span>
+<span class="sd">&gt;&gt;&gt; float32.decode_single_value_from(buf, 0, length)</span>
+<span class="sd">42.035789489746094</span>
+
+<span class="sd">...strings by the str type, encoded as UTF-8 (note that the Python 2</span>
+<span class="sd">interpreter prints unicode characters as hex escapes, but using &#39;print&#39;</span>
+<span class="sd">avoids this, and produces the same result in Python 2/3):</span>
+
+<span class="sd">&gt;&gt;&gt; string = ipfix.types.for_name(&quot;string&quot;)</span>
+<span class="sd">&gt;&gt;&gt; length = string.encode_single_value_to(&quot;Grüezi&quot;, buf, 0)</span>
+<span class="sd">&gt;&gt;&gt; buf[0:length].tolist()</span>
+<span class="sd">[71, 114, 195, 188, 101, 122, 105]</span>
+<span class="sd">&gt;&gt;&gt; print (string.decode_single_value_from(buf, 0, length))</span>
+<span class="sd">Grüezi</span>
+
+<span class="sd">...addresses as the IPv4Address and IPv6Address types in the ipaddress module:</span>
+
+<span class="sd">&gt;&gt;&gt; from ipaddress import ip_address</span>
+<span class="sd">&gt;&gt;&gt; ipv4Address = ipfix.types.for_name(&quot;ipv4Address&quot;)</span>
+<span class="sd">&gt;&gt;&gt; length = ipv4Address.encode_single_value_to(ip_address(&quot;198.51.100.27&quot;), buf, 0)</span>
+<span class="sd">&gt;&gt;&gt; buf[0:length].tolist()</span>
+<span class="sd">[198, 51, 100, 27]</span>
+<span class="sd">&gt;&gt;&gt; ipv4Address.decode_single_value_from(buf, 0, length)</span>
+<span class="sd">IPv4Address(&#39;198.51.100.27&#39;)</span>
+<span class="sd">&gt;&gt;&gt; ipv6Address = ipfix.types.for_name(&quot;ipv6Address&quot;)</span>
+<span class="sd">&gt;&gt;&gt; length = ipv6Address.encode_single_value_to(ip_address(&quot;2001:db8::c0:ffee&quot;), buf, 0)</span>
+<span class="sd">&gt;&gt;&gt; buf[0:length].tolist()</span>
+<span class="sd">[32, 1, 13, 184, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 255, 238]</span>
+<span class="sd">&gt;&gt;&gt; ipv6Address.decode_single_value_from(buf, 0, length)</span>
+<span class="sd">IPv6Address(&#39;2001:db8::c0:ffee&#39;)</span>
+
+<span class="sd">...and the timestamps of various precision as a python datetime,</span>
+<span class="sd">encoded as per RFC5101bis:</span>
+
+<span class="sd">&gt;&gt;&gt; from datetime import datetime</span>
+<span class="sd">&gt;&gt;&gt; dtfmt = &quot;%Y-%m-%d %H:%M:%S.%f&quot;</span>
+<span class="sd">&gt;&gt;&gt; dt = datetime.strptime(&quot;2013-06-21 14:00:03.456789&quot;, dtfmt)</span>
+
+<span class="sd">dateTimeSeconds truncates microseconds:</span>
+
+<span class="sd">&gt;&gt;&gt; dateTimeSeconds = ipfix.types.for_name(&quot;dateTimeSeconds&quot;)</span>
+<span class="sd">&gt;&gt;&gt; length = dateTimeSeconds.encode_single_value_to(dt, buf, 0)</span>
+<span class="sd">&gt;&gt;&gt; buf[0:length].tolist()</span>
+<span class="sd">[81, 196, 92, 99]</span>
+<span class="sd">&gt;&gt;&gt; dateTimeSeconds.decode_single_value_from(buf, 0, length).strftime(dtfmt)</span>
+<span class="sd">&#39;2013-06-21 14:00:03.000000&#39;</span>
+
+<span class="sd">dateTimeMilliseconds truncates microseconds to the nearest millisecond:</span>
+
+<span class="sd">&gt;&gt;&gt; dateTimeMilliseconds = ipfix.types.for_name(&quot;dateTimeMilliseconds&quot;)</span>
+<span class="sd">&gt;&gt;&gt; length = dateTimeMilliseconds.encode_single_value_to(dt, buf, 0)</span>
+<span class="sd">&gt;&gt;&gt; buf[0:length].tolist()</span>
+<span class="sd">[0, 0, 1, 63, 103, 8, 228, 128]</span>
+<span class="sd">&gt;&gt;&gt; dateTimeMilliseconds.decode_single_value_from(buf, 0, length).strftime(dtfmt)</span>
+<span class="sd">&#39;2013-06-21 14:00:03.456000&#39;</span>
+
+<span class="sd">dateTimeMicroseconds exports microseconds fully in NTP format:</span>
+
+<span class="sd">&gt;&gt;&gt; dateTimeMicroseconds = ipfix.types.for_name(&quot;dateTimeMicroseconds&quot;)</span>
+<span class="sd">&gt;&gt;&gt; length = dateTimeMicroseconds.encode_single_value_to(dt, buf, 0)</span>
+<span class="sd">&gt;&gt;&gt; buf[0:length].tolist()</span>
+<span class="sd">[213, 110, 218, 227, 116, 240, 32, 0]</span>
+<span class="sd">&gt;&gt;&gt; dateTimeMicroseconds.decode_single_value_from(buf, 0, length).strftime(dtfmt)</span>
+<span class="sd">&#39;2013-06-21 14:00:03.456789&#39;</span>
+
+<span class="sd">dateTimeNanoseconds is also supported, but is identical to</span>
+<span class="sd">dateTimeMicroseconds, as the datetime class in Python only supports</span>
+<span class="sd">microsecond-level timing.</span>
 
 <span class="sd">&quot;&quot;&quot;</span>
-<span class="kn">from</span> <span class="nn">datetime</span> <span class="kn">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
-<span class="kn">from</span> <span class="nn">functools</span> <span class="kn">import</span> <span class="n">total_ordering</span>
-<span class="kn">from</span> <span class="nn">ipaddress</span> <span class="kn">import</span> <span class="n">ip_address</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="k">import</span> <span class="n">unicode_literals</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="k">import</span> <span class="n">division</span>
+<span class="kn">from</span> <span class="nn">datetime</span> <span class="k">import</span> <span class="n">datetime</span><span class="p">,</span> <span class="n">timedelta</span>
+<span class="kn">from</span> <span class="nn">functools</span> <span class="k">import</span> <span class="n">total_ordering</span>
+<span class="kn">from</span> <span class="nn">ipaddress</span> <span class="k">import</span> <span class="n">ip_address</span>
+<span class="kn">import</span> <span class="nn">binascii</span>
 <span class="kn">import</span> <span class="nn">struct</span>
+<span class="kn">import</span> <span class="nn">math</span>
 
 <span class="n">VARLEN</span> <span class="o">=</span> <span class="mi">65535</span>
+
+<span class="n">ISO8601_FMT</span> <span class="o">=</span> <span class="s2">&quot;%Y-%m-</span><span class="si">%d</span><span class="s2"> %H:%M:%S&quot;</span>
+
+<span class="c1"># Seconds between NTP epoch and Unix epoch</span>
+<span class="n">NTP_EPOCH_TO_UNIX_EPOCH</span> <span class="o">=</span> <span class="mh">0x83AA7E80</span>
 
 <div class="viewcode-block" id="IpfixTypeError"><a class="viewcode-back" href="../../index.html#ipfix.types.IpfixTypeError">[docs]</a><span class="k">class</span> <span class="nc">IpfixTypeError</span><span class="p">(</span><span class="ne">ValueError</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Raised when attempting to do an unsupported operation on a type&quot;&quot;&quot;</span>
     <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="o">*</span><span class="n">args</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">args</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">args</span><span class="p">)</span></div>
 
-<span class="c"># Table for downconverting struct elements for reduced length encoding</span></div>
-<span class="n">_stel_rle</span> <span class="o">=</span> <span class="p">{</span> <span class="p">(</span><span class="s">&#39;H&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="p">:</span> <span class="s">&#39;B&#39;</span><span class="p">,</span>
-              <span class="p">(</span><span class="s">&#39;L&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="p">:</span> <span class="s">&#39;H&#39;</span><span class="p">,</span>
-              <span class="p">(</span><span class="s">&#39;L&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="p">:</span> <span class="s">&#39;B&#39;</span><span class="p">,</span>
-              <span class="p">(</span><span class="s">&#39;Q&#39;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span> <span class="p">:</span> <span class="s">&#39;L&#39;</span><span class="p">,</span>
-              <span class="p">(</span><span class="s">&#39;Q&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="p">:</span> <span class="s">&#39;H&#39;</span><span class="p">,</span>
-              <span class="p">(</span><span class="s">&#39;Q&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="p">:</span> <span class="s">&#39;B&#39;</span><span class="p">,</span>
-              <span class="p">(</span><span class="s">&#39;h&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="p">:</span> <span class="s">&#39;b&#39;</span><span class="p">,</span>
-              <span class="p">(</span><span class="s">&#39;l&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="p">:</span> <span class="s">&#39;h&#39;</span><span class="p">,</span>
-              <span class="p">(</span><span class="s">&#39;l&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="p">:</span> <span class="s">&#39;b&#39;</span><span class="p">,</span>
-              <span class="p">(</span><span class="s">&#39;q&#39;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span> <span class="p">:</span> <span class="s">&#39;l&#39;</span><span class="p">,</span>
-              <span class="p">(</span><span class="s">&#39;q&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="p">:</span> <span class="s">&#39;h&#39;</span><span class="p">,</span>
-              <span class="p">(</span><span class="s">&#39;q&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="p">:</span> <span class="s">&#39;b&#39;</span><span class="p">,</span>
-              <span class="p">(</span><span class="s">&#39;d&#39;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span> <span class="p">:</span> <span class="s">&#39;f&#39;</span><span class="p">}</span>
+<span class="c1"># Table for downconverting struct elements for reduced length encoding</span>
+<span class="n">_stel_rle</span> <span class="o">=</span> <span class="p">{</span> <span class="p">(</span><span class="s1">&#39;H&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="p">:</span> <span class="s1">&#39;B&#39;</span><span class="p">,</span>
+              <span class="p">(</span><span class="s1">&#39;L&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="p">:</span> <span class="s1">&#39;H&#39;</span><span class="p">,</span>
+              <span class="p">(</span><span class="s1">&#39;L&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="p">:</span> <span class="s1">&#39;B&#39;</span><span class="p">,</span>
+              <span class="p">(</span><span class="s1">&#39;Q&#39;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span> <span class="p">:</span> <span class="s1">&#39;L&#39;</span><span class="p">,</span>
+              <span class="p">(</span><span class="s1">&#39;Q&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="p">:</span> <span class="s1">&#39;H&#39;</span><span class="p">,</span>
+              <span class="p">(</span><span class="s1">&#39;Q&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="p">:</span> <span class="s1">&#39;B&#39;</span><span class="p">,</span>
+              <span class="p">(</span><span class="s1">&#39;h&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="p">:</span> <span class="s1">&#39;b&#39;</span><span class="p">,</span>
+              <span class="p">(</span><span class="s1">&#39;l&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="p">:</span> <span class="s1">&#39;h&#39;</span><span class="p">,</span>
+              <span class="p">(</span><span class="s1">&#39;l&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="p">:</span> <span class="s1">&#39;b&#39;</span><span class="p">,</span>
+              <span class="p">(</span><span class="s1">&#39;q&#39;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span> <span class="p">:</span> <span class="s1">&#39;l&#39;</span><span class="p">,</span>
+              <span class="p">(</span><span class="s1">&#39;q&#39;</span><span class="p">,</span> <span class="mi">2</span><span class="p">)</span> <span class="p">:</span> <span class="s1">&#39;h&#39;</span><span class="p">,</span>
+              <span class="p">(</span><span class="s1">&#39;q&#39;</span><span class="p">,</span> <span class="mi">1</span><span class="p">)</span> <span class="p">:</span> <span class="s1">&#39;b&#39;</span><span class="p">,</span>
+              <span class="p">(</span><span class="s1">&#39;d&#39;</span><span class="p">,</span> <span class="mi">4</span><span class="p">)</span> <span class="p">:</span> <span class="s1">&#39;f&#39;</span><span class="p">}</span>
 
-<span class="c"># Builtin structs for varlen information</span>
-<span class="n">_varlen1_st</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">Struct</span><span class="p">(</span><span class="s">&quot;!B&quot;</span><span class="p">)</span>
-<span class="n">_varlen2_st</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">Struct</span><span class="p">(</span><span class="s">&quot;!H&quot;</span><span class="p">)</span>
+<span class="c1"># Builtin structs for varlen information</span>
+<span class="n">_varlen1_st</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">Struct</span><span class="p">(</span><span class="s2">&quot;!B&quot;</span><span class="p">)</span>
+<span class="n">_varlen2_st</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">Struct</span><span class="p">(</span><span class="s2">&quot;!H&quot;</span><span class="p">)</span>
 
-<span class="c"># builtin default encode/decode function</span>
+<span class="c1"># builtin default encode/decode function</span>
 <span class="k">def</span> <span class="nf">_identity</span><span class="p">(</span><span class="n">x</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">x</span>
 
-<span class="c"># Builtin type implementation</span>
-<span class="nd">@total_ordering</span>
-<div class="viewcode-block" id="IpfixType"><a class="viewcode-back" href="../../index.html#ipfix.types.IpfixType">[docs]</a><span class="k">class</span> <span class="nc">IpfixType</span><span class="p">:</span>
+
+<div class="viewcode-block" id="IpfixType"><a class="viewcode-back" href="../../index.html#ipfix.types.IpfixType">[docs]</a><span class="nd">@total_ordering</span>
+<span class="k">class</span> <span class="nc">IpfixType</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="c1"># Builtin type implementation</span>
     <span class="sd">&quot;&quot;&quot;Abstract interface for all IPFIX types. Used internally. &quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">valenc</span><span class="p">,</span> <span class="n">valdec</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">valenc</span><span class="p">,</span> <span class="n">valdec</span><span class="p">,</span> <span class="n">valstr</span><span class="p">,</span> <span class="n">valparse</span><span class="p">,</span> <span class="n">roottype</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">name</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">num</span> <span class="o">=</span> <span class="n">num</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span> <span class="o">=</span> <span class="n">valenc</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span> <span class="o">=</span> <span class="n">valdec</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">valstr</span> <span class="o">=</span> <span class="n">valstr</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">valparse</span> <span class="o">=</span> <span class="n">valparse</span>
+        <span class="k">if</span> <span class="n">roottype</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">roottype</span> <span class="o">=</span> <span class="n">roottype</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="bp">self</span><span class="o">.</span><span class="n">roottype</span> <span class="o">=</span> <span class="bp">self</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">=</span> <span class="mi">0</span>
 
     <span class="k">def</span> <span class="nf">__eq__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">)</span> <span class="o">==</span> <span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">num</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">length</span><span class="p">)</span>
-    
+
     <span class="k">def</span> <span class="nf">__lt__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">other</span><span class="p">):</span>
         <span class="k">return</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">num</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">)</span> <span class="o">&lt;</span> <span class="p">(</span><span class="n">other</span><span class="o">.</span><span class="n">num</span><span class="p">,</span> <span class="n">other</span><span class="o">.</span><span class="n">length</span><span class="p">)</span>
-    
+
     <span class="k">def</span> <span class="nf">__str__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="s">&quot;&lt;</span><span class="si">%s</span><span class="s">&gt;&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span>
+        <span class="k">return</span> <span class="s2">&quot;&lt;</span><span class="si">%s</span><span class="s2">&gt;&quot;</span> <span class="o">%</span> <span class="bp">self</span><span class="o">.</span><span class="n">name</span>
 
     <span class="k">def</span> <span class="nf">__repr__</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
-        <span class="k">return</span> <span class="s">&quot;ipfix.types.for_name(</span><span class="si">%s</span><span class="s">)&quot;</span> <span class="o">%</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span>
-</div>
+        <span class="k">return</span> <span class="s2">&quot;ipfix.types.for_name(</span><span class="si">%s</span><span class="s2">)&quot;</span> <span class="o">%</span> <span class="nb">repr</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">)</span></div>
+
+
 <div class="viewcode-block" id="StructType"><a class="viewcode-back" href="../../index.html#ipfix.types.StructType">[docs]</a><span class="k">class</span> <span class="nc">StructType</span><span class="p">(</span><span class="n">IpfixType</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Type encoded by struct packing. Used internally.&quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">stel</span><span class="p">,</span> <span class="n">valenc</span> <span class="o">=</span> <span class="n">_identity</span><span class="p">,</span> <span class="n">valdec</span> <span class="o">=</span> <span class="n">_identity</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">valenc</span><span class="p">,</span> <span class="n">valdec</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">stel</span><span class="p">,</span> <span class="n">valenc</span><span class="o">=</span><span class="n">_identity</span><span class="p">,</span> <span class="n">valdec</span><span class="o">=</span><span class="n">_identity</span><span class="p">,</span> <span class="n">valstr</span><span class="o">=</span><span class="nb">str</span><span class="p">,</span> <span class="n">valparse</span><span class="o">=</span><span class="nb">int</span><span class="p">,</span> <span class="n">roottype</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">valenc</span><span class="p">,</span> <span class="n">valdec</span><span class="p">,</span> <span class="n">valstr</span><span class="p">,</span> <span class="n">valparse</span><span class="p">,</span> <span class="n">roottype</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">stel</span> <span class="o">=</span> <span class="n">stel</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">st</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">Struct</span><span class="p">(</span><span class="s">&quot;!&quot;</span><span class="o">+</span><span class="n">stel</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">st</span> <span class="o">=</span> <span class="n">struct</span><span class="o">.</span><span class="n">Struct</span><span class="p">(</span><span class="s2">&quot;!&quot;</span><span class="o">+</span><span class="n">stel</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">st</span><span class="o">.</span><span class="n">size</span>
-        <span class="bp">self</span><span class="o">.</span><span class="n">skipel</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">)</span><span class="o">+</span><span class="s">&quot;x&quot;</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">skipel</span> <span class="o">=</span> <span class="nb">str</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">)</span><span class="o">+</span><span class="s2">&quot;x&quot;</span>
 
     <span class="k">def</span> <span class="nf">for_length</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">length</span> <span class="ow">or</span> <span class="n">length</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span>
+        <span class="k">elif</span> <span class="bp">self</span><span class="o">.</span><span class="n">roottype</span> <span class="ow">is</span> <span class="n">_roottypes</span><span class="p">[</span><span class="mi">0</span><span class="p">]:</span>
+            <span class="c1"># FIXME this is kind of a hack to allow any-length encoding of octet arrays</span>
+            <span class="k">return</span> <span class="n">StructType</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">length</span><span class="p">)</span><span class="o">+</span><span class="s2">&quot;s&quot;</span><span class="p">,</span>
+                              <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">roottype</span><span class="p">)</span>
         <span class="k">else</span><span class="p">:</span>
             <span class="k">try</span><span class="p">:</span>
-                <span class="k">return</span> <span class="n">StructType</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num</span><span class="p">,</span> <span class="n">_stel_rle</span><span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">stel</span><span class="p">,</span> <span class="n">length</span><span class="p">)],</span> <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">)</span>
+                <span class="k">return</span> <span class="n">StructType</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num</span><span class="p">,</span>
+                                  <span class="n">_stel_rle</span><span class="p">[(</span><span class="bp">self</span><span class="o">.</span><span class="n">stel</span><span class="p">,</span> <span class="n">length</span><span class="p">)],</span>
+                                  <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">roottype</span><span class="p">)</span>
             <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
-                <span class="k">raise</span> <span class="n">IpfixTypeError</span><span class="p">(</span><span class="s">&quot;Reduced length encoding not supported &lt;</span><span class="si">%s</span><span class="s">&gt;[</span><span class="si">%u</span><span class="s">]&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">length</span><span class="p">))</span>
+                <span class="k">raise</span> <span class="n">IpfixTypeError</span><span class="p">(</span><span class="s2">&quot;No RLE for &lt;</span><span class="si">%s</span><span class="s2">&gt;[</span><span class="si">%u</span><span class="s2">]&quot;</span> <span class="o">%</span>
+                                     <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">length</span><span class="p">))</span>
 
-    <span class="k">def</span> <span class="nf">encode_single_value_to</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
-        <span class="k">assert</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">==</span> <span class="n">length</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">encode_single_value_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">):</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">(</span><span class="n">val</span><span class="p">))</span>
-    
-    <span class="k">def</span> <span class="nf">decode_single_value_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
-        <span class="k">assert</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">==</span> <span class="n">length</span><span class="p">)</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">st</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">))</span>
+        <span class="k">return</span> <span class="n">offset</span> <span class="o">+</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span>
 
-</div>
+    <span class="k">def</span> <span class="nf">decode_single_value_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
+        <span class="k">assert</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">==</span> <span class="n">length</span><span class="p">)</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">st</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">)[</span><span class="mi">0</span><span class="p">])</span></div>
+
 <div class="viewcode-block" id="OctetArrayType"><a class="viewcode-back" href="../../index.html#ipfix.types.OctetArrayType">[docs]</a><span class="k">class</span> <span class="nc">OctetArrayType</span><span class="p">(</span><span class="n">IpfixType</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Type encoded by byte array packing. Used internally.&quot;&quot;&quot;</span>
-    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">valenc</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">,</span> <span class="n">valdec</span> <span class="o">=</span> <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="n">x</span><span class="p">):</span>
-        <span class="nb">super</span><span class="p">()</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">valenc</span><span class="p">,</span> <span class="n">valdec</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">valenc</span><span class="o">=</span><span class="n">_identity</span><span class="p">,</span> <span class="n">valdec</span><span class="o">=</span><span class="n">_identity</span><span class="p">,</span> <span class="n">valstr</span><span class="o">=</span><span class="n">binascii</span><span class="o">.</span><span class="n">hexlify</span><span class="p">,</span> <span class="n">valparse</span><span class="o">=</span><span class="n">binascii</span><span class="o">.</span><span class="n">unhexlify</span><span class="p">,</span> <span class="n">roottype</span><span class="o">=</span><span class="kc">None</span><span class="p">):</span>
+        <span class="nb">super</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="vm">__class__</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="fm">__init__</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">num</span><span class="p">,</span> <span class="n">valenc</span><span class="p">,</span> <span class="n">valdec</span><span class="p">,</span> <span class="n">valstr</span><span class="p">,</span> <span class="n">valparse</span><span class="p">,</span> <span class="n">roottype</span><span class="p">)</span>
         <span class="bp">self</span><span class="o">.</span><span class="n">length</span> <span class="o">=</span> <span class="n">VARLEN</span>
-    
+
     <span class="k">def</span> <span class="nf">for_length</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
         <span class="k">if</span> <span class="ow">not</span> <span class="n">length</span> <span class="ow">or</span> <span class="n">length</span> <span class="o">==</span> <span class="bp">self</span><span class="o">.</span><span class="n">length</span><span class="p">:</span>
             <span class="k">return</span> <span class="bp">self</span>
         <span class="k">else</span><span class="p">:</span>
-            <span class="k">return</span> <span class="n">StructType</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">length</span><span class="p">)</span><span class="o">+</span><span class="s">&quot;s&quot;</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">)</span>
+            <span class="k">return</span> <span class="n">StructType</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">num</span><span class="p">,</span> <span class="nb">str</span><span class="p">(</span><span class="n">length</span><span class="p">)</span><span class="o">+</span><span class="s2">&quot;s&quot;</span><span class="p">,</span>
+                              <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">,</span> <span class="bp">self</span><span class="o">.</span><span class="n">roottype</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">encode_single_value_to</span><span class="p">(</span><span class="n">val</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
-        <span class="n">buf</span><span class="p">[</span><span class="n">offset</span><span class="p">:</span><span class="n">offset</span><span class="o">+</span><span class="n">length</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+    <span class="k">def</span> <span class="nf">encode_single_value_to</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">val</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">):</span>
+        <span class="n">enc</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">valenc</span><span class="p">(</span><span class="n">val</span><span class="p">)</span>
+        <span class="n">buf</span><span class="p">[</span><span class="n">offset</span><span class="p">:</span><span class="n">offset</span><span class="o">+</span><span class="nb">len</span><span class="p">(</span><span class="n">enc</span><span class="p">)]</span> <span class="o">=</span> <span class="n">enc</span>
+        <span class="k">return</span> <span class="n">offset</span> <span class="o">+</span> <span class="nb">len</span><span class="p">(</span><span class="n">enc</span><span class="p">)</span>
 
-    <span class="k">def</span> <span class="nf">decode_single_value_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
-        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">(</span><span class="n">buf</span><span class="p">[</span><span class="n">offset</span><span class="p">:</span><span class="n">offset</span><span class="o">+</span><span class="n">length</span><span class="p">])</span>
+    <span class="k">def</span> <span class="nf">decode_single_value_from</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
+        <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">valdec</span><span class="p">(</span><span class="n">buf</span><span class="p">[</span><span class="n">offset</span><span class="p">:</span><span class="n">offset</span><span class="o">+</span><span class="n">length</span><span class="p">]</span><span class="o">.</span><span class="n">tobytes</span><span class="p">())</span></div>
 
-<span class="c"># Builtin encoders/decoders</span>
-</div>
+<span class="c1"># Utility calls for buildin encoders/decoders</span>
+<span class="k">def</span> <span class="nf">dt2epoch</span><span class="p">(</span><span class="n">dt</span><span class="p">):</span>
+    <span class="k">return</span> <span class="p">(</span><span class="n">dt</span> <span class="o">-</span> <span class="n">datetime</span><span class="p">(</span><span class="mi">1970</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">1</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="mi">0</span><span class="p">,</span><span class="n">tzinfo</span><span class="o">=</span><span class="kc">None</span><span class="p">))</span><span class="o">.</span><span class="n">total_seconds</span><span class="p">()</span>
+
+<span class="c1"># Builtin encoders/decoders</span>
+
 <span class="k">def</span> <span class="nf">_encode_smibool</span><span class="p">(</span><span class="nb">bool</span><span class="p">):</span>
     <span class="k">if</span> <span class="nb">bool</span><span class="p">:</span>
         <span class="k">return</span> <span class="mi">1</span>
@@ -190,106 +334,172 @@
 
 <span class="k">def</span> <span class="nf">_decode_smibool</span><span class="p">(</span><span class="n">byte</span><span class="p">):</span>
     <span class="k">if</span> <span class="n">byte</span> <span class="o">==</span> <span class="mi">1</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">True</span>
+        <span class="k">return</span> <span class="kc">True</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="k">return</span> <span class="bp">False</span>
+        <span class="k">return</span> <span class="kc">False</span>
 
-<span class="k">def</span> <span class="nf">_encode_utf8</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>   
-    <span class="k">return</span> <span class="n">string</span><span class="o">.</span><span class="n">encode</span><span class="p">()</span>
+<span class="k">def</span> <span class="nf">_str_bool</span><span class="p">(</span><span class="nb">bool</span><span class="p">):</span>
+    <span class="k">if</span> <span class="nb">bool</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;true&quot;</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;false&quot;</span>
+
+<span class="k">def</span> <span class="nf">_parse_bool</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
+    <span class="k">if</span> <span class="n">string</span> <span class="o">==</span> <span class="s1">&#39;true&#39;</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">True</span>
+    <span class="k">else</span><span class="p">:</span>
+        <span class="k">return</span> <span class="kc">False</span>
+
+<span class="k">def</span> <span class="nf">_encode_utf8</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">string</span><span class="o">.</span><span class="n">encode</span><span class="p">(</span><span class="s1">&#39;utf8&#39;</span><span class="p">)</span>
 
 <span class="k">def</span> <span class="nf">_decode_utf8</span><span class="p">(</span><span class="n">octets</span><span class="p">):</span>
-    <span class="k">return</span> <span class="n">octets</span><span class="o">.</span><span class="n">decode</span><span class="p">()</span>
+    <span class="k">return</span> <span class="n">octets</span><span class="o">.</span><span class="n">decode</span><span class="p">(</span><span class="s1">&#39;utf8&#39;</span><span class="p">)</span>
 
 <span class="k">def</span> <span class="nf">_encode_sec</span><span class="p">(</span><span class="n">dt</span><span class="p">):</span>
-    <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">dt</span><span class="o">.</span><span class="n">timestamp</span><span class="p">())</span>
-    
+    <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">dt2epoch</span><span class="p">(</span><span class="n">dt</span><span class="p">))</span>
+
 <span class="k">def</span> <span class="nf">_decode_sec</span><span class="p">(</span><span class="n">epoch</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcfromtimestamp</span><span class="p">(</span><span class="n">epoch</span><span class="p">)</span>
-    
+
+<span class="k">def</span> <span class="nf">_str_sec</span><span class="p">(</span><span class="n">dt</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">dt</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">ISO8601_FMT</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_parse_sec</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
+    <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">string</span><span class="p">,</span> <span class="n">ISO8601_FMT</span><span class="p">)</span>
+
 <span class="k">def</span> <span class="nf">_encode_msec</span><span class="p">(</span><span class="n">dt</span><span class="p">):</span>
-    <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">dt</span><span class="o">.</span><span class="n">timestamp</span><span class="p">()</span> <span class="o">*</span> <span class="mi">1000</span> <span class="o">+</span> <span class="n">dt</span><span class="o">.</span><span class="n">microsecond</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">)</span>
-    
+    <span class="k">return</span> <span class="nb">int</span><span class="p">(</span><span class="n">dt2epoch</span><span class="p">(</span><span class="n">dt</span><span class="p">)</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">)</span>
+
 <span class="k">def</span> <span class="nf">_decode_msec</span><span class="p">(</span><span class="n">epoch</span><span class="p">):</span>
-    <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcfromtimestamp</span><span class="p">(</span><span class="n">epoch</span><span class="o">/</span><span class="mi">1000</span><span class="p">)</span> <span class="o">+</span> <span class="n">timedelta</span><span class="p">(</span><span class="n">milliseconds</span> <span class="o">=</span> <span class="n">epoch</span> <span class="o">%</span> <span class="mi">1000</span><span class="p">)</span>
-    
+    <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcfromtimestamp</span><span class="p">(</span><span class="n">epoch</span><span class="o">/</span><span class="mi">1000</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_str_msec</span><span class="p">(</span><span class="n">dt</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">.</span><span class="si">%03u</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">dt</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">ISO8601_FMT</span><span class="p">),</span> <span class="nb">int</span><span class="p">(</span><span class="n">dt</span><span class="o">.</span><span class="n">microsecond</span> <span class="o">/</span> <span class="mi">1000</span><span class="p">))</span>
+
+<span class="k">def</span> <span class="nf">_parse_msec</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
+    <span class="p">(</span><span class="n">ss</span><span class="p">,</span> <span class="n">mss</span><span class="p">)</span> <span class="o">=</span> <span class="n">string</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">ss</span><span class="p">,</span> <span class="n">ISO8601_FMT</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">microsecond</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">mss</span><span class="p">)</span> <span class="o">*</span> <span class="mi">1000</span><span class="p">)</span>
+
 <span class="k">def</span> <span class="nf">_encode_ntp</span><span class="p">(</span><span class="n">dt</span><span class="p">):</span>
-    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+    <span class="p">(</span><span class="n">tsf</span><span class="p">,</span> <span class="n">tsi</span><span class="p">)</span> <span class="o">=</span> <span class="n">math</span><span class="o">.</span><span class="n">modf</span><span class="p">(</span><span class="n">dt2epoch</span><span class="p">(</span><span class="n">dt</span><span class="p">))</span>
+    <span class="k">return</span> <span class="nb">int</span><span class="p">(((</span><span class="nb">int</span><span class="p">(</span><span class="n">tsi</span><span class="p">)</span> <span class="o">+</span> <span class="n">NTP_EPOCH_TO_UNIX_EPOCH</span><span class="p">)</span> <span class="o">&lt;&lt;</span> <span class="mi">32</span><span class="p">)</span> <span class="o">+</span> <span class="p">(</span><span class="n">tsf</span> <span class="o">*</span> <span class="mi">2</span><span class="o">**</span><span class="mi">32</span><span class="p">))</span>
 
 <span class="k">def</span> <span class="nf">_decode_ntp</span><span class="p">(</span><span class="n">ntp</span><span class="p">):</span>
-    <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+    <span class="n">tsf</span> <span class="o">=</span> <span class="n">ntp</span> <span class="o">&amp;</span> <span class="p">(</span><span class="mi">2</span><span class="o">**</span><span class="mi">32</span> <span class="o">-</span> <span class="mi">1</span><span class="p">)</span>
+    <span class="n">tsi</span> <span class="o">=</span> <span class="p">(</span><span class="n">ntp</span> <span class="o">&gt;&gt;</span> <span class="mi">32</span><span class="p">)</span> <span class="o">-</span> <span class="n">NTP_EPOCH_TO_UNIX_EPOCH</span>
+    <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">utcfromtimestamp</span><span class="p">(</span><span class="n">tsi</span> <span class="o">+</span> <span class="n">tsf</span> <span class="o">/</span> <span class="mi">2</span><span class="o">**</span><span class="mi">32</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_str_usec</span><span class="p">(</span><span class="n">dt</span><span class="p">):</span>
+    <span class="k">return</span> <span class="s2">&quot;</span><span class="si">%s</span><span class="s2">.</span><span class="si">%06u</span><span class="s2">&quot;</span> <span class="o">%</span> <span class="p">(</span><span class="n">dt</span><span class="o">.</span><span class="n">strftime</span><span class="p">(</span><span class="n">ISO8601_FMT</span><span class="p">),</span> <span class="n">dt</span><span class="o">.</span><span class="n">microsecond</span><span class="p">)</span>
+
+<span class="k">def</span> <span class="nf">_parse_usec</span><span class="p">(</span><span class="n">string</span><span class="p">):</span>
+    <span class="p">(</span><span class="n">ss</span><span class="p">,</span> <span class="n">uss</span><span class="p">)</span> <span class="o">=</span> <span class="n">string</span><span class="o">.</span><span class="n">split</span><span class="p">(</span><span class="s2">&quot;.&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">datetime</span><span class="o">.</span><span class="n">strptime</span><span class="p">(</span><span class="n">ss</span><span class="p">,</span> <span class="n">ISO8601_FMT</span><span class="p">)</span><span class="o">.</span><span class="n">replace</span><span class="p">(</span><span class="n">microsecond</span> <span class="o">=</span> <span class="nb">int</span><span class="p">(</span><span class="n">uss</span><span class="p">))</span>
 
 <span class="k">def</span> <span class="nf">_encode_ip</span><span class="p">(</span><span class="n">ipaddr</span><span class="p">):</span>
     <span class="k">return</span> <span class="n">ipaddr</span><span class="o">.</span><span class="n">packed</span>
-    
-<span class="k">def</span> <span class="nf">_decode_ip</span><span class="p">(</span><span class="n">octets</span><span class="p">):</span>
-    <span class="k">return</span> <span class="n">ip_address</span><span class="p">(</span><span class="n">octets</span><span class="p">)</span>
 
-<span class="c"># builtin type registry</span>
-<span class="n">_Types</span> <span class="o">=</span> <span class="p">[</span>
-    <span class="n">OctetArrayType</span><span class="p">(</span><span class="s">&quot;octetArray&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
-    <span class="n">StructType</span><span class="p">(</span><span class="s">&quot;unsigned8&quot;</span><span class="p">,</span>  <span class="mi">1</span><span class="p">,</span> <span class="s">&quot;B&quot;</span><span class="p">),</span>
-    <span class="n">StructType</span><span class="p">(</span><span class="s">&quot;unsigned16&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="s">&quot;H&quot;</span><span class="p">),</span>
-    <span class="n">StructType</span><span class="p">(</span><span class="s">&quot;unsigned32&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="s">&quot;L&quot;</span><span class="p">),</span>
-    <span class="n">StructType</span><span class="p">(</span><span class="s">&quot;unsigned64&quot;</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="s">&quot;Q&quot;</span><span class="p">),</span>
-    <span class="n">StructType</span><span class="p">(</span><span class="s">&quot;signed8&quot;</span><span class="p">,</span>    <span class="mi">5</span><span class="p">,</span> <span class="s">&quot;b&quot;</span><span class="p">),</span>
-    <span class="n">StructType</span><span class="p">(</span><span class="s">&quot;signed16&quot;</span><span class="p">,</span>   <span class="mi">6</span><span class="p">,</span> <span class="s">&quot;h&quot;</span><span class="p">),</span>
-    <span class="n">StructType</span><span class="p">(</span><span class="s">&quot;signed32&quot;</span><span class="p">,</span>   <span class="mi">7</span><span class="p">,</span> <span class="s">&quot;l&quot;</span><span class="p">),</span>
-    <span class="n">StructType</span><span class="p">(</span><span class="s">&quot;signed64&quot;</span><span class="p">,</span>   <span class="mi">8</span><span class="p">,</span> <span class="s">&quot;q&quot;</span><span class="p">),</span>
-    <span class="n">StructType</span><span class="p">(</span><span class="s">&quot;float32&quot;</span><span class="p">,</span>    <span class="mi">9</span><span class="p">,</span> <span class="s">&quot;f&quot;</span><span class="p">),</span>
-    <span class="n">StructType</span><span class="p">(</span><span class="s">&quot;float64&quot;</span><span class="p">,</span>    <span class="mi">10</span><span class="p">,</span> <span class="s">&quot;d&quot;</span><span class="p">),</span>
-    <span class="n">StructType</span><span class="p">(</span><span class="s">&quot;boolean&quot;</span><span class="p">,</span>    <span class="mi">11</span><span class="p">,</span> <span class="s">&quot;B&quot;</span><span class="p">,</span> <span class="n">_encode_smibool</span><span class="p">,</span> <span class="n">_decode_smibool</span><span class="p">),</span>
-    <span class="n">StructType</span><span class="p">(</span><span class="s">&quot;macAddress&quot;</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="s">&quot;6s&quot;</span><span class="p">),</span>
-    <span class="n">OctetArrayType</span><span class="p">(</span><span class="s">&quot;string&quot;</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span> <span class="n">_encode_utf8</span><span class="p">,</span> <span class="n">_decode_utf8</span><span class="p">),</span>
-    <span class="n">StructType</span><span class="p">(</span><span class="s">&quot;dateTimeSeconds&quot;</span><span class="p">,</span> <span class="mi">14</span><span class="p">,</span> <span class="s">&quot;L&quot;</span><span class="p">,</span> <span class="n">_encode_sec</span><span class="p">,</span> <span class="n">_decode_sec</span><span class="p">),</span>
-    <span class="n">StructType</span><span class="p">(</span><span class="s">&quot;dateTimeMilliseconds&quot;</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="s">&quot;Q&quot;</span><span class="p">,</span> <span class="n">_encode_msec</span><span class="p">,</span> <span class="n">_decode_msec</span><span class="p">),</span>
-    <span class="n">StructType</span><span class="p">(</span><span class="s">&quot;dateTimeMicroseconds&quot;</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="s">&quot;Q&quot;</span><span class="p">,</span> <span class="n">_encode_ntp</span><span class="p">,</span> <span class="n">_decode_ntp</span><span class="p">),</span>
-    <span class="n">StructType</span><span class="p">(</span><span class="s">&quot;dateTimeNanoseconds&quot;</span><span class="p">,</span> <span class="mi">17</span><span class="p">,</span> <span class="s">&quot;Q&quot;</span><span class="p">,</span> <span class="n">_encode_ntp</span><span class="p">,</span> <span class="n">_decode_ntp</span><span class="p">),</span>
-    <span class="n">StructType</span><span class="p">(</span><span class="s">&quot;ipv4Address&quot;</span><span class="p">,</span> <span class="mi">18</span><span class="p">,</span> <span class="s">&quot;4s&quot;</span><span class="p">,</span> <span class="n">_encode_ip</span><span class="p">,</span> <span class="n">_decode_ip</span><span class="p">),</span>
-    <span class="n">StructType</span><span class="p">(</span><span class="s">&quot;ipv6Address&quot;</span><span class="p">,</span> <span class="mi">19</span><span class="p">,</span> <span class="s">&quot;16s&quot;</span><span class="p">,</span> <span class="n">_encode_ip</span><span class="p">,</span> <span class="n">_decode_ip</span><span class="p">)</span>
+<span class="c1"># builtin type registry</span>
+<span class="n">_roottypes</span> <span class="o">=</span> <span class="p">[</span>
+    <span class="n">OctetArrayType</span><span class="p">(</span><span class="s2">&quot;octetArray&quot;</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span>
+    <span class="n">StructType</span><span class="p">(</span><span class="s2">&quot;unsigned8&quot;</span><span class="p">,</span>  <span class="mi">1</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">),</span>
+    <span class="n">StructType</span><span class="p">(</span><span class="s2">&quot;unsigned16&quot;</span><span class="p">,</span> <span class="mi">2</span><span class="p">,</span> <span class="s2">&quot;H&quot;</span><span class="p">),</span>
+    <span class="n">StructType</span><span class="p">(</span><span class="s2">&quot;unsigned32&quot;</span><span class="p">,</span> <span class="mi">3</span><span class="p">,</span> <span class="s2">&quot;L&quot;</span><span class="p">),</span>
+    <span class="n">StructType</span><span class="p">(</span><span class="s2">&quot;unsigned64&quot;</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="s2">&quot;Q&quot;</span><span class="p">),</span>
+    <span class="n">StructType</span><span class="p">(</span><span class="s2">&quot;signed8&quot;</span><span class="p">,</span>    <span class="mi">5</span><span class="p">,</span> <span class="s2">&quot;b&quot;</span><span class="p">),</span>
+    <span class="n">StructType</span><span class="p">(</span><span class="s2">&quot;signed16&quot;</span><span class="p">,</span>   <span class="mi">6</span><span class="p">,</span> <span class="s2">&quot;h&quot;</span><span class="p">),</span>
+    <span class="n">StructType</span><span class="p">(</span><span class="s2">&quot;signed32&quot;</span><span class="p">,</span>   <span class="mi">7</span><span class="p">,</span> <span class="s2">&quot;l&quot;</span><span class="p">),</span>
+    <span class="n">StructType</span><span class="p">(</span><span class="s2">&quot;signed64&quot;</span><span class="p">,</span>   <span class="mi">8</span><span class="p">,</span> <span class="s2">&quot;q&quot;</span><span class="p">),</span>
+    <span class="n">StructType</span><span class="p">(</span><span class="s2">&quot;float32&quot;</span><span class="p">,</span>    <span class="mi">9</span><span class="p">,</span> <span class="s2">&quot;f&quot;</span><span class="p">,</span> <span class="n">valparse</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span>
+    <span class="n">StructType</span><span class="p">(</span><span class="s2">&quot;float64&quot;</span><span class="p">,</span>    <span class="mi">10</span><span class="p">,</span> <span class="s2">&quot;d&quot;</span><span class="p">,</span> <span class="n">valparse</span><span class="o">=</span><span class="nb">float</span><span class="p">),</span>
+    <span class="n">StructType</span><span class="p">(</span><span class="s2">&quot;boolean&quot;</span><span class="p">,</span>    <span class="mi">11</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span>
+                <span class="n">valenc</span><span class="o">=</span><span class="n">_encode_smibool</span><span class="p">,</span> <span class="n">valdec</span><span class="o">=</span><span class="n">_decode_smibool</span><span class="p">,</span>
+                <span class="n">valstr</span><span class="o">=</span><span class="n">_str_bool</span><span class="p">,</span> <span class="n">valparse</span><span class="o">=</span><span class="n">_parse_bool</span><span class="p">),</span>
+    <span class="n">StructType</span><span class="p">(</span><span class="s2">&quot;macAddress&quot;</span><span class="p">,</span> <span class="mi">12</span><span class="p">,</span> <span class="s2">&quot;6s&quot;</span><span class="p">),</span>
+    <span class="n">OctetArrayType</span><span class="p">(</span><span class="s2">&quot;string&quot;</span><span class="p">,</span> <span class="mi">13</span><span class="p">,</span>
+                <span class="n">valenc</span><span class="o">=</span><span class="n">_encode_utf8</span><span class="p">,</span> <span class="n">valdec</span><span class="o">=</span><span class="n">_decode_utf8</span><span class="p">,</span>
+                <span class="n">valstr</span><span class="o">=</span><span class="n">_identity</span><span class="p">,</span> <span class="n">valparse</span><span class="o">=</span><span class="n">_identity</span><span class="p">),</span>
+    <span class="n">StructType</span><span class="p">(</span><span class="s2">&quot;dateTimeSeconds&quot;</span><span class="p">,</span> <span class="mi">14</span><span class="p">,</span> <span class="s2">&quot;L&quot;</span><span class="p">,</span>
+                <span class="n">valenc</span><span class="o">=</span><span class="n">_encode_sec</span><span class="p">,</span> <span class="n">valdec</span><span class="o">=</span><span class="n">_decode_sec</span><span class="p">,</span>
+                <span class="n">valstr</span><span class="o">=</span><span class="n">_str_sec</span><span class="p">,</span> <span class="n">valparse</span><span class="o">=</span><span class="n">_parse_sec</span><span class="p">),</span>
+    <span class="n">StructType</span><span class="p">(</span><span class="s2">&quot;dateTimeMilliseconds&quot;</span><span class="p">,</span> <span class="mi">15</span><span class="p">,</span> <span class="s2">&quot;Q&quot;</span><span class="p">,</span>
+                <span class="n">valenc</span><span class="o">=</span><span class="n">_encode_msec</span><span class="p">,</span> <span class="n">valdec</span><span class="o">=</span><span class="n">_decode_msec</span><span class="p">,</span>
+                <span class="n">valstr</span><span class="o">=</span><span class="n">_str_msec</span><span class="p">,</span> <span class="n">valparse</span><span class="o">=</span><span class="n">_parse_msec</span><span class="p">),</span>
+    <span class="n">StructType</span><span class="p">(</span><span class="s2">&quot;dateTimeMicroseconds&quot;</span><span class="p">,</span> <span class="mi">16</span><span class="p">,</span> <span class="s2">&quot;Q&quot;</span><span class="p">,</span>
+                <span class="n">valenc</span><span class="o">=</span><span class="n">_encode_ntp</span><span class="p">,</span> <span class="n">valdec</span><span class="o">=</span><span class="n">_decode_ntp</span><span class="p">,</span>
+                <span class="n">valstr</span><span class="o">=</span><span class="n">_str_usec</span><span class="p">,</span> <span class="n">valparse</span><span class="o">=</span><span class="n">_parse_usec</span><span class="p">),</span>
+    <span class="n">StructType</span><span class="p">(</span><span class="s2">&quot;dateTimeNanoseconds&quot;</span><span class="p">,</span> <span class="mi">17</span><span class="p">,</span> <span class="s2">&quot;Q&quot;</span><span class="p">,</span>
+                <span class="n">valenc</span><span class="o">=</span><span class="n">_encode_ntp</span><span class="p">,</span> <span class="n">valdec</span><span class="o">=</span><span class="n">_decode_ntp</span><span class="p">,</span>
+                <span class="n">valstr</span><span class="o">=</span><span class="n">_str_usec</span><span class="p">,</span> <span class="n">valparse</span><span class="o">=</span><span class="n">_parse_usec</span><span class="p">),</span>
+    <span class="n">StructType</span><span class="p">(</span><span class="s2">&quot;ipv4Address&quot;</span><span class="p">,</span> <span class="mi">18</span><span class="p">,</span> <span class="s2">&quot;4s&quot;</span><span class="p">,</span>
+                <span class="n">valenc</span><span class="o">=</span><span class="n">_encode_ip</span><span class="p">,</span> <span class="n">valdec</span><span class="o">=</span><span class="n">ip_address</span><span class="p">,</span>
+                <span class="n">valparse</span><span class="o">=</span><span class="n">ip_address</span><span class="p">),</span>
+    <span class="n">StructType</span><span class="p">(</span><span class="s2">&quot;ipv6Address&quot;</span><span class="p">,</span> <span class="mi">19</span><span class="p">,</span> <span class="s2">&quot;16s&quot;</span><span class="p">,</span>
+                <span class="n">valenc</span><span class="o">=</span><span class="n">_encode_ip</span><span class="p">,</span> <span class="n">valdec</span><span class="o">=</span><span class="n">ip_address</span><span class="p">,</span>
+                <span class="n">valparse</span><span class="o">=</span><span class="n">ip_address</span><span class="p">)</span>
 <span class="p">]</span>
 
-<span class="n">_TypeForName</span> <span class="o">=</span> <span class="p">{</span> <span class="n">ietype</span><span class="o">.</span><span class="n">name</span><span class="p">:</span> <span class="n">ietype</span> <span class="k">for</span> <span class="n">ietype</span> <span class="ow">in</span> <span class="n">_Types</span> <span class="p">}</span>
-<span class="n">_TypeForNum</span> <span class="o">=</span> <span class="p">{</span> <span class="n">ietype</span><span class="o">.</span><span class="n">num</span><span class="p">:</span> <span class="n">ietype</span> <span class="k">for</span> <span class="n">ietype</span> <span class="ow">in</span> <span class="n">_Types</span> <span class="p">}</span>
+<span class="n">_TypeForName</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">((</span><span class="n">ietype</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">ietype</span><span class="p">)</span> <span class="k">for</span> <span class="n">ietype</span> <span class="ow">in</span> <span class="n">_roottypes</span><span class="p">)</span>
+
+<div class="viewcode-block" id="use_integer_ipv4"><a class="viewcode-back" href="../../index.html#ipfix.types.use_integer_ipv4">[docs]</a><span class="k">def</span> <span class="nf">use_integer_ipv4</span><span class="p">():</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    Use integers instead of ipaddress.IPv4Address to store IPv4 addresses.</span>
+<span class="sd">    Changes behavior globally; should be called before using any IPFIX types.</span>
+<span class="sd">    Designed for use with numpy arrays, to not require a Python object for</span>
+<span class="sd">    storing IP addresses.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_roottypes</span><span class="p">[</span><span class="mi">18</span><span class="p">]</span> <span class="o">=</span> <span class="n">StructType</span><span class="p">(</span><span class="s2">&quot;ipv4address&quot;</span><span class="p">,</span> <span class="mi">18</span><span class="p">,</span> <span class="s2">&quot;L&quot;</span><span class="p">)</span>
+    <span class="k">global</span> <span class="n">_TypeForName</span>
+    <span class="n">_TypeForName</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">((</span><span class="n">ietype</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">ietype</span><span class="p">)</span> <span class="k">for</span> <span class="n">ietype</span> <span class="ow">in</span> <span class="n">_roottypes</span><span class="p">)</span></div>
 
 <div class="viewcode-block" id="for_name"><a class="viewcode-back" href="../../index.html#ipfix.types.for_name">[docs]</a><span class="k">def</span> <span class="nf">for_name</span><span class="p">(</span><span class="n">name</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;</span>
 <span class="sd">    Return an IPFIX type for a given type name</span>
-<span class="sd">    </span>
+
 <span class="sd">    :param name: the name of the type to look up</span>
 <span class="sd">    :returns: IpfixType -- type instance for that name</span>
 <span class="sd">    :raises: IpfixTypeError</span>
-<span class="sd">    </span>
+
 <span class="sd">    &quot;&quot;&quot;</span>
-    <span class="k">try</span><span class="p">:</span> 
+    <span class="k">try</span><span class="p">:</span>
         <span class="k">return</span> <span class="n">_TypeForName</span><span class="p">[</span><span class="n">name</span><span class="p">]</span>
     <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
-        <span class="k">raise</span> <span class="n">IpfixTypeError</span><span class="p">(</span><span class="s">&quot;no such type &quot;</span><span class="o">+</span><span class="n">name</span><span class="p">)</span>
-</div>
+        <span class="k">raise</span> <span class="n">IpfixTypeError</span><span class="p">(</span><span class="s2">&quot;no such type &quot;</span><span class="o">+</span><span class="n">name</span><span class="p">)</span></div>
+
 <div class="viewcode-block" id="decode_varlen"><a class="viewcode-back" href="../../index.html#ipfix.types.decode_varlen">[docs]</a><span class="k">def</span> <span class="nf">decode_varlen</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Decode a IPFIX varlen encoded length; used internally by template&quot;&quot;&quot;</span>
-    <span class="n">length</span> <span class="o">=</span> <span class="n">_varlen1_st</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
+    <span class="n">length</span> <span class="o">=</span> <span class="n">_varlen1_st</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
     <span class="n">offset</span> <span class="o">+=</span> <span class="n">_varlen1_st</span><span class="o">.</span><span class="n">size</span>
     <span class="k">if</span> <span class="n">length</span> <span class="o">==</span> <span class="mi">255</span><span class="p">:</span>
-        <span class="n">length</span> <span class="o">=</span> <span class="n">_varlen2_st</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
+        <span class="n">length</span> <span class="o">=</span> <span class="n">_varlen2_st</span><span class="o">.</span><span class="n">unpack_from</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">)[</span><span class="mi">0</span><span class="p">]</span>
         <span class="n">offset</span> <span class="o">+=</span> <span class="n">_varlen2_st</span><span class="o">.</span><span class="n">size</span>
-    <span class="k">return</span> <span class="p">(</span><span class="n">length</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span>
-    </div>
+    <span class="k">return</span> <span class="p">(</span><span class="n">length</span><span class="p">,</span> <span class="n">offset</span><span class="p">)</span></div>
+
 <div class="viewcode-block" id="encode_varlen"><a class="viewcode-back" href="../../index.html#ipfix.types.encode_varlen">[docs]</a><span class="k">def</span> <span class="nf">encode_varlen</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">):</span>
     <span class="sd">&quot;&quot;&quot;Encode a IPFIX varlen encoded length; used internally by template&quot;&quot;&quot;</span>
     <span class="k">if</span> <span class="n">length</span> <span class="o">&gt;=</span> <span class="mi">255</span><span class="p">:</span>
-        <span class="n">_varlen1</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="mi">255</span><span class="p">)</span>
+        <span class="n">_varlen1_st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="mi">255</span><span class="p">)</span>
         <span class="n">offset</span> <span class="o">+=</span> <span class="n">_varlen1_st</span><span class="o">.</span><span class="n">size</span>
-        <span class="n">_varlen2</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span>
+        <span class="n">_varlen2_st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span>
         <span class="n">offset</span> <span class="o">+=</span> <span class="n">_varlen2_st</span><span class="o">.</span><span class="n">size</span>
     <span class="k">else</span><span class="p">:</span>
-        <span class="n">_varlen1</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span>
+        <span class="n">_varlen1_st</span><span class="o">.</span><span class="n">pack_into</span><span class="p">(</span><span class="n">buf</span><span class="p">,</span> <span class="n">offset</span><span class="p">,</span> <span class="n">length</span><span class="p">)</span>
         <span class="n">offset</span> <span class="o">+=</span> <span class="n">_varlen1_st</span><span class="o">.</span><span class="n">size</span>
-    <span class="k">return</span> <span class="n">offset</span>
-    </div>
+    <span class="k">return</span> <span class="n">offset</span></div>
+
+<span class="k">def</span> <span class="nf">test_types_internals</span><span class="p">():</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">for_name</span><span class="p">(</span><span class="s2">&quot;bogus&quot;</span><span class="p">)</span>
+        <span class="k">assert</span> <span class="kc">False</span>
+    <span class="k">except</span> <span class="n">IpfixTypeError</span><span class="p">:</span>
+        <span class="k">pass</span>
+
+    
 </pre></div>
 
       </div>
-      <div class="bottomnav">
+      <div class="bottomnav" role="navigation" aria-label="bottom navigation">
       
         <p>
         <a class="uplink" href="../../index.html">Contents</a>
@@ -297,9 +507,9 @@
 
       </div>
 
-    <div class="footer">
-        &copy; Copyright 2013-2014, Brian Trammell.
-      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.
+    <div class="footer" role="contentinfo">
+        &#169; Copyright 2013-2014, Brian Trammell.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.6.3.
     </div>
   </body>
 </html>
