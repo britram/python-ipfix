@@ -9,8 +9,6 @@ python-ipfix
 .. automodule:: ipfix
    :members:
 
-.. .. warning:: This revision of the documentation is not yet ready for release.
-
 Reference documentation for each module is found in the subsections below.
 
 module ipfix.types
