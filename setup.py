@@ -23,6 +23,7 @@ setup(name='ipfix',
                    "GNU Lesser General Public License v3 or later (LGPLv3+)",
                    "Operating System :: OS Independent",
                    "Programming Language :: Python :: 3.3",
-                   "Topic :: System :: Networking"]
+                   "Topic :: System :: Networking"],
+      tests_require=['nose', 'coverage', 'doctest-ignore-unicode'],
       )
       

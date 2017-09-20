@@ -9,12 +9,9 @@ It handles message framing and deframing, encoding and decoding IPFIX
 data records using templates, and a bridge between IPFIX ADTs and
 appropriate Python data types.
 
+It should work on Python 2.7 as well; your mileage may vary. To install on
+Python 2.7, the following additional dependencies must be manually installed:
 
-WIP: porting to Python 2.7.
-New dependencies:
 - pip install functools32
 - pip install py2-ipaddress
 - pip install pytz
-
-New test dependencies:
-- pip install doctest-ignore-unicode
