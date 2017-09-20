@@ -140,7 +140,7 @@ dateTimeMicroseconds exports microseconds fully in NTP format:
 >>> dateTimeMicroseconds = ipfix.types.for_name("dateTimeMicroseconds")
 >>> length = dateTimeMicroseconds.encode_single_value_to(dt, buf, 0)
 >>> buf[0:length].tolist()
-[81, 196, 92, 99, 116, 240, 32, 0]
+[213, 110, 218, 227, 116, 240, 32, 0]
 >>> dateTimeMicroseconds.decode_single_value_from(buf, 0, length).strftime(dtfmt)
 '2013-06-21 14:00:03.456789'
 
