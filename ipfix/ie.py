@@ -34,7 +34,7 @@ must be passed to for_spec():
 
 >>> import ipfix.ie
 >>> e = ipfix.ie.for_spec("myNewInformationElement(35566/1)<string>")
->>> e 
+>>> e  #doctest: +IGNORE_UNICODE
 InformationElement('myNewInformationElement', 35566, 1, ipfix.types.for_name('string'), 65535)
 
 The string representation of an InformationElement is its IESpec:
@@ -64,7 +64,7 @@ between native Python and string representations of an Information Element value
 >>> ipfix.ie.for_spec("sourceIPv4Address").parse("192.0.2.19")
 IPv4Address('192.0.2.19')
 >>> from datetime import datetime
->>> ipfix.ie.for_spec("flowEndMilliseconds").unparse(datetime(2013,6,21,14))
+>>> ipfix.ie.for_spec("flowEndMilliseconds").unparse(datetime(2013,6,21,14))  #doctest: +IGNORE_UNICODE
 '2013-06-21 14:00:00.000'
 
 

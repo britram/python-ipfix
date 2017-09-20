@@ -96,7 +96,7 @@ or as tuples in template order:
 Variable-length information elements will be encoded using the native length
 of the passed value:
 
->>> ipfix.ie.for_spec("myNewInformationElement(35566/1)<string>")  
+>>> ipfix.ie.for_spec("myNewInformationElement(35566/1)<string>")  #doctest: +IGNORE_UNICODE
 InformationElement('myNewInformationElement', 35566, 1, ipfix.types.for_name('string'), 65535)
 >>> tmpl = ipfix.template.from_ielist(257,
 ...        ipfix.ie.spec_list(("flowStartMilliseconds",
@@ -152,7 +152,7 @@ accepting many types of data, or diagnostic tools for debugging IPFIX export:
 ...         for key, value in unicode_recs:
 ...             print("{}: {}".format(key, value))
 ...
->>> print_msg(msg) 
+>>> print_msg(msg)  #doctest: +IGNORE_UNICODE
 [('destinationIPv4Address', IPv4Address('10.5.6.7')), ('flowStartMilliseconds', datetime.datetime(2013, 6, 21, 14, 0)), ('packetDeltaCount', 27), ('sourceIPv4Address', IPv4Address('10.1.2.3'))]
 [('destinationIPv4Address', IPv4Address('10.12.13.14')), ('flowStartMilliseconds', datetime.datetime(2013, 6, 21, 14, 0, 2)), ('packetDeltaCount', 33), ('sourceIPv4Address', IPv4Address('10.8.9.11'))]
 [('flowStartMilliseconds', datetime.datetime(2013, 6, 21, 14, 0, 4))]
