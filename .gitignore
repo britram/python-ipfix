@@ -4,6 +4,7 @@
 *.so
 
 # Packages
+.eggs/
 *.egg
 *.egg-info
 dist
@@ -37,3 +38,4 @@ nosetests.xml
 
 # Sphinx tempfiles
 sphinx/_build
+
