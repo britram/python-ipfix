@@ -187,7 +187,7 @@ class Template(object):
         offset += packplan.st.size
 
         # short circuit on no varlen
-        if not self.varlenslice:
+        if self.varlenslice is None:
             return (vals, offset)
 
         # direct iteration over remaining IEs
@@ -239,7 +239,7 @@ class Template(object):
         offset += packplan.st.size
 
         # shortcircuit no varlen
-        if not self.varlenslice:
+        if self.varlenslice is None:
             return offset
 
         # direct iteration over remaining IEs
