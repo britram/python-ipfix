@@ -398,7 +398,7 @@ class MessageBuffer(object):
             offset += _sethdr_st.size # skip set header in decode
             if setid == template.TEMPLATE_SET_ID or\
                setid == template.OPTIONS_SET_ID:
-                while offset < setend:
+                while offset + 4 < setend: # allow for padding up to 4 byte alignment
                     (tmpl, offset) = template.decode_template_from(
                                               self.mbuf, offset, setid)
                     # FIXME handle withdrawal
@@ -431,6 +431,7 @@ class MessageBuffer(object):
                         # KeyError on template lookup - unknown data set
                         self.unknown_data_set_hook(self,
                                      self.mbuf[offset-_sethdr_st.size:setend])
+            offset = setend     # real end may be greater that accumulated offset
 
     def namedict_iterator(self):
         """
