@@ -1,5 +1,5 @@
 #
-# python-ipfix (c) 2013 Brian Trammell.
+# python-ipfix (c) 2013-2026 Brian Trammell.
 #
 # Many thanks to the mPlane consortium (http://www.ict-mplane.eu) for
 # its material support of this effort.
@@ -18,56 +18,109 @@
 # this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from __future__ import with_statement
+"""
+Utilities for generating IESpec files from the IANA IPFIX Information Elements
+registry (CSV or XML) and deriving RFC 5103 reverse Information Elements.
+"""
+
+import csv
+import io
+import urllib.request as urlreq
 import xml.etree.ElementTree as etree
-from warnings import warn
 
-from . import types, ie, compat
-from .compat import urlreq
-from io import open
+from . import ie, types
 
-def iana_xml_to_iespec(uri = "http://www.iana.org/assignments/ipfix/ipfix.xml"):
+IANA_CSV_URI = "https://www.iana.org/assignments/ipfix/ipfix-information-elements.csv"
+IANA_XML_URI = "https://www.iana.org/assignments/ipfix/ipfix.xml"
+
+# RFC 5103 §6.1: Information Elements that are not reversible (flow-key directional
+# identifiers, scope identifiers, etc.)
+_NON_REVERSIBLE_SUBSTRINGS = ("Source", "Destination", "source", "destination")
+_NON_REVERSIBLE_NAMES = frozenset({"messageScope"})
+
+
+def is_reversible_ie(name):
+    """Return True if an IANA IE name is eligible for an RFC 5103 reverse counterpart."""
+    if name in _NON_REVERSIBLE_NAMES:
+        return False
+    return not any(tok in name for tok in _NON_REVERSIBLE_SUBSTRINGS)
+
+
+def parse_iana_csv(csv_file):
+    """Parse an open text file/stream of the IANA IPFIX IE CSV into IESpec strings."""
     iespecs = []
+    reader = csv.DictReader(csv_file)
+    for row in reader:
+        name = (row.get("Name") or "").strip()
+        typename = (row.get("Abstract Data Type") or "").strip()
+        num = (row.get("ElementID") or "").strip()
+        if not (name and typename and num.isdigit()):
+            continue
+        try:
+            ietype = types.for_name(typename)
+        except types.IpfixTypeError:
+            # Skip types not yet implemented (e.g. RFC 6313 structured data)
+            continue
+        iespecs.append(f"{name}({int(num)})<{ietype.name}>[{ietype.length}]")
+    return iespecs
 
-    nsmap = { "iana" : "http://www.iana.org/assignments" }
 
-    res = urlreq.urlopen(uri)
-    root = etree.parse(res).getroot()
+def iana_csv_to_iespec(uri=IANA_CSV_URI):
+    """Fetch the IANA IPFIX IE CSV over HTTPS and return a list of IESpec strings."""
+    with urlreq.urlopen(uri) as res:
+        text = io.TextIOWrapper(res, encoding="utf-8")
+        return parse_iana_csv(text)
 
-    for recelem in root.iterfind("iana:registry[@id='ipfix-information-elements']/iana:record", nsmap):
-        (name, typename, num) = (None, None, None)
+
+def parse_iana_xml(xml_file):
+    """Parse an open binary/text file of the IANA IPFIX XML into IESpec strings."""
+    iespecs = []
+    nsmap = {"iana": "http://www.iana.org/assignments"}
+    root = etree.parse(xml_file).getroot()
+
+    for recelem in root.iterfind(
+        "iana:registry[@id='ipfix-information-elements']/iana:record", nsmap
+    ):
+        name = typename = num = None
         for fieldelem in recelem.iter():
-            if fieldelem.tag[-4:] == "name":
+            if fieldelem.tag.endswith("name"):
                 name = fieldelem.text
-            elif fieldelem.tag[-8:] == "dataType":
+            elif fieldelem.tag.endswith("dataType"):
                 typename = fieldelem.text
-            elif fieldelem.tag[-9:] == "elementId":
+            elif fieldelem.tag.endswith("elementId"):
                 num = fieldelem.text
 
-
-        if name and typename and num:
+        if name and typename and num and num.isdigit():
             try:
                 ietype = types.for_name(typename)
-                iespecs.append("%s(%u)<%s>[%u]" % (name, int(num), ietype.name, ietype.length))
-            except:
-                pass
+            except types.IpfixTypeError:
+                continue
+            iespecs.append(f"{name}({int(num)})<{ietype.name}>[{ietype.length}]")
 
     return iespecs
 
 
+def iana_xml_to_iespec(uri=IANA_XML_URI):
+    """Fetch the IANA IPFIX XML over HTTPS and return a list of IESpec strings."""
+    with urlreq.urlopen(uri) as res:
+        return parse_iana_xml(res)
+
+
 def reverse_iespec(iespec):
-    (name, pen, num, typename, length) = ie.parse_spec(iespec)
-    revname = "reverse" + name[0].capitalize() + name[1:]
+    """Generate the RFC 5103 reverse counterpart IESpec for a given IESpec."""
+    name, pen, num, typename, length = ie.parse_spec(iespec)
+    revname = "reverse" + name[0].upper() + name[1:]
     if pen:
         num |= 0x4000
     else:
         pen = 29305
 
-    return "%s(%u/%u)<%s>[%u]" % (revname, pen, num, typename, length)
+    return f"{revname}({pen}/{num})<{typename}>[{length}]"
 
 
 def write_specfile(filename, iespecs):
-    with open(filename, "w") as f:
+    """Write a sequence of IESpec strings to a file, one per line."""
+    with open(filename, "w", encoding="utf-8") as f:
         for spec in iespecs:
             f.write(spec)
             f.write("\n")

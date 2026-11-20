@@ -1,6 +1,5 @@
-# coding: utf8
 #
-# python-ipfix (c) 2013 Brian Trammell.
+# python-ipfix (c) 2013-2026 Brian Trammell.
 #
 # Many thanks to the mPlane consortium (http://www.ict-mplane.eu) for
 # its material support of this effort.
@@ -19,10 +18,8 @@
 # this program.  If not, see <http://www.gnu.org/licenses/>.
 #
 
-from __future__ import unicode_literals
-
 """
-IPFIX implementation for Python 3.3.
+IPFIX (RFC 7011) implementation for Python 3.11+.
 
 .. moduleauthor:: Brian Trammell <brian@trammell.ch>
 
@@ -47,14 +44,15 @@ message boundary management, see the :mod:`ipfix.reader` and
 messages, see :mod:`ipfix.message`. In any case, exporters will need to define
 templates; see :mod:`ipfix.template`.
 
-This module is copyright 2013 Brian Trammell. It is made available under the
-terms of the
+This module is copyright 2013-2026 Brian Trammell. It is made available under
+the terms of the
 `GNU Lesser General Public License <http://www.gnu.org/licenses/lgpl.html>`_,
 version 3 or, at your option, any later version.
 
 """
 
-from . import types
-from . import ie
-from . import template
-from . import message
+from . import ie, message, template, types
+
+__version__ = "0.10.0"
+
+__all__ = ["types", "ie", "template", "message", "__version__"]

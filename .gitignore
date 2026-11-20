@@ -39,3 +39,11 @@ nosetests.xml
 # Sphinx tempfiles
 sphinx/_build
 
+# Modern Python tooling
+.venv/
+.pytest_cache/
+.ruff_cache/
+__pycache__/
+uv.lock
+
+

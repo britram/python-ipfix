@@ -1,5 +1,5 @@
 #
-# python-ipfix (c) 2013 Brian Trammell.
+# python-ipfix (c) 2013-2026 Brian Trammell.
 #
 # Many thanks to the mPlane consortium (http://www.ict-mplane.eu) for
 # its material support of this effort.
@@ -20,12 +20,12 @@
 
 """
 Interface to read IPFIX Messages from a stream.
-
 """
 
 from . import message
 
-class MessageStreamReader(object):
+
+class MessageStreamReader:
     """
     Reads records from a stream of IPFIX messages.
 
@@ -34,10 +34,10 @@ class MessageStreamReader(object):
     until the end of the stream. Use :func:`from_stream` to get an instance.
 
     Suitable for reading from IPFIX files (see :rfc:`5655`) as well as from
-    UDP or TCP sockets with :class:`socketserver.StreamRequestHandler`.
+    TCP sockets with :class:`socketserver.StreamRequestHandler`.
     When opening a stream from a file, use mode='rb'.
-
     """
+
     def __init__(self, stream):
         self.stream = stream
         self.msg = message.MessageBuffer()
@@ -49,13 +49,12 @@ class MessageStreamReader(object):
         to values.
 
         :returns: a name dictionary iterator
-
         """
         try:
-            while(True):
+            while True:
                 self.msg.read_message(self.stream)
-                for name in self.msg.namedict_iterator():
-                    yield name
+                for rec in self.msg.namedict_iterator():
+                    yield rec
                     self.msgcount += 1
         except EOFError:
             return
@@ -67,23 +66,23 @@ class MessageStreamReader(object):
 
         :param ielist: an instance of :class:`ipfix.ie.InformationElementList`
                        listing IEs to return as a tuple
-        :returns: a tuple iterator for tuples in ielist order
+        :returns: a tuple iterator for tuples as in ielist order
         """
         try:
-            while(True):
+            while True:
                 self.msg.read_message(self.stream)
-                for tuple_ in self.msg.tuple_iterator(ielist):
-                    yield tuple_
+                for rec in self.msg.tuple_iterator(ielist):
+                    yield rec
                     self.msgcount += 1
         except EOFError:
             return
 
+
 def from_stream(stream):
     """
-    Get a MessageStreamReader for a given stream
+    Get a MessageStreamReader for a given stream.
 
     :param stream: stream to read
     :return: a :class:`MessageStreamReader` wrapped around the stream.
-
     """
     return MessageStreamReader(stream)
