@@ -1,13 +1,13 @@
-#!/usr/bin/env python
-
-import socketserver
-import ipfix.reader
-import ipfix.ie
+#!/usr/bin/env python3
 
 import argparse
+import socketserver
 
-ap = argparse.ArgumentParser(description="Dump IPFIX files collected over TCP")
-ap.add_argument('--spec', metavar='specfile', help='iespec file to read')
+import ipfix.ie
+import ipfix.reader
+
+ap = argparse.ArgumentParser(description="Dump IPFIX records collected over TCP")
+ap.add_argument("--spec", metavar="specfile", help="iespec file to read")
 args = ap.parse_args()
 
 ipfix.ie.use_iana_default()
@@ -17,19 +17,19 @@ if args.spec:
 
 
 class CollectorDictHandler(socketserver.StreamRequestHandler):
-
     def handle(self):
         reccount = 0
 
-        print ("connection from "+str(self.client_address))
+        print("connection from " + str(self.client_address))
         r = ipfix.reader.from_stream(self.rfile)
-        for rec in r.records_as_dict():
-            print("--- record %u in message %u from %s---" %
-                  (reccount, r.msgcount, str(self.client_address)))
+        for rec in r.namedict_iterator():
+            print(
+                f"--- record {reccount} in message {r.msgcount} from {self.client_address} ---"
+            )
             reccount += 1
-            for key in rec:
-                 print("  %30s => %s" % (key, str(rec[key])))
+            for key, value in rec.items():
+                print(f"  {key:>30s} => {value}")
 
 
-ss = socketserver.TCPServer(("", 4739), CollectorDictHandler)
-ss.serve_forever()
+with socketserver.TCPServer(("", 4739), CollectorDictHandler) as ss:
+    ss.serve_forever()
