@@ -1,6 +1,6 @@
 import io
 import struct
-from datetime import datetime
+from datetime import UTC, datetime
 from ipaddress import ip_address
 
 import pytest
@@ -99,8 +99,8 @@ def test_time_adapter_namedict_and_tuple():
     ta = v9pdu.TimeAdapter(v9pdu.SinglePduBuffer(pdu))
     recs = list(ta.namedict_iterator())
     assert len(recs) == 1
-    assert recs[0]["flowStartMilliseconds"] == datetime(2023, 11, 14, 22, 13, 10)
-    assert recs[0]["flowEndMilliseconds"] == datetime(2023, 11, 14, 22, 13, 15, 500000)
+    assert recs[0]["flowStartMilliseconds"] == datetime(2023, 11, 14, 22, 13, 10, tzinfo=UTC)
+    assert recs[0]["flowEndMilliseconds"] == datetime(2023, 11, 14, 22, 13, 15, 500000, tzinfo=UTC)
 
     # Tuple iterator with sysuptime fields
     ta2 = v9pdu.TimeAdapter(v9pdu.SinglePduBuffer(pdu))
@@ -109,8 +109,8 @@ def test_time_adapter_namedict_and_tuple():
     )
     tups = list(ta2.tuple_iterator(ielist))
     assert len(tups) == 1
-    assert tups[0][3] == datetime(2023, 11, 14, 22, 13, 10)
-    assert tups[0][4] == datetime(2023, 11, 14, 22, 13, 15, 500000)
+    assert tups[0][3] == datetime(2023, 11, 14, 22, 13, 10, tzinfo=UTC)
+    assert tups[0][4] == datetime(2023, 11, 14, 22, 13, 15, 500000, tzinfo=UTC)
 
     # Tuple iterator without sysuptime fields passes through unchanged
     ta3 = v9pdu.TimeAdapter(v9pdu.SinglePduBuffer(pdu))

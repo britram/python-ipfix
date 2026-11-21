@@ -1,5 +1,5 @@
 import struct
-from datetime import datetime
+from datetime import UTC, datetime
 from ipaddress import ip_address
 
 import pytest
@@ -57,7 +57,7 @@ def test_varlen_first_ie_issue24():
     long_name = "x" * 300  # also exercises 255-byte extended varlen encoding
     rec_in = {
         "applicationName": long_name,
-        "flowStartMilliseconds": datetime(2024, 1, 2, 3, 4, 5),
+        "flowStartMilliseconds": datetime(2024, 1, 2, 3, 4, 5, tzinfo=UTC),
         "sourceIPv4Address": ip_address("10.1.2.3"),
         "packetDeltaCount": 99,
     }

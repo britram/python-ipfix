@@ -451,60 +451,69 @@ def _encode_sec(dt):
     return int(dt2epoch(dt))
 
 
-def _decode_sec(epoch):
-    return datetime.fromtimestamp(epoch, tz=UTC).replace(tzinfo=None)
+def _decode_sec(epoch: int) -> datetime:
+    return datetime.fromtimestamp(epoch, tz=UTC)
 
 
-def _str_sec(dt):
+def _str_sec(dt: datetime) -> str:
     return dt.strftime(ISO8601_FMT)
 
 
-def _parse_sec(string):
+def _parse_sec(string: str) -> datetime:
     dt = datetime.fromisoformat(string)
-    if dt.tzinfo is not None:
-        dt = dt.astimezone(UTC).replace(tzinfo=None)
-    return dt
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)
 
 
-def _encode_msec(dt):
+def _encode_msec(dt: datetime) -> int:
     return int(dt2epoch(dt) * 1000)
 
 
-def _decode_msec(epoch):
-    return datetime.fromtimestamp(epoch / 1000, tz=UTC).replace(tzinfo=None)
+def _decode_msec(epoch: int | float) -> datetime:
+    return datetime.fromtimestamp(epoch / 1000, tz=UTC)
 
 
-def _str_msec(dt):
+def _str_msec(dt: datetime) -> str:
     return f"{dt.strftime(ISO8601_FMT)}.{int(dt.microsecond / 1000):03d}"
 
 
-def _parse_msec(string):
+def _parse_msec(string: str) -> datetime:
     dt = datetime.fromisoformat(string)
-    if dt.tzinfo is not None:
-        dt = dt.astimezone(UTC).replace(tzinfo=None)
-    return dt
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)
 
 
-def _encode_ntp(dt):
+def _encode_ntp(dt: datetime) -> int:
     tsf, tsi = math.modf(dt2epoch(dt))
-    return int(((int(tsi) + NTP_EPOCH_TO_UNIX_EPOCH) << 32) + (tsf * 2**32))
+    # Wrap 32-bit NTP seconds modulo 2^32 for RFC 5905 Era 1 (2036+) compatibility
+    ntp_sec = (int(tsi) + NTP_EPOCH_TO_UNIX_EPOCH) & 0xFFFFFFFF
+    ntp_frac = int(tsf * 2**32) & 0xFFFFFFFF
+    return (ntp_sec << 32) | ntp_frac
 
 
-def _decode_ntp(ntp):
-    tsf = ntp & (2**32 - 1)
-    tsi = (ntp >> 32) - NTP_EPOCH_TO_UNIX_EPOCH
-    return datetime.fromtimestamp(tsi + tsf / 2**32, tz=UTC).replace(tzinfo=None)
+def _decode_ntp(ntp: int) -> datetime:
+    tsf = ntp & 0xFFFFFFFF
+    ntp_sec = (ntp >> 32) & 0xFFFFFFFF
+    # RFC 5905 / RFC 7011 §6.1.9-6.1.10 era disambiguation:
+    # MSB=1 (0x80000000..0xFFFFFFFF) -> Era 0 (1968-01-20 .. 2036-02-07)
+    # MSB=0 (0x00000000..0x7FFFFFFF) -> Era 1 (2036-02-07 .. 2104-02-26)
+    if ntp_sec < 0x80000000:
+        ntp_sec += 1 << 32
+    tsi = ntp_sec - NTP_EPOCH_TO_UNIX_EPOCH
+    return datetime.fromtimestamp(tsi + tsf / 2**32, tz=UTC)
 
 
-def _str_usec(dt):
+def _str_usec(dt: datetime) -> str:
     return f"{dt.strftime(ISO8601_FMT)}.{dt.microsecond:06d}"
 
 
-def _parse_usec(string):
+def _parse_usec(string: str) -> datetime:
     dt = datetime.fromisoformat(string)
-    if dt.tzinfo is not None:
-        dt = dt.astimezone(UTC).replace(tzinfo=None)
-    return dt
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)
 
 
 def _encode_ip(ipaddr):

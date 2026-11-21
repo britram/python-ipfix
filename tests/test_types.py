@@ -23,7 +23,7 @@ def test_exception_subclassable():
 
 def test_all_builtin_types_roundtrip():
     buf = memoryview(bytearray(64))
-    dt = datetime(2024, 5, 6, 7, 8, 9, 123000)
+    dt = datetime(2024, 5, 6, 7, 8, 9, 123000, tzinfo=UTC)
 
     cases = [
         ("octetArray", b"\xde\xad\xbe\xef", b"\xde\xad\xbe\xef"),
@@ -42,7 +42,7 @@ def test_all_builtin_types_roundtrip():
         ("boolean", False, False),
         ("macAddress", b"\x00\x11\x22\x33\x44\x55", b"\x00\x11\x22\x33\x44\x55"),
         ("string", "hello Grüezi", "hello Grüezi"),
-        ("dateTimeSeconds", dt, datetime(2024, 5, 6, 7, 8, 9)),
+        ("dateTimeSeconds", dt, datetime(2024, 5, 6, 7, 8, 9, tzinfo=UTC)),
         ("dateTimeMilliseconds", dt, dt),
         ("dateTimeMicroseconds", dt, dt),
         ("dateTimeNanoseconds", dt, dt),
@@ -187,18 +187,18 @@ def test_datetime_aware_and_naive_encode_and_parse():
         assert b_naive == b_utc == b_plus2
 
         decoded = t.decode_single_value_from(buf, 0, t.length)
-        assert decoded.tzinfo is None
+        assert decoded.tzinfo is UTC
 
-    # ISO 8601 parse/unparse with Z and offset
+    # ISO 8601 parse/unparse with Z and offset (returns aware UTC in 1.0.0)
     assert types.for_name("dateTimeSeconds").valparse("2024-06-15T12:30:45Z") == datetime(
-        2024, 6, 15, 12, 30, 45
+        2024, 6, 15, 12, 30, 45, tzinfo=UTC
     )
     assert types.for_name("dateTimeMilliseconds").valparse(
         "2024-06-15 12:30:45.123+00:00"
-    ) == datetime(2024, 6, 15, 12, 30, 45, 123000)
+    ) == datetime(2024, 6, 15, 12, 30, 45, 123000, tzinfo=UTC)
     assert types.for_name("dateTimeMicroseconds").valparse(
         "2024-06-15 12:30:45.123456Z"
-    ) == datetime(2024, 6, 15, 12, 30, 45, 123456)
+    ) == datetime(2024, 6, 15, 12, 30, 45, 123456, tzinfo=UTC)
     assert types.for_name("dateTimeSeconds").valstr(naive) == "2024-06-15 12:30:45"
     assert (
         types.for_name("dateTimeMilliseconds").valstr(naive)
@@ -208,6 +208,24 @@ def test_datetime_aware_and_naive_encode_and_parse():
         types.for_name("dateTimeMicroseconds").valstr(naive)
         == "2024-06-15 12:30:45.500000"
     )
+
+
+def test_ntp_era1_2036_rollover():
+    """RFC 5905 NTP Era 1 rollover (2036-02-07 06:28:16 UTC) round-trips cleanly."""
+    buf = memoryview(bytearray(8))
+    t = types.for_name("dateTimeMicroseconds")
+
+    for dt in (
+        datetime(2036, 2, 7, 6, 28, 15, 500000, tzinfo=UTC),  # just before rollover
+        datetime(2036, 2, 7, 6, 28, 16, 0, tzinfo=UTC),       # exact rollover (Era 1)
+        datetime(2036, 2, 7, 6, 28, 17, 123456, tzinfo=UTC),  # just after rollover
+        datetime(2050, 1, 1, 0, 0, 0, 250000, tzinfo=UTC),    # mid Era 1
+    ):
+        end = t.encode_single_value_to(dt, buf, 0)
+        assert end == 8
+        got = t.decode_single_value_from(buf, 0, 8)
+        assert got.tzinfo is UTC
+        assert abs((got - dt).total_seconds()) < 1e-5
 
 
 def test_varlen_encode_decode_and_bounds():
