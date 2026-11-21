@@ -21,7 +21,7 @@
 """Helper utilities for generating synthetic IPFIX test messages."""
 
 import base64
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from ipaddress import ip_address
 
 from . import ie, message, template
@@ -104,7 +104,7 @@ _test_strings = ["alfa", "bravo", "charlie", "delta", "echo", "foxtrot", "grüez
 def mktest_record(sequence):
     return {
         "sourceIPv4Address": ip_address(0x7F000000 + sequence),
-        "flowStartMilliseconds": datetime(2009, 2, 20, tzinfo=None)
+        "flowStartMilliseconds": datetime(2009, 2, 20, tzinfo=UTC)
         + timedelta(0, sequence / 1000),
         "testString": _test_strings[sequence % len(_test_strings)],
         "octetDeltaCount": sequence % 33,

@@ -180,13 +180,26 @@ class Template:
     def packplan_for_ielist(self, ielist):
         """
         Given a list of IEs, devise and cache a packing plan.
-        Used by the tuple interfaces.
+        Used by the tuple interfaces. Supports repeated IEs in a template
+        by matching successive occurrences in order.
         """
         plan = self._packplan_cache.get(ielist)
         if plan is None:
             if len(self._packplan_cache) >= 32:
                 self._packplan_cache.clear()
-            plan = TemplatePackingPlan(self, [self.ies.index(elem) for elem in ielist])
+            used: set[int] = set()
+            indices: list[int] = []
+            for elem in ielist:
+                found = None
+                for idx, tmpl_ie in enumerate(self.ies):
+                    if idx not in used and tmpl_ie == elem:
+                        found = idx
+                        break
+                if found is None:
+                    raise ValueError(f"{elem} is not in template")
+                used.add(found)
+                indices.append(found)
+            plan = TemplatePackingPlan(self, indices)
             self._packplan_cache[ielist] = plan
         return plan
 
@@ -245,9 +258,26 @@ class Template:
         return (vals, offset)
 
     def decode_namedict_from(self, buf, offset, recinf=None):
-        """Decodes a record from a buffer into a dict keyed by IE name."""
+        """
+        Decodes a record from a buffer into a dict keyed by IE name.
+
+        If an IE name appears multiple times in the template (RFC 7011 §8),
+        its value in the returned dict is a list of values in template order.
+        """
         vals, offset = self.decode_from(buf, offset)
-        return ({elem.name: v for elem, v in zip(self.ies, vals, strict=True)}, offset)
+        rec = {}
+        multi: set[str] = set()
+        for elem, v in zip(self.ies, vals, strict=True):
+            name = elem.name
+            if name in rec:
+                if name not in multi:
+                    rec[name] = [rec[name], v]
+                    multi.add(name)
+                else:
+                    rec[name].append(v)
+            else:
+                rec[name] = v
+        return (rec, offset)
 
     def decode_tuple_from(self, buf, offset, recinf=None):
         """
@@ -301,8 +331,27 @@ class Template:
         return offset
 
     def encode_namedict_to(self, buf, offset, rec, recinf=None):
-        """Encodes a record from a dict containing values keyed by IE name."""
-        return self.encode_to(buf, offset, [rec[elem.name] for elem in self.ies])
+        """
+        Encodes a record from a dict containing values keyed by IE name.
+
+        If an IE name appears multiple times in the template, its dict value
+        must be a list or tuple providing one value per occurrence in order.
+        """
+        counts: dict[str, int] = {}
+        for elem in self.ies:
+            counts[elem.name] = counts.get(elem.name, 0) + 1
+
+        seen: dict[str, int] = {}
+        vals = []
+        for elem in self.ies:
+            name = elem.name
+            if counts[name] > 1:
+                idx = seen.get(name, 0)
+                vals.append(rec[name][idx])
+                seen[name] = idx + 1
+            else:
+                vals.append(rec[name])
+        return self.encode_to(buf, offset, vals)
 
     def encode_tuple_to(self, buf, offset, rec, recinf=None):
         """

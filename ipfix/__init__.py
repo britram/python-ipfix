@@ -51,8 +51,8 @@ version 3 or, at your option, any later version.
 
 """
 
-from . import ie, message, template, types
+from . import ie, message, session, template, types
 
-__version__ = "0.10.0"
+__version__ = "1.0.0"
 
-__all__ = ["types", "ie", "template", "message", "__version__"]
+__all__ = ["types", "ie", "template", "session", "message", "__version__"]

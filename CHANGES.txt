@@ -35,3 +35,15 @@ v0.10.0, 2026-11-20 -- Modernize packaging (pyproject.toml, Python 3.11+, drop
                        accept timezone-aware datetimes on encode while
                        eliminating Python 3.12+ deprecation warnings; expand
                        pytest test suite.
+
+v1.0.0, 2026-11-21 -- Separate IPFIX session state into ipfix.session.Session
+                      (templates, UDP template lifetimes, sequence checking);
+                      add DatagramReader, DatagramWriter (with UDP MTU default
+                      and RFC 7011 periodic template refresh), and UDP collect
+                      support in ipfix2csv; switch decoded datetimes and
+                      get_export_time() to timezone-aware UTC (breaking) with
+                      RFC 5905 NTP Era 1 (2036) rollover handling; support
+                      repeated IEs in templates; add PEP 484 type annotations
+                      with py.typed and Hypothesis fuzz tests; add 0.x -> 1.0
+                      migration guide in README.md.
+

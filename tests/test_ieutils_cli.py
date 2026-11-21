@@ -127,3 +127,24 @@ def test_cli_ipfix2csv_and_ipfixstat(tmp_path, capsys):
     cli.main_ipfixstat(["-9", "-f", str(v9_file)])
     v9_report = capsys.readouterr().out
     assert "Template 256 in domain 7" in v9_report
+
+    # ipfixstat with missing template, template replacement, withdrawal, and --spec
+    spec_file = tmp_path / "extra.iespec"
+    spec_file.write_text("extraIE(35566/99)<unsigned32>[4]\n", encoding="utf-8")
+    dset_missing_before = struct.pack("!HH 4s", 260, 8, b"\x00\x00\x00\x01")
+    dset_never_defined = struct.pack("!HH 4s", 299, 8, b"\x00\x00\x00\x02")
+    tset_v1 = struct.pack("!HH HH HH", 2, 12, 260, 1, 8, 4)
+    tset_v2 = struct.pack("!HH HH HH", 2, 12, 260, 1, 1, 8)
+    tset_wd = struct.pack("!HH HH", 2, 8, 260, 0)
+    body = dset_missing_before + dset_never_defined + tset_v1 + tset_v2 + tset_wd
+    stat_msg = struct.pack("!HHLLL", 10, 16 + len(body), 1700000000, 0, 5) + body
+    stat_file = tmp_path / "stats.ipfix"
+    stat_file.write_bytes(stat_msg)
+
+    cli.main_ipfixstat(["-s", str(spec_file), "-f", str(stat_file)])
+    stat_report = capsys.readouterr().out
+    assert "1 replacements" in stat_report
+    assert "2 missing sets total" in stat_report
+    assert "1 sets missing template with this ID" in stat_report
+    assert "Sets without templates" in stat_report
+    assert "ID 299 in domain 5" in stat_report
