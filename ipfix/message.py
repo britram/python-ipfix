@@ -151,9 +151,9 @@ accepting many types of data, or diagnostic tools for debugging IPFIX export:
 ...             print("{}: {}".format(key, value))
 ...
 >>> print_msg(msg)
-[('destinationIPv4Address', IPv4Address('10.5.6.7')), ('flowStartMilliseconds', datetime.datetime(2013, 6, 21, 14, 0)), ('packetDeltaCount', 27), ('sourceIPv4Address', IPv4Address('10.1.2.3'))]
-[('destinationIPv4Address', IPv4Address('10.12.13.14')), ('flowStartMilliseconds', datetime.datetime(2013, 6, 21, 14, 0, 2)), ('packetDeltaCount', 33), ('sourceIPv4Address', IPv4Address('10.8.9.11'))]
-[('flowStartMilliseconds', datetime.datetime(2013, 6, 21, 14, 0, 4))]
+[('destinationIPv4Address', IPv4Address('10.5.6.7')), ('flowStartMilliseconds', datetime.datetime(2013, 6, 21, 14, 0, tzinfo=datetime.timezone.utc)), ('packetDeltaCount', 27), ('sourceIPv4Address', IPv4Address('10.1.2.3'))]
+[('destinationIPv4Address', IPv4Address('10.12.13.14')), ('flowStartMilliseconds', datetime.datetime(2013, 6, 21, 14, 0, 2, tzinfo=datetime.timezone.utc)), ('packetDeltaCount', 33), ('sourceIPv4Address', IPv4Address('10.8.9.11'))]
+[('flowStartMilliseconds', datetime.datetime(2013, 6, 21, 14, 0, 4, tzinfo=datetime.timezone.utc))]
 myNewInformationElement: Grüezi, Y'all
 
 The tuple interface for reading messages is designed for applications with a
@@ -167,8 +167,8 @@ specified as an :class:`ipfix.ie.InformationElementList` instance, from
 >>> for rec in msg.tuple_iterator(ielist):
 ...     print(rec)
 ...
-(datetime.datetime(2013, 6, 21, 14, 0), 27)
-(datetime.datetime(2013, 6, 21, 14, 0, 2), 33)
+(datetime.datetime(2013, 6, 21, 14, 0, tzinfo=datetime.timezone.utc), 27)
+(datetime.datetime(2013, 6, 21, 14, 0, 2, tzinfo=datetime.timezone.utc), 33)
 
 Notice that the variable-length record written to the message is not returned
 by this iterator, since that record doesn't include a packetDeltaCount IE.
@@ -188,6 +188,7 @@ from datetime import UTC, datetime
 from warnings import warn
 
 from . import template, types
+from .session import Session
 from .template import IpfixDecodeError, IpfixEncodeError
 
 _sethdr_st = struct.Struct("!HH")
@@ -214,8 +215,14 @@ class MessageBuffer:
     Implements a buffer for reading or writing IPFIX messages.
     """
 
-    def __init__(self, buf_sz=65536):
-        """Create a new MessageBuffer instance."""
+    def __init__(self, buf_sz: int = 65536, session: Session | None = None) -> None:
+        """Create a new MessageBuffer instance.
+
+        :param buf_sz: Internal buffer size in bytes (default 65536).
+        :param session: Optional :class:`ipfix.session.Session` holding
+                        template and sequence state. If omitted, a private
+                        default :class:`Session` is created.
+        """
         self.mbuf = memoryview(bytearray(buf_sz))
         self.length = 0
         self.sequence = None
@@ -223,11 +230,10 @@ class MessageBuffer:
         self.odid = 0
         self.streamid = 0
 
-        self.templates = {}
-        self.accepted_tids = set()
-        self.sequences = {}
+        self.session: Session = session if session is not None else Session()
+        self.accepted_tids: set[tuple[int, int]] = set()
 
-        self.setlist = []
+        self.setlist: list[tuple[int, int, int]] = []
 
         self.auto_export_time = True
         self.cursetoff = 0
@@ -242,6 +248,16 @@ class MessageBuffer:
         self.unknown_data_set_hook = None
         self.ignored_data_set_hook = None
         self.message_header_hook = None
+
+    @property
+    def templates(self) -> dict[tuple[int, int], template.Template]:
+        """Active templates dictionary (delegated to :attr:`session`)."""
+        return self.session.templates
+
+    @property
+    def sequences(self) -> dict[tuple[int, int], int]:
+        """Sequence numbers dictionary (delegated to :attr:`session`)."""
+        return self.session.sequences
 
     def __repr__(self):
         if self.cursetid:
@@ -281,8 +297,7 @@ class MessageBuffer:
         self.auto_export_time = False
 
     def _increment_sequence(self):
-        key = (self.odid, self.streamid)
-        self.sequences[key] = (self.sequences.get(key, 0) + 1) & 0xFFFFFFFF
+        self.session.increment_sequence(self.odid, self.streamid, 1)
 
     def _scan_setlist(self):
         # We've read a message. Discard all export state.
@@ -343,6 +358,9 @@ class MessageBuffer:
             )
         self.mbuf[_msghdr_st.size : self.length] = msgbody
 
+        # verify sequence number against session state
+        self.session.check_sequence(self.odid, self.streamid, self.sequence)
+
         # call the message header hook
         if self.message_header_hook:
             self.message_header_hook(self)
@@ -366,18 +384,13 @@ class MessageBuffer:
     def _handle_template_withdrawal(self, setid, tid):
         if tid == setid:
             # All-Templates Withdrawal (RFC 7011 §8.1)
-            to_delete = [
-                k
-                for k, t in self.templates.items()
-                if k[0] == self.odid and t.native_setid() == setid
-            ]
-            for k in to_delete:
-                del self.templates[k]
-                self.accepted_tids.discard(k)
+            for removed_tid in self.session.withdraw_all_templates(
+                self.odid, setid=setid
+            ):
+                self.accepted_tids.discard((self.odid, removed_tid))
         else:
-            key = (self.odid, tid)
-            self.templates.pop(key, None)
-            self.accepted_tids.discard(key)
+            self.session.delete_template(self.odid, tid)
+            self.accepted_tids.discard((self.odid, tid))
 
     def record_iterator(
         self,
@@ -432,7 +445,7 @@ class MessageBuffer:
                     if tmpl.count() == 0:
                         self._handle_template_withdrawal(setid, tmpl.tid)
                     else:
-                        self.templates[(self.odid, tmpl.tid)] = tmpl
+                        self.session.add_template(self.odid, tmpl)
                         if tmplaccept_fn(tmpl):
                             self.accepted_tids.add((self.odid, tmpl.tid))
                         else:
@@ -445,13 +458,17 @@ class MessageBuffer:
                 warn("skipping illegal set id " + str(setid), stacklevel=2)
             else:
                 try:
-                    tmpl = self.templates[(self.odid, setid)]
+                    tmpl = self.session.get_template(self.odid, setid)
                 except KeyError:
+                    self.accepted_tids.discard((self.odid, setid))
                     if self.unknown_data_set_hook:
                         self.unknown_data_set_hook(
                             self, self.mbuf[offset - _sethdr_st.size : setend]
                         )
                     continue
+
+                if (self.odid, setid) not in self.accepted_tids and tmplaccept_fn(tmpl):
+                    self.accepted_tids.add((self.odid, setid))
 
                 if (self.odid, setid) in self.accepted_tids:
                     if tmpl.minlength <= 0:
@@ -494,8 +511,17 @@ class MessageBuffer:
                        listing IEs to return as a tuple
         :returns: a tuple iterator for tuples as in ielist order
         """
+        # Also ensure tuple_iterator checks multiplicity for repeated IEs
         def tmplaccept_fn(tmpl):
-            return all(elem in tmpl.ies for elem in ielist)
+            needed: dict[tuple[int, int], int] = {}
+            for elem in ielist:
+                key = (elem.pen, elem.num)
+                needed[key] = needed.get(key, 0) + 1
+            avail: dict[tuple[int, int], int] = {}
+            for elem in tmpl.ies:
+                key = (elem.pen, elem.num)
+                avail[key] = avail.get(key, 0) + 1
+            return all(avail.get(k, 0) >= cnt for k, cnt in needed.items())
 
         if (
             self.last_tuple_iterator_ielist is None
@@ -546,7 +572,7 @@ class MessageBuffer:
 
     def add_template(self, tmpl, export=True):
         """
-        Add a template to this MessageBuffer. Adding a template makes it
+        Add a template to this MessageBuffer's Session. Adding a template makes it
         available for use for exporting records; see :meth:`export_new_set`.
 
         :param tmpl: the template to add
@@ -554,7 +580,7 @@ class MessageBuffer:
                        after adding it.
         :raises: EndOfMessage
         """
-        self.templates[(self.odid, tmpl.tid)] = tmpl
+        self.session.add_template(self.odid, tmpl)
 
         if export:
             self.export_template(tmpl.tid)
@@ -564,15 +590,16 @@ class MessageBuffer:
 
     def delete_template(self, tid, export=True):
         """
-        Delete a template by ID from this MessageBuffer.
+        Delete a template by ID from this MessageBuffer's Session.
 
         :param tid: ID of the template to delete
         :param export: if True, export a Template Withdrawal for this
                        Template after deleting it
         :raises: EndOfMessage, KeyError
         """
-        setid = self.templates[(self.odid, tid)].native_setid()
-        del self.templates[(self.odid, tid)]
+        tmpl = self.session.get_template(self.odid, tid)
+        setid = tmpl.native_setid()
+        self.session.delete_template(self.odid, tid)
         self.accepted_tids.discard((self.odid, tid))
         if export:
             self._export_template_withdrawal(setid, tid)
@@ -585,9 +612,7 @@ class MessageBuffer:
 
         :returns: a template ID iterator
         """
-        for odid, tid in self.templates:
-            if odid == self.odid:
-                yield tid
+        yield from self.session.active_template_ids(self.odid)
 
     def template_for_id(self, tid):
         """
@@ -597,7 +622,7 @@ class MessageBuffer:
         :returns: the template
         :raises: KeyError
         """
-        return self.templates[(self.odid, tid)]
+        return self.session.get_template(self.odid, tid)
 
     def begin_export(self, odid=None):
         """

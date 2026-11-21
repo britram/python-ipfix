@@ -1,5 +1,5 @@
 import io
-from datetime import datetime
+from datetime import UTC, datetime
 from ipaddress import ip_address
 
 import pytest
@@ -35,7 +35,7 @@ def test_writer_and_reader_multimessage_roundtrip():
     expected = []
     for i in range(25):
         rec = {
-            "flowStartMilliseconds": datetime(2024, 1, 1, 0, 0, i),
+            "flowStartMilliseconds": datetime(2024, 1, 1, 0, 0, i, tzinfo=UTC),
             "sourceIPv4Address": ip_address(0x0A000001 + i),
             "packetDeltaCount": i * 10,
         }

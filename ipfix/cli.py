@@ -118,9 +118,32 @@ def main_ipfix2csv(argv=None):
 
         with socketserver.TCPServer((args.bind, args.port), TcpCsvHandler) as ss:
             ss.serve_forever()
+    elif args.collect == "udp":
+        sys.stderr.write(
+            f"starting UDP CP on {args.bind}:{args.port}; Ctrl-C to stop\n"
+        )
+        sys.stderr.flush()
+        cols = ie.spec_list(args.ienames)
+        dg_reader = reader.DatagramReader()
+        csv_writer = csv.writer(sys.stdout, dialect="unix")
+        csv_writer.writerow([e.name for e in cols])
+        sys.stdout.flush()
+
+        class UdpCsvHandler(socketserver.DatagramRequestHandler):
+            def handle(self):
+                for rec in dg_reader.tuple_iterator(
+                    self.packet, cols, peer=self.client_address
+                ):
+                    csv_writer.writerow(
+                        [col.unparse(val) for val, col in zip(rec, cols, strict=True)]
+                    )
+                sys.stdout.flush()
+
+        with socketserver.UDPServer((args.bind, args.port), UdpCsvHandler) as ss:
+            ss.serve_forever()
     elif args.collect:
         raise ValueError(
-            f"Unsupported transport {args.collect}; must be 'tcp' in this revision"
+            f"Unsupported transport {args.collect}; must be 'tcp' or 'udp'"
         )
     elif args.file:
         with _open_input(args.file, args.gzip, args.bzip2) as f:
