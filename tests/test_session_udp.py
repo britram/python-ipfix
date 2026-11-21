@@ -200,3 +200,47 @@ def test_repeated_ies_in_template_issue10():
         ]
     )
     assert list(msg2.tuple_iterator(ielist3)) == []
+
+    # 3 repeated occurrences in a single template exercises list append path
+    tmpl3 = template.for_specs(
+        257,
+        "mplsTopLabelStackSection",
+        "mplsTopLabelStackSection",
+        "mplsTopLabelStackSection",
+    )
+    msg3 = message.MessageBuffer()
+    msg3.begin_export(1)
+    msg3.add_template(tmpl3)
+    msg3.export_ensure_set(257)
+    rec3 = {"mplsTopLabelStackSection": [b"\x00\x01\x00", b"\x00\x02\x00", b"\x00\x03\x01"]}
+    msg3.export_namedict(rec3)
+    msg4 = message.MessageBuffer()
+    msg4.from_bytes(msg3.to_bytes())
+    assert list(msg4.namedict_iterator()) == [rec3]
+
+
+def test_datagram_writer_auto_refresh_and_set_domain():
+    sent = []
+    dw = writer.DatagramWriter(sent.append, mtu=128, template_refresh_interval=0.0)
+    dw.set_domain(1)
+    # Empty flush is a no-op
+    dw.flush()
+    assert dw.msgcount == 0
+
+    tmpl = template.for_specs(256, "sourceIPv4Address", "packetDeltaCount")
+    dw.add_template(tmpl)
+    dw.set_export_template(256)
+    # With template_refresh_interval=0.0, export triggers automatic template refresh
+    dw.export_namedict(
+        {"sourceIPv4Address": ip_address("192.0.2.1"), "packetDeltaCount": 1}
+    )
+    # Switching domain flushes domain 1
+    dw.set_domain(2)
+    assert dw.msgcount >= 1
+    assert len(sent) == dw.msgcount
+
+    # DatagramReader with explicit shared Session
+    shared = session.Session()
+    dr = reader.DatagramReader(session=shared)
+    assert dr.session_for_peer(("1.2.3.4", 1)) is shared
+    assert dr.session_for_peer(("5.6.7.8", 2)) is shared

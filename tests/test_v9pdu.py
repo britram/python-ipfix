@@ -143,3 +143,47 @@ def test_v9_malformed_inputs():
     bad_pen = _build_v9_pdu([_v9_template_set(256, [(0x8001, 4)])])
     with pytest.raises(IpfixDecodeError):
         list(v9pdu.SinglePduBuffer(bad_pen).namedict_iterator())
+
+    # Non-zero trailing bytes in v9 template set
+    tbody = struct.pack("!HH HH", 256, 1, 8, 4) + b"\x01\x02"
+    bad_pad = _build_v9_pdu([struct.pack("!HH", 0, 4 + len(tbody)) + tbody])
+    with pytest.raises(IpfixDecodeError):
+        list(v9pdu.SinglePduBuffer(bad_pad).namedict_iterator())
+
+    # Truncated v9 set header in SinglePduBuffer
+    with pytest.raises(IpfixDecodeError):
+        list(v9pdu.SinglePduBuffer(_build_v9_pdu([b"\x01\x00"])).namedict_iterator())
+
+    # StreamPduBuffer short PDU header, short set body, and EOF right after PDU header
+    with pytest.raises(IpfixDecodeError):
+        list(v9pdu.from_stream(io.BytesIO(b"\x00\x09\x00\x01\x00\x00")).namedict_iterator())
+    with pytest.raises(IpfixDecodeError):
+        list(
+            v9pdu.from_stream(
+                io.BytesIO(_build_v9_pdu([struct.pack("!HH", 256, 20) + b"\x00\x00"]))
+            ).namedict_iterator()
+        )
+    assert list(v9pdu.from_stream(io.BytesIO(_build_v9_pdu([]))).namedict_iterator()) == []
+
+
+def test_v9_hooks_and_illegal_setid():
+    tset = _v9_template_set(256, [(8, 4)])
+    dset = _v9_data_set(256, ip_address("10.0.0.1").packed)
+    unk_set = _v9_data_set(300, b"\x01\x02\x03\x04")
+    bad_set = struct.pack("!HH 4s", 100, 8, b"\x00\x00\x00\x00")
+    pdu = _build_v9_pdu([tset, dset, unk_set, bad_set], reccount=2)
+
+    headers = []
+    unknown = []
+    ignored = []
+    sp = v9pdu.SinglePduBuffer(pdu)
+    sp.message_header_hook = lambda p: headers.append(p.odid)
+    sp.unknown_data_set_hook = lambda p, b: unknown.append(len(b))
+    sp.ignored_data_set_hook = lambda p, t, b: ignored.append((t.tid, len(b)))
+    # Re-parse header to exercise message_header_hook
+    sp._parse_pdu_header()
+    with pytest.warns(UserWarning, match="illegal set id 100"):
+        assert list(sp.tuple_iterator(ie.spec_list(["packetDeltaCount"]))) == []
+    assert headers == [42]
+    assert unknown == [8]
+    assert ignored == [(256, 8)]

@@ -327,3 +327,111 @@ def test_unsigned256_in_message_roundtrip():
     msg2 = message.MessageBuffer()
     msg2.from_bytes(raw)
     assert list(msg2.namedict_iterator()) == [rec]
+
+
+def test_options_template_withdrawal_and_decode_errors():
+    # Export and decode an Options Template Withdrawal via delete_template()
+    otmpl = template.for_specs(260, "observationDomainId", "octetDeltaCount", scopecount=1)
+    msg = message.MessageBuffer()
+    msg.begin_export(7)
+    msg.add_template(otmpl)
+    msg.delete_template(260, export=True)
+    raw = msg.to_bytes()
+
+    msg2 = message.MessageBuffer()
+    msg2.from_bytes(raw)
+    assert list(msg2.namedict_iterator()) == []
+    assert (7, 260) not in msg2.templates
+
+    # Invalid Options Template Withdrawal with scopecount != 0
+    bad_owithdraw = struct.pack("!HH HHH", 3, 10, 260, 0, 1)
+    bad_msg = struct.pack("!HHLLL", 10, 16 + len(bad_owithdraw), 0, 0, 7) + bad_owithdraw
+    msg3 = message.MessageBuffer()
+    msg3.from_bytes(bad_msg)
+    with pytest.raises(IpfixDecodeError):
+        list(msg3.namedict_iterator())
+
+    # Truncated template headers, IE specifiers, and bad set IDs in decode_template_from
+    with pytest.raises(IpfixDecodeError):
+        template.decode_template_from(b"\x01", 0, template.TEMPLATE_SET_ID)
+    with pytest.raises(IpfixDecodeError):
+        template.decode_template_from(b"\x01\x00\x00\x01", 0, template.OPTIONS_SET_ID)
+    with pytest.raises(IpfixDecodeError):
+        template.decode_template_from(b"\x01\x00\x00\x01", 0, 99)
+    with pytest.raises(IpfixDecodeError):
+        template.decode_template_from(
+            struct.pack("!HH H", 256, 1, 1), 0, template.TEMPLATE_SET_ID
+        )
+    with pytest.raises(IpfixDecodeError):
+        template.decode_template_from(
+            struct.pack("!HH", 10, 0), 0, template.TEMPLATE_SET_ID
+        )
+    with pytest.raises(IpfixDecodeError):
+        template.decode_template_from(
+            struct.pack("!HH HH", 10, 1, 1, 8), 0, template.TEMPLATE_SET_ID
+        )
+
+    # Bad set ID on encode_template_to and missing IE in packplan_for_ielist
+    with pytest.raises(IpfixEncodeError):
+        otmpl.encode_template_to(bytearray(32), 0, 99)
+    with pytest.raises(ValueError):
+        otmpl.packplan_for_ielist(ie.spec_list(["sourceIPv4Address"]))
+
+
+def test_malformed_data_values_and_message_edge_cases():
+    # Invalid boolean (byte 3) in fixed data record -> IpfixDecodeError
+    ie.for_spec("testBool(35566/50)<boolean>[1]")
+    tset = struct.pack("!HH HH HHL", 2, 16, 256, 1, 0x8000 | 50, 1, 35566)
+    dset = struct.pack("!HH B", 256, 5, 3)
+    raw = struct.pack("!HHLLL", 10, 16 + len(tset) + len(dset), 0, 0, 1) + tset + dset
+    msg = message.MessageBuffer()
+    msg.from_bytes(raw)
+    with pytest.raises(IpfixDecodeError):
+        list(msg.namedict_iterator())
+
+    # Invalid UTF-8 in varlen string record -> IpfixDecodeError
+    tset = struct.pack("!HH HH HH", 2, 12, 257, 1, 96, 65535)
+    dset = struct.pack("!HH B 2s", 257, 7, 2, b"\xff\xfe")
+    raw = struct.pack("!HHLLL", 10, 16 + len(tset) + len(dset), 0, 0, 1) + tset + dset
+    msg = message.MessageBuffer()
+    msg.from_bytes(raw)
+    with pytest.raises(IpfixDecodeError):
+        list(msg.namedict_iterator())
+
+    # Truncated extended varlen prefix (0xff followed by only 1 byte) -> IpfixDecodeError
+    dset = struct.pack("!HH BB", 257, 6, 255, 0)
+    raw = struct.pack("!HHLLL", 10, 16 + len(tset) + len(dset), 0, 0, 1) + tset + dset
+    msg = message.MessageBuffer()
+    msg.from_bytes(raw)
+    with pytest.raises(IpfixDecodeError):
+        list(msg.namedict_iterator())
+
+    # Illegal set ID (< 256, not 2 or 3) emits UserWarning
+    bad_set = struct.pack("!HH 4s", 100, 8, b"\x00\x00\x00\x00")
+    raw = struct.pack("!HHLLL", 10, 16 + len(bad_set), 0, 0, 1) + bad_set
+    msg = message.MessageBuffer()
+    msg.from_bytes(raw)
+    with pytest.warns(UserWarning, match="illegal set id 100"):
+        assert list(msg.namedict_iterator()) == []
+
+    # set_export_time(None) and get_export_time() return aware UTC
+    msg = message.MessageBuffer()
+    msg.begin_export(1)
+    msg.set_export_time()
+    assert msg.get_export_time().tzinfo is UTC
+
+    # EndOfMessage when varlen field exceeds underlying mbuf size
+    small = message.MessageBuffer(buf_sz=64)
+    small.mtu = 64
+    small.begin_export(1)
+    small.add_template(template.for_specs(258, "applicationName"))
+    small.export_ensure_set(258)
+    with pytest.raises(message.EndOfMessage):
+        small.export_namedict({"applicationName": "a" * 100})
+
+    # EndOfMessage when export_template doesn't fit in MTU
+    tiny = message.MessageBuffer(buf_sz=64)
+    tiny.mtu = 22
+    tiny.begin_export(1)
+    with pytest.raises(message.EndOfMessage):
+        tiny.add_template(template.for_specs(259, "sourceIPv4Address", "packetDeltaCount"))
