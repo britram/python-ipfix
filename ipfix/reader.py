@@ -53,9 +53,8 @@ class MessageStreamReader:
         try:
             while True:
                 self.msg.read_message(self.stream)
-                for rec in self.msg.namedict_iterator():
-                    yield rec
-                    self.msgcount += 1
+                self.msgcount += 1
+                yield from self.msg.namedict_iterator()
         except EOFError:
             return
 
@@ -71,9 +70,8 @@ class MessageStreamReader:
         try:
             while True:
                 self.msg.read_message(self.stream)
-                for rec in self.msg.tuple_iterator(ielist):
-                    yield rec
-                    self.msgcount += 1
+                self.msgcount += 1
+                yield from self.msg.tuple_iterator(ielist)
         except EOFError:
             return
 

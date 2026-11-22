@@ -46,7 +46,7 @@ scripts.
 
 ```bash
 uv sync --group dev
-uv run ruff check ipfix tests
+uv run ruff check ipfix tests scripts
 uv run pytest
 ```
 

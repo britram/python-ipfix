@@ -43,9 +43,39 @@ class IpfixDecodeError(Exception):
     """Raised when decoding a malformed IPFIX message"""
 
 
+class EndOfMessage(Exception):
+    """
+    Exception raised when a write operation on a Message
+    fails because there is not enough space in the message.
+    """
+
+
 # constants for v9
 V9_TEMPLATE_SET_ID = 0
 V9_OPTIONS_SET_ID = 1
+
+_V9_SCOPE_NAMES = {
+    1: "v9ScopeSystem",
+    2: "v9ScopeInterface",
+    3: "v9ScopeLineCard",
+    4: "v9ScopeCache",
+    5: "v9ScopeTemplate",
+}
+
+
+class _V9ScopeIE(ie.InformationElement):
+    """NetFlow v9 Options Template scope field (distinct namespace from IANA IEs)."""
+
+    def __eq__(self, other):
+        if isinstance(other, _V9ScopeIE):
+            return self.num == other.num
+        if isinstance(other, ie.InformationElement):
+            return False
+        return NotImplemented
+
+    def __hash__(self):
+        return hash(("v9scope", self.num))
+
 
 # constants
 TEMPLATE_SET_ID = 2
@@ -68,6 +98,7 @@ class TemplatePackingPlan:
     def __init__(self, tmpl, indices):
         self.tmpl = tmpl
         self.indices = indices
+        self.index_set = frozenset(indices)
         self.ranks = sorted(range(len(indices)), key=indices.__getitem__)
         self.valenc = []
         self.valdec = []
@@ -76,7 +107,7 @@ class TemplatePackingPlan:
         for i, t in enumerate(e.type for e in tmpl.ies):
             if i >= tmpl.fixlen_count():
                 break
-            if i in indices:
+            if i in self.index_set:
                 packstring += t.stel
                 self.valenc.append(t.valenc)
                 self.valdec.append(t.valdec)
@@ -139,7 +170,8 @@ class Template:
             self.scopecount == other.scopecount
             and len(self.ies) == len(other.ies)
             and all(
-                (a.pen, a.num, a.length) == (b.pen, b.num, b.length)
+                (isinstance(a, _V9ScopeIE), a.pen, a.num, a.length)
+                == (isinstance(b, _V9ScopeIE), b.pen, b.num, b.length)
                 for a, b in zip(self.ies, other.ies, strict=True)
             )
         )
@@ -192,7 +224,7 @@ class Template:
 
     def decode_from(self, buf, offset, packplan=None, setend=None):
         """Decodes a record into a list containing values in template order."""
-        limit = len(buf) if setend is None else setend
+        limit = len(buf) if setend is None else min(setend, len(buf))
 
         # use default packplan unless someone hacked us not to
         if not packplan:
@@ -233,7 +265,7 @@ class Template:
                 raise IpfixDecodeError(
                     f"Field {elem.name} (length {length}) extends past end of set"
                 )
-            if i in packplan.indices:
+            if i in packplan.index_set:
                 try:
                     vals.append(elem.type.decode_single_value_from(buf, offset, length))
                 except (struct.error, ValueError, UnicodeDecodeError) as exc:
@@ -266,13 +298,29 @@ class Template:
 
         return (outvals, offset)
 
-    def encode_to(self, buf, offset, vals, packplan=None):
+    def encode_to(self, buf, offset, vals, packplan=None, limit=None):
         """Encodes a record from a sequence containing values in template order."""
         if not packplan:
             packplan = self.packplan
 
+        if packplan is self.packplan and len(vals) != self.count():
+            raise ValueError(
+                f"Expected {self.count()} values for template {self.tid}, got {len(vals)}"
+            )
+
+        bufend = len(buf) if limit is None else min(limit, len(buf))
+        if offset + packplan.st.size > bufend:
+            raise EndOfMessage()
+
         # encode fixed values
-        fixvals = [f(v) for f, v in zip(packplan.valenc, vals, strict=False)]
+        fixvals = [
+            f(v)
+            for f, v in zip(
+                packplan.valenc,
+                vals[: self.fixlen_count()],
+                strict=(packplan is self.packplan),
+            )
+        ]
         packplan.st.pack_into(buf, offset, *fixvals)
         offset += packplan.st.size
 
@@ -287,15 +335,19 @@ class Template:
             vals[self.varlenslice :],
             strict=True,
         ):
-            if i in packplan.indices:
+            if i in packplan.index_set:
                 if elem.length == types.VARLEN:
                     enc = elem.type.valenc(val)
-                    offset = types.encode_varlen(buf, offset, len(enc))
-                    if offset + len(enc) > len(buf):
-                        raise struct.error("varlen field exceeds message buffer")
-                    buf[offset : offset + len(enc)] = enc
-                    offset += len(enc)
+                    enclen = len(enc)
+                    varlen_hdr = 3 if enclen >= 255 else 1
+                    if enclen > types.VARLEN or offset + varlen_hdr + enclen > bufend:
+                        raise EndOfMessage()
+                    offset = types.encode_varlen(buf, offset, enclen)
+                    buf[offset : offset + enclen] = enc
+                    offset += enclen
                 else:
+                    if offset + elem.length > bufend:
+                        raise EndOfMessage()
                     offset = elem.type.encode_single_value_to(val, buf, offset)
 
         return offset
@@ -371,7 +423,7 @@ def decode_template_from(buf, offset, setid, setend=None):
     Decodes as a Template if setid is TEMPLATE_SET_ID (or V9_TEMPLATE_SET_ID),
     as an Options Template if setid is OPTIONS_SET_ID (or V9_OPTIONS_SET_ID).
     """
-    limit = len(buf) if setend is None else setend
+    limit = len(buf) if setend is None else min(setend, len(buf))
 
     if setid in (TEMPLATE_SET_ID, V9_TEMPLATE_SET_ID):
         if offset + _tmplhdr_st.size > limit:
@@ -379,11 +431,26 @@ def decode_template_from(buf, offset, setid, setend=None):
         tid, count = _tmplhdr_st.unpack_from(buf, offset)
         scopecount = 0
         offset += _tmplhdr_st.size
-    elif setid in (OPTIONS_SET_ID, V9_OPTIONS_SET_ID):
+    elif setid == OPTIONS_SET_ID:
         if offset + _otmplhdr_st.size > limit:
             raise IpfixDecodeError("Truncated options template header")
         tid, count, scopecount = _otmplhdr_st.unpack_from(buf, offset)
         offset += _otmplhdr_st.size
+    elif setid == V9_OPTIONS_SET_ID:
+        if offset + _otmplhdr_st.size > limit:
+            raise IpfixDecodeError("Truncated v9 options template header")
+        tid, scope_len, opt_len = _otmplhdr_st.unpack_from(buf, offset)
+        offset += _otmplhdr_st.size
+        if scope_len % _iespec_st.size or opt_len % _iespec_st.size:
+            raise IpfixDecodeError(
+                f"Illegal v9 options template byte lengths ({scope_len}, {opt_len})"
+            )
+        scopecount = scope_len // _iespec_st.size
+        count = scopecount + (opt_len // _iespec_st.size)
+        if scopecount == 0 or count == 0:
+            raise IpfixDecodeError(
+                f"Illegal v9 options template scope/option lengths ({scope_len}, {opt_len})"
+            )
     else:
         raise IpfixDecodeError("bad template set id " + str(setid))
 
@@ -393,12 +460,14 @@ def decode_template_from(buf, offset, setid, setend=None):
             raise IpfixDecodeError(
                 f"Options template withdrawal must have scope count 0, got {scopecount}"
             )
-        try:
-            tmpl = Template(tid, _allow_withdrawal_tid=True)
-        except ValueError as exc:
-            raise IpfixDecodeError(str(exc)) from exc
+        if not (tid == setid or 256 <= tid <= 65535):
+            raise IpfixDecodeError(f"bad withdrawal template ID {tid} for set {setid}")
+        tmpl = Template(tid, _allow_withdrawal_tid=True)
         tmpl.finalize()
         return (tmpl, offset)
+
+    if setid == V9_TEMPLATE_SET_ID and count == 0:
+        raise IpfixDecodeError("Illegal zero field count in NetFlow v9 template")
 
     if setid == OPTIONS_SET_ID and (scopecount == 0 or scopecount > count):
         raise IpfixDecodeError(
@@ -411,7 +480,7 @@ def decode_template_from(buf, offset, setid, setend=None):
         raise IpfixDecodeError(str(exc)) from exc
     tmpl.scopecount = scopecount
 
-    while count:
+    for field_idx in range(count):
         if offset + _iespec_st.size > limit:
             raise IpfixDecodeError("Truncated IE specifier in template")
         num, length = _iespec_st.unpack_from(buf, offset)
@@ -429,10 +498,16 @@ def decode_template_from(buf, offset, setid, setend=None):
         else:
             pen = 0
         try:
-            tmpl.append(ie.for_template_entry(pen, num, length))
+            if setid == V9_OPTIONS_SET_ID and field_idx < scopecount:
+                scope_name = _V9_SCOPE_NAMES.get(num, f"_v9_scope_{num}")
+                elem = _V9ScopeIE(
+                    scope_name, 0, num, types.for_name("octetArray"), length
+                )
+            else:
+                elem = ie.for_template_entry(pen, num, length)
+            tmpl.append(elem)
         except types.IpfixTypeError as exc:
             raise IpfixDecodeError(str(exc)) from exc
-        count -= 1
 
     tmpl.finalize()
 
@@ -441,6 +516,10 @@ def decode_template_from(buf, offset, setid, setend=None):
 
 def from_ielist(tid, ielist, scopecount=0):
     tmpl = Template(tid, ielist)
+    if scopecount < 0 or scopecount > tmpl.count():
+        raise ValueError(
+            f"Illegal scope count {scopecount} for template with {tmpl.count()} IEs"
+        )
     tmpl.scopecount = scopecount
     tmpl.finalize()
     return tmpl

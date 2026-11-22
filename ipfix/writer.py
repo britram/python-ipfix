@@ -44,6 +44,7 @@ class MessageStreamWriter:
         self.msg.mtu = mtu
         self.msgcount = 0
         self.curtid = None
+        self.msg.begin_export(0)
 
     def _retry_after_flush(self, fn, *args, **kwargs):
         try:
@@ -65,6 +66,7 @@ class MessageStreamWriter:
         if self.msg.export_needs_flush():
             self.msg.write_message(self.stream)
             self.msgcount += 1
+        self.curtid = None
         self.msg.begin_export(odid)
 
     def add_template(self, tmpl):
@@ -100,6 +102,10 @@ class MessageStreamWriter:
 
         :param rec: the record to export, as a dictionary
         """
+        if self.curtid is None:
+            raise message.IpfixEncodeError(
+                "no export template set; call set_export_template() first"
+            )
         self._retry_after_flush(
             message.MessageBuffer.export_ensure_set, self.msg, self.curtid
         )
@@ -108,6 +114,10 @@ class MessageStreamWriter:
         )
 
     def export_tuple(self, rec):
+        if self.curtid is None:
+            raise message.IpfixEncodeError(
+                "no export template set; call set_export_template() first"
+            )
         self._retry_after_flush(
             message.MessageBuffer.export_ensure_set, self.msg, self.curtid
         )
@@ -130,7 +140,7 @@ class MessageStreamWriter:
         self.msg.write_message(self.stream)
         self.msgcount += 1
         self.msg.begin_export()
-        if setid is not None:
+        if setid is not None and setid >= 256:
             self.msg.export_ensure_set(setid)
 
 

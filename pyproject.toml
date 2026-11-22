@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling>=1.25"]
+requires = ["hatchling>=1.27"]
 build-backend = "hatchling.build"
 
 [project]
@@ -8,6 +8,7 @@ version = "0.10.0"
 description = "IPFIX (RFC 7011) implementation for Python"
 readme = "README.md"
 license = "LGPL-3.0-or-later"
+license-files = ["LICENSE.txt"]
 requires-python = ">=3.11"
 authors = [
     { name = "Brian Trammell", email = "brian@trammell.ch" },
@@ -16,7 +17,6 @@ keywords = ["ipfix", "netflow", "rfc7011", "networking", "telemetry", "flow"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: GNU Lesser General Public License v3 or later (LGPLv3+)",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",

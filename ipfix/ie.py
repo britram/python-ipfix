@@ -351,6 +351,13 @@ def dump_infomodel():
     return sorted(_ieForNum.values())
 
 
+def _load_spec_stream(stream):
+    for line in stream:
+        line = line.strip()
+        if line and not line.startswith("#"):
+            for_spec(line)
+
+
 def use_specfile(filename):
     """
     Load a file listing IESpecs into the cache of known IEs.
@@ -359,19 +366,13 @@ def use_specfile(filename):
     :raises: ValueError
     """
     with open(filename, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#"):
-                for_spec(line)
+        _load_spec_stream(f)
 
 
 def _use_package_specfile(name):
     resource = importlib.resources.files("ipfix").joinpath(name)
     with resource.open("r", encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if line and not line.startswith("#"):
-                for_spec(line)
+        _load_spec_stream(f)
 
 
 def use_iana_default():

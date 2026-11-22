@@ -27,7 +27,11 @@ import struct
 from warnings import warn
 
 from . import ie, template, types
-from .message import _is_zero_padding, accept_all_templates
+from .message import (
+    _iter_template_set_records,
+    _recache_all_accepted_tids,
+    accept_all_templates,
+)
 from .template import IpfixDecodeError
 
 NETFLOW9_VERSION = 9
@@ -63,6 +67,7 @@ class PduBuffer:
         self.sequences = {}
 
         self.last_tuple_iterator_ielist = None
+        self._accepted_cache_key = None
 
         self.template_record_hook = None
         self.unknown_data_set_hook = None
@@ -88,7 +93,6 @@ class PduBuffer:
         if version != NETFLOW9_VERSION:
             raise IpfixDecodeError(f"Illegal or unsupported version {version}")
 
-        self._increment_sequence(self.reccount)
         self.basetime_epoch = self.export_epoch - (self.sysuptime_ms / 1000.0)
         if self.message_header_hook:
             self.message_header_hook(self)
@@ -101,43 +105,16 @@ class PduBuffer:
             except EOFError:
                 break
 
-    def record_iterator(
-        self,
-        decode_fn=template.Template.decode_namedict_from,
-        tmplaccept_fn=accept_all_templates,
-        recinf=None,
-    ):
-        """
-        Low-level interface to record iteration.
-
-        Iterate over records in a PDU stream or buffer. Automatically handles
-        templates in set order. By default, iterates over each record as a
-        dictionary mapping IE name to value (same as :meth:`namedict_iterator`).
-        """
+    def _iter_records(self, decode_fn, tmplaccept_fn, recinf):
         for mbuf, offset, setid, setlen in self.set_iterator():
             setend = offset + setlen
             setview = mbuf[:setend]
             offset += _sethdr_st.size  # skip set header in decode
 
             if setid in (template.V9_TEMPLATE_SET_ID, template.V9_OPTIONS_SET_ID):
-                while offset < setend:
-                    rem = setend - offset
-                    if rem < template._tmplhdr_st.size:
-                        if _is_zero_padding(mbuf, offset, setend):
-                            break
-                        raise IpfixDecodeError(
-                            f"Non-zero trailing bytes ({rem}) in v9 template set"
-                        )
-                    if (
-                        mbuf[offset] == 0
-                        and mbuf[offset + 1] == 0
-                        and _is_zero_padding(mbuf, offset, setend)
-                    ):
-                        break
-
-                    tmpl, offset = template.decode_template_from(
-                        setview, offset, setid, setend=setend
-                    )
+                for tmpl in _iter_template_set_records(
+                    mbuf, offset, setend, setid, v9=True
+                ):
                     tkey = (self.sesid, self.odid, tmpl.tid)
                     self.templates[tkey] = tmpl
                     if tmplaccept_fn(tmpl):
@@ -178,13 +155,43 @@ class PduBuffer:
                         self, tmpl, mbuf[offset - _sethdr_st.size : setend]
                     )
 
+    def record_iterator(
+        self,
+        decode_fn=template.Template.decode_namedict_from,
+        tmplaccept_fn=accept_all_templates,
+        recinf=None,
+    ):
+        """
+        Low-level interface to record iteration.
+
+        Iterate over records in a PDU stream or buffer. Automatically handles
+        templates in set order. By default, iterates over each record as a
+        dictionary mapping IE name to value (same as :meth:`namedict_iterator`).
+        """
+        if tmplaccept_fn is accept_all_templates:
+            if self._accepted_cache_key != "all":
+                self._recache_accepted_tids(accept_all_templates)
+                self._accepted_cache_key = "all"
+                self.last_tuple_iterator_ielist = None
+        else:
+            self._recache_accepted_tids(tmplaccept_fn)
+            self._accepted_cache_key = None
+
+        return self._iter_records(decode_fn, tmplaccept_fn, recinf)
+
     def namedict_iterator(self):
         """
         Iterate over all records in the PDU, as dicts mapping IE names to values.
 
         :returns: a name dictionary iterator
         """
-        return self.record_iterator(decode_fn=template.Template.decode_namedict_from)
+        if self._accepted_cache_key != "all":
+            self._recache_accepted_tids(accept_all_templates)
+            self._accepted_cache_key = "all"
+            self.last_tuple_iterator_ielist = None
+        return self._iter_records(
+            template.Template.decode_namedict_from, accept_all_templates, None
+        )
 
     def active_template_ids(self):
         """
@@ -197,12 +204,7 @@ class PduBuffer:
                 yield tid
 
     def _recache_accepted_tids(self, tmplaccept_fn):
-        for tid in self.active_template_ids():
-            tkey = (self.sesid, self.odid, tid)
-            if tmplaccept_fn(self.templates[tkey]):
-                self.accepted_tids.add(tkey)
-            else:
-                self.accepted_tids.discard(tkey)
+        _recache_all_accepted_tids(self.templates, self.accepted_tids, tmplaccept_fn)
 
     def tuple_iterator(self, ielist):
         """
@@ -216,17 +218,14 @@ class PduBuffer:
         def tmplaccept_fn(tmpl):
             return all(elem in tmpl.ies for elem in ielist)
 
-        if (
-            self.last_tuple_iterator_ielist is None
-            or ielist is not self.last_tuple_iterator_ielist
-        ):
+        cache_key = tuple(ielist)
+        if self._accepted_cache_key != cache_key:
             self._recache_accepted_tids(tmplaccept_fn)
+            self._accepted_cache_key = cache_key
         self.last_tuple_iterator_ielist = ielist
 
-        return self.record_iterator(
-            decode_fn=template.Template.decode_tuple_from,
-            tmplaccept_fn=tmplaccept_fn,
-            recinf=ielist,
+        return self._iter_records(
+            template.Template.decode_tuple_from, tmplaccept_fn, ielist
         )
 
     def save_state(self):
@@ -237,6 +236,8 @@ class PduBuffer:
             self.templates[k] = v
         for k, v in state["s"].items():
             self.sequences[k] = v
+        self._accepted_cache_key = None
+        self.last_tuple_iterator_ielist = None
 
 
 class StreamPduBuffer(PduBuffer):
@@ -245,6 +246,7 @@ class StreamPduBuffer(PduBuffer):
     def __init__(self, stream, buf_sz=65536):
         super().__init__(mbuf=memoryview(bytearray(buf_sz)))
         self.stream = stream
+        self._seen_pdu_header = False
 
     def next_set(self):
         """
@@ -269,6 +271,7 @@ class StreamPduBuffer(PduBuffer):
 
             self.mbuf[_sethdr_st.size : _pduhdr_st.size] = resthdr
             self._parse_pdu_header()
+            self._seen_pdu_header = True
 
             sethdr = self.stream.read(_sethdr_st.size)
             if len(sethdr) == 0:
@@ -277,6 +280,9 @@ class StreamPduBuffer(PduBuffer):
                 raise IpfixDecodeError(f"Short read in V9 set header ({len(sethdr)})")
             self.mbuf[0 : _sethdr_st.size] = sethdr
             setid, setlen = _sethdr_st.unpack_from(self.mbuf)
+
+        if not self._seen_pdu_header:
+            raise IpfixDecodeError(f"Illegal or unsupported version {setid}")
 
         if setlen < _sethdr_st.size or setlen > len(self.mbuf):
             raise IpfixDecodeError(f"Illegal V9 set length {setlen}")

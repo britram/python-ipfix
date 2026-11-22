@@ -75,20 +75,24 @@ def iana_csv_to_iespec(uri=IANA_CSV_URI):
 def parse_iana_xml(xml_file):
     """Parse an open binary/text file of the IANA IPFIX XML into IESpec strings."""
     iespecs = []
-    nsmap = {"iana": "http://www.iana.org/assignments"}
+    ns = "http://www.iana.org/assignments"
+    nsmap = {"iana": ns}
+    tag_name = f"{{{ns}}}name"
+    tag_datatype = f"{{{ns}}}dataType"
+    tag_element_id = f"{{{ns}}}elementId"
     root = etree.parse(xml_file).getroot()
 
     for recelem in root.iterfind(
         "iana:registry[@id='ipfix-information-elements']/iana:record", nsmap
     ):
         name = typename = num = None
-        for fieldelem in recelem.iter():
-            if fieldelem.tag.endswith("name"):
-                name = fieldelem.text
-            elif fieldelem.tag.endswith("dataType"):
-                typename = fieldelem.text
-            elif fieldelem.tag.endswith("elementId"):
-                num = fieldelem.text
+        for fieldelem in recelem:
+            if fieldelem.tag == tag_name:
+                name = (fieldelem.text or "").strip()
+            elif fieldelem.tag == tag_datatype:
+                typename = (fieldelem.text or "").strip()
+            elif fieldelem.tag == tag_element_id:
+                num = (fieldelem.text or "").strip()
 
         if name and typename and num and num.isdigit():
             try:

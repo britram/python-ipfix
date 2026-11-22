@@ -42,7 +42,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = 'python-ipfix'
-copyright = '2013-2014, Brian Trammell'
+copyright = '2013-2026, Brian Trammell'
 
 # The version info for the project you're documenting, acts as replacement for
 # |version| and |release|, also used in various other places throughout the
@@ -255,7 +255,7 @@ texinfo_documents = [
 epub_title = 'python-ipfix'
 epub_author = 'Brian Trammell'
 epub_publisher = 'Brian Trammell'
-epub_copyright = '2013-2014, Brian Trammell'
+epub_copyright = '2013-2026, Brian Trammell'
 
 # The language of the text. It defaults to the language option
 # or en if the language is not set.

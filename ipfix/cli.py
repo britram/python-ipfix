@@ -71,11 +71,12 @@ def main_ipfix2csv(argv=None):
         "--file", "-f", metavar="file", nargs="?",
         help="IPFIX file to read (default stdin)",
     )
-    parser.add_argument(
+    comp_group = parser.add_mutually_exclusive_group()
+    comp_group.add_argument(
         "--gzip", "-z", action="store_true",
         help="Decompress gzip-compressed IPFIX file",
     )
-    parser.add_argument(
+    comp_group.add_argument(
         "--bzip2", "-j", action="store_true",
         help="Decompress bz2-compressed IPFIX file",
     )
@@ -97,13 +98,14 @@ def main_ipfix2csv(argv=None):
     )
     args = parser.parse_args(argv)
 
+    if args.file is None and (args.bzip2 or args.gzip):
+        raise ValueError("Decompression only supported from file input")
+
     _init_ipfix(args.spec)
     reader_fn = v9pdu.from_stream if args.netflow9 else reader.from_stream
 
     if args.netflow9 and args.collect:
         raise ValueError("NetFlow9 only supported from files or stdin")
-    if args.file is None and (args.bzip2 or args.gzip):
-        raise ValueError("Decompression only supported from file input")
 
     if args.collect == "tcp":
         sys.stderr.write(
@@ -133,6 +135,7 @@ class TemplateStatsSession:
     """Collect template and dataset statistics over an IPFIX or NetFlow v9 stream."""
 
     def __init__(self, instream, netflow9=False):
+        self._netflow9 = netflow9
         self.templates = {}
         self.template_count = {}
         self.template_replcount = {}
@@ -180,9 +183,18 @@ class TemplateStatsSession:
         self.missing_bytecount[tkey] = self.missing_bytecount.get(tkey, 0) + setlen
 
     def run(self):
-        impossible = ie.spec_list(["impossible(35566/32767)<unsigned8>[1]"])
-        for _ in self.r.tuple_iterator(impossible):
-            pass
+        if self._netflow9:
+            for _ in self.r.record_iterator(tmplaccept_fn=lambda _tmpl: False):
+                pass
+        else:
+            try:
+                while True:
+                    self.r.msg.read_message(self.r.stream)
+                    self.r.msgcount += 1
+                    for _ in self.r.msg.record_iterator(tmplaccept_fn=lambda _tmpl: False):
+                        pass
+            except EOFError:
+                return
 
     def print_report(self, outstream=None):
         if outstream is None:
@@ -242,11 +254,12 @@ def main_ipfixstat(argv=None):
         "--file", "-f", metavar="file", nargs="?",
         help="IPFIX file to read (default stdin)",
     )
-    parser.add_argument(
+    comp_group = parser.add_mutually_exclusive_group()
+    comp_group.add_argument(
         "--gzip", "-z", action="store_true",
         help="Decompress gzip-compressed IPFIX file",
     )
-    parser.add_argument(
+    comp_group.add_argument(
         "--bzip2", "-j", action="store_true",
         help="Decompress bz2-compressed IPFIX file",
     )
@@ -255,6 +268,9 @@ def main_ipfixstat(argv=None):
         help="Decode as NetFlow version 9 instead of IPFIX",
     )
     args = parser.parse_args(argv)
+
+    if args.file is None and (args.bzip2 or args.gzip):
+        raise ValueError("Decompression only supported from file input")
 
     _init_ipfix(args.spec)
 

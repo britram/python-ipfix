@@ -38,9 +38,10 @@ def test_ieutils_csv_xml_reverse_and_write(tmp_path):
         b'<registry xmlns="http://www.iana.org/assignments">'
         b'  <registry id="ipfix-information-elements">'
         b"    <record>"
-        b"      <elementId>1</elementId>"
-        b"      <name>octetDeltaCount</name>"
-        b"      <dataType>unsigned64</dataType>"
+        b"      <elementId> 1 </elementId>"
+        b"      <name> octetDeltaCount </name>"
+        b"      <dataType> unsigned64 </dataType>"
+        b"      <nested><name>ignoredNestedName</name></nested>"
         b"    </record>"
         b"    <record>"
         b"      <elementId>291</elementId>"
@@ -127,3 +128,18 @@ def test_cli_ipfix2csv_and_ipfixstat(tmp_path, capsys):
     cli.main_ipfixstat(["-9", "-f", str(v9_file)])
     v9_report = capsys.readouterr().out
     assert "Template 256 in domain 7" in v9_report
+
+    # ipfixstat invalid stdin compression & zero IE cache pollution
+    with pytest.raises(ValueError):
+        cli.main_ipfixstat(["-z"])
+    with pytest.raises(SystemExit):
+        cli.main_ipfixstat(["-z", "-j", "-f", str(plain_file)])
+
+    ie.clear_infomodel()
+    ie.use_iana_default()
+    before_names = set(ie._ieForName)
+    before_nums = set(ie._ieForNum)
+    tss = cli.TemplateStatsSession(io.BytesIO(raw))
+    tss.run()
+    assert set(ie._ieForName) == before_names
+    assert set(ie._ieForNum) == before_nums

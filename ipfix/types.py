@@ -148,6 +148,7 @@ microsecond-level timing.
 
 import binascii
 import math
+import operator
 import struct
 from datetime import UTC, datetime
 from functools import total_ordering
@@ -165,24 +166,11 @@ class IpfixTypeError(ValueError):
     """Raised when attempting to do an unsupported operation on a type"""
 
 
-# Table for downconverting struct elements for reduced-size encoding (power-of-two sizes)
-_stel_rle = {
-    ("H", 1): "B",
-    ("L", 2): "H",
-    ("L", 1): "B",
-    ("Q", 4): "L",
-    ("Q", 2): "H",
-    ("Q", 1): "B",
-    ("h", 1): "b",
-    ("l", 2): "h",
-    ("l", 1): "b",
-    ("q", 4): "l",
-    ("q", 2): "h",
-    ("q", 1): "b",
-    ("d", 4): "f",
-}
+_OCTET_ARRAY_NUM = 0
+_FLOAT64_NUM = 10
+_STRING_NUM = 13
+_IPV4_NUM = 18
 
-_UNSIGNED_INT_NUMS = frozenset({1, 2, 3, 4, 23})
 _SIGNED_INT_NUMS = frozenset({5, 6, 7, 8})
 _INT_DEFAULT_LEN = {
     1: 1,
@@ -194,6 +182,16 @@ _INT_DEFAULT_LEN = {
     7: 4,
     8: 8,
     23: 32,
+}
+_INT_STRUCT_CODE = {
+    (False, 1): "B",
+    (False, 2): "H",
+    (False, 4): "L",
+    (False, 8): "Q",
+    (True, 1): "b",
+    (True, 2): "h",
+    (True, 4): "l",
+    (True, 8): "q",
 }
 
 # Builtin structs for varlen information
@@ -207,7 +205,7 @@ def _identity(x):
 
 def _make_int_encoder(length, signed=False):
     def _encode_int_bytes(val):
-        return int(val).to_bytes(length, "big", signed=signed)
+        return operator.index(val).to_bytes(length, "big", signed=signed)
 
     return _encode_int_bytes
 
@@ -233,6 +231,30 @@ def _make_fixed_utf8_encoder(length):
 
 def _decode_utf8_fixed(octets):
     return octets.rstrip(b"\x00").decode("utf-8")
+
+
+def _fixed_sequence_type(roottype, length):
+    if roottype.num == _STRING_NUM:
+        return StructType(
+            roottype.name,
+            roottype.num,
+            f"{length}s",
+            valenc=_make_fixed_utf8_encoder(length),
+            valdec=_decode_utf8_fixed,
+            valstr=roottype.valstr,
+            valparse=roottype.valparse,
+            roottype=roottype,
+        )
+    return StructType(
+        roottype.name,
+        roottype.num,
+        f"{length}s",
+        valenc=roottype.valenc,
+        valdec=roottype.valdec,
+        valstr=roottype.valstr,
+        valparse=roottype.valparse,
+        roottype=roottype,
+    )
 
 
 @total_ordering
@@ -289,60 +311,58 @@ class StructType(IpfixType):
     def for_length(self, length):
         if not length or length == self.length:
             return self
-        if length < 0 or length >= VARLEN:
-            raise IpfixTypeError(f"Illegal fixed length {length} for <{self.name}>")
+        if length < 0 or length > VARLEN:
+            raise IpfixTypeError(f"Illegal length {length} for <{self.name}>")
 
-        # OctetArray / string fixed-length re-sizing
-        if self.roottype is _roottypes[0]:
-            return StructType(
-                self.name,
-                self.num,
-                f"{length}s",
-                valenc=self.valenc,
-                valdec=self.valdec,
-                valstr=self.valstr,
-                valparse=self.valparse,
-                roottype=self.roottype,
-            )
-        if self.roottype is _roottypes[13]:
-            return StructType(
-                self.name,
-                self.num,
-                f"{length}s",
-                valenc=_make_fixed_utf8_encoder(length),
-                valdec=_decode_utf8_fixed,
-                valstr=self.valstr,
-                valparse=self.valparse,
-                roottype=self.roottype,
-            )
+        # OctetArray / string fixed-length or varlen re-sizing
+        if self.num in (_OCTET_ARRAY_NUM, _STRING_NUM):
+            if length == VARLEN:
+                return self.roottype
+            return _fixed_sequence_type(self.roottype, length)
 
-        # Standard struct reduced-size encoding (power-of-two integer & float64->float32)
-        rle_stel = _stel_rle.get((self.stel, length))
-        if rle_stel is not None:
-            return StructType(
-                self.name,
-                self.num,
-                rle_stel,
-                valenc=self.valenc,
-                valdec=self.valdec,
-                valstr=self.valstr,
-                valparse=self.valparse,
-                roottype=self.roottype,
-            )
+        if length == VARLEN:
+            raise IpfixTypeError(f"Illegal length {length} for <{self.name}>")
 
-        # Arbitrary-width reduced-size encoding for integer types (RFC 7011 §6.2, RFC 9740)
-        if self.num in _INT_DEFAULT_LEN and 1 <= length < _INT_DEFAULT_LEN[self.num]:
+        # Reduced-size encoding for integer types (RFC 7011 §6.2, RFC 9740)
+        default_len = _INT_DEFAULT_LEN.get(self.num)
+        if default_len is not None and 1 <= length <= default_len:
+            if length == default_len:
+                return self.roottype
             signed = self.num in _SIGNED_INT_NUMS
+            stel = _INT_STRUCT_CODE.get((signed, length))
+            if stel is not None:
+                return StructType(
+                    self.name,
+                    self.num,
+                    stel,
+                    valstr=self.roottype.valstr,
+                    valparse=self.roottype.valparse,
+                    roottype=self.roottype,
+                )
             return StructType(
                 self.name,
                 self.num,
                 f"{length}s",
                 valenc=_make_int_encoder(length, signed=signed),
                 valdec=_make_int_decoder(signed=signed),
-                valstr=self.valstr,
-                valparse=self.valparse,
+                valstr=self.roottype.valstr,
+                valparse=self.roottype.valparse,
                 roottype=self.roottype,
             )
+
+        # Reduced-size encoding for float64 -> float32 (RFC 7011 §6.2)
+        if self.num == _FLOAT64_NUM:
+            if length == 8:
+                return self.roottype
+            if length == 4:
+                return StructType(
+                    self.name,
+                    self.num,
+                    "f",
+                    valstr=self.roottype.valstr,
+                    valparse=self.roottype.valparse,
+                    roottype=self.roottype,
+                )
 
         raise IpfixTypeError(f"No RLE for <{self.name}>[{length}]")
 
@@ -379,27 +399,7 @@ class OctetArrayType(IpfixType):
             return self
         if length < 0 or length > VARLEN:
             raise IpfixTypeError(f"Illegal length {length} for <{self.name}>")
-        if self.num == 13:  # string
-            return StructType(
-                self.name,
-                self.num,
-                f"{length}s",
-                valenc=_make_fixed_utf8_encoder(length),
-                valdec=_decode_utf8_fixed,
-                valstr=self.valstr,
-                valparse=self.valparse,
-                roottype=self.roottype,
-            )
-        return StructType(
-            self.name,
-            self.num,
-            f"{length}s",
-            valenc=self.valenc,
-            valdec=self.valdec,
-            valstr=self.valstr,
-            valparse=self.valparse,
-            roottype=self.roottype,
-        )
+        return _fixed_sequence_type(self.roottype, length)
 
     def encode_single_value_to(self, val, buf, offset):
         enc = self.valenc(val)
@@ -447,6 +447,16 @@ def _decode_utf8(octets):
     return octets.decode("utf-8")
 
 
+def _to_naive_utc(dt):
+    if dt.tzinfo is not None:
+        return dt.astimezone(UTC).replace(tzinfo=None)
+    return dt
+
+
+def _parse_iso_dt(string):
+    return _to_naive_utc(datetime.fromisoformat(string))
+
+
 def _encode_sec(dt):
     return int(dt2epoch(dt))
 
@@ -456,14 +466,7 @@ def _decode_sec(epoch):
 
 
 def _str_sec(dt):
-    return dt.strftime(ISO8601_FMT)
-
-
-def _parse_sec(string):
-    dt = datetime.fromisoformat(string)
-    if dt.tzinfo is not None:
-        dt = dt.astimezone(UTC).replace(tzinfo=None)
-    return dt
+    return _to_naive_utc(dt).strftime(ISO8601_FMT)
 
 
 def _encode_msec(dt):
@@ -475,14 +478,8 @@ def _decode_msec(epoch):
 
 
 def _str_msec(dt):
-    return f"{dt.strftime(ISO8601_FMT)}.{int(dt.microsecond / 1000):03d}"
-
-
-def _parse_msec(string):
-    dt = datetime.fromisoformat(string)
-    if dt.tzinfo is not None:
-        dt = dt.astimezone(UTC).replace(tzinfo=None)
-    return dt
+    dt = _to_naive_utc(dt)
+    return f"{dt.strftime(ISO8601_FMT)}.{dt.microsecond // 1000:03d}"
 
 
 def _encode_ntp(dt):
@@ -497,14 +494,11 @@ def _decode_ntp(ntp):
 
 
 def _str_usec(dt):
+    dt = _to_naive_utc(dt)
     return f"{dt.strftime(ISO8601_FMT)}.{dt.microsecond:06d}"
 
 
-def _parse_usec(string):
-    dt = datetime.fromisoformat(string)
-    if dt.tzinfo is not None:
-        dt = dt.astimezone(UTC).replace(tzinfo=None)
-    return dt
+_parse_sec = _parse_msec = _parse_usec = _parse_iso_dt
 
 
 def _encode_ip(ipaddr):
@@ -613,21 +607,21 @@ def use_integer_ipv4():
     Designed for use with numpy arrays, to not require a Python object for
     storing IP addresses.
     """
-    _roottypes[18] = StructType("ipv4Address", 18, "L")
-    _TypeForName["ipv4Address"] = _roottypes[18]
+    _roottypes[_IPV4_NUM] = StructType("ipv4Address", _IPV4_NUM, "L")
+    _TypeForName["ipv4Address"] = _roottypes[_IPV4_NUM]
 
 
 def use_ipaddress_ipv4():
     """Restore ipaddress.IPv4Address representation for ipv4Address."""
-    _roottypes[18] = StructType(
+    _roottypes[_IPV4_NUM] = StructType(
         "ipv4Address",
-        18,
+        _IPV4_NUM,
         "4s",
         valenc=_encode_ip,
         valdec=ip_address,
         valparse=ip_address,
     )
-    _TypeForName["ipv4Address"] = _roottypes[18]
+    _TypeForName["ipv4Address"] = _roottypes[_IPV4_NUM]
 
 
 def for_name(name):

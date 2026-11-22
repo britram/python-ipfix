@@ -69,16 +69,25 @@ def test_single_pdu_and_stream_pdu_roundtrip():
     assert recs[0]["packetDeltaCount"] == 10
     assert list(sp.active_template_ids()) == [256]
 
-    # Save / restore state
+    # Save / restore state -> both namedict_iterator and tuple_iterator work
     state = sp.save_state()
     sp2 = v9pdu.SinglePduBuffer(_build_v9_pdu([dset], reccount=2))
     sp2.restore_state(state)
+    restored_recs = list(sp2.namedict_iterator())
+    assert len(restored_recs) == 2
+    assert restored_recs[0]["packetDeltaCount"] == 10
+
+    sp3 = v9pdu.SinglePduBuffer(_build_v9_pdu([dset], reccount=2))
+    sp3.restore_state(state)
     ielist = ie.spec_list(["packetDeltaCount", "sourceIPv4Address"])
-    tups = list(sp2.tuple_iterator(ielist))
+    tups = list(sp3.tuple_iterator(ielist))
     assert tups == [
         (10, ip_address("198.51.100.1")),
         (20, ip_address("198.51.100.2")),
     ]
+
+    # Sequence count matches decoded data records (no double-counting)
+    assert sp.sequences[42] == 2
 
     # StreamPduBuffer across two concatenated PDUs
     pdu2 = _build_v9_pdu([dset], reccount=2, sequence=2)
@@ -86,6 +95,7 @@ def test_single_pdu_and_stream_pdu_roundtrip():
     sb = v9pdu.from_stream(stream)
     stream_recs = list(sb.namedict_iterator())
     assert len(stream_recs) == 4
+    assert sb.sequences[42] == 4
 
 
 def test_time_adapter_namedict_and_tuple():
@@ -143,3 +153,40 @@ def test_v9_malformed_inputs():
     bad_pen = _build_v9_pdu([_v9_template_set(256, [(0x8001, 4)])])
     with pytest.raises(IpfixDecodeError):
         list(v9pdu.SinglePduBuffer(bad_pen).namedict_iterator())
+
+    # 0-field v9 template rejected
+    bad_empty = _build_v9_pdu([_v9_template_set(256, [])])
+    with pytest.raises(IpfixDecodeError):
+        list(v9pdu.SinglePduBuffer(bad_empty).namedict_iterator())
+
+    # StreamPduBuffer rejects non-v9 (e.g. IPFIX v10) stream
+    ipfix_header_stream = io.BytesIO(struct.pack("!HHLLL", 10, 20, 0, 0, 1) + b"\x00\x02\x00\x04")
+    with pytest.raises(IpfixDecodeError):
+        list(v9pdu.from_stream(ipfix_header_stream).namedict_iterator())
+
+
+def test_v9_options_template_rfc3954():
+    # RFC 3954 §6.1: FlowSet ID=1, Option Scope Length=4 (1 scope field: System=1, len=4),
+    # Option Length=4 (1 option field: octetDeltaCount=1, len=8)
+    oset_body = struct.pack("!HHH HH HH", 256, 4, 4, 1, 4, 1, 8)
+    oset = struct.pack("!HH", 1, 4 + len(oset_body) + 2) + oset_body + b"\x00\x00"
+    dset = _v9_data_set(256, struct.pack("!4sQ", b"\x00\x00\x00\x07", 987654321))
+    pdu = _build_v9_pdu([oset, dset], reccount=1)
+
+    sp = v9pdu.SinglePduBuffer(pdu)
+    recs = list(sp.namedict_iterator())
+    assert recs == [{"v9ScopeSystem": b"\x00\x00\x00\x07", "octetDeltaCount": 987654321}]
+    assert sp.templates[(0, 42, 256)].scopecount == 1
+
+    # Scope field ID 1 (System) must NOT collide with IANA IE 1 (octetDeltaCount)
+    sp2 = v9pdu.SinglePduBuffer(pdu)
+    tups = list(sp2.tuple_iterator(ie.spec_list(["octetDeltaCount"])))
+    assert tups == [(987654321,)]
+
+    # Invalid v9 options templates (non-multiple-of-4 lengths, zero scope length)
+    for scope_len, opt_len in ((3, 4), (4, 2), (0, 4)):
+        bad_body = struct.pack("!HHH", 256, scope_len, opt_len) + b"\x00\x01\x00\x04"
+        bad_oset = struct.pack("!HH", 1, 4 + len(bad_body)) + bad_body
+        bad_pdu = _build_v9_pdu([bad_oset])
+        with pytest.raises(IpfixDecodeError):
+            list(v9pdu.SinglePduBuffer(bad_pdu).namedict_iterator())

@@ -21,17 +21,24 @@ v0.9.6, 2014-06-06 -- Test coverage improvements, consolidation of scripts,
 
 v0.9.7, 2014-07-04 -- Bugfix (export time and sequence number reversed)
 
-v0.10.0, 2026-11-20 -- Modernize packaging (pyproject.toml, Python 3.11+, drop
-                       Python 2 compat and vis-package); refresh IANA IE
-                       registry (up to ID 533) and RFC 5103 reverse IEs; add
-                       unsigned256 (RFC 9740) and arbitrary-width integer RLE;
-                       harden IPFIX and NetFlow v9 decoders against malformed
-                       packets (setlen < 4, zero-length templates, bounds
-                       checks, template set padding, template withdrawals,
-                       unbounded unknown IE cache); fix varlen-first templates,
-                       RLE/fixed-length string parse/unparse, use_integer_ipv4,
-                       IE hashing, delete_template, begin_export(0), writer
-                       flush/template bugs, and v9pdu read-only decoder;
-                       accept timezone-aware datetimes on encode while
-                       eliminating Python 3.12+ deprecation warnings; expand
-                       pytest test suite.
+v0.10.0, 2026-11-22 -- Modernize packaging (pyproject.toml with PEP 639, Python
+                       3.11+, drop Python 2 compat and vis-package); refresh IANA
+                       IE registry (up to ID 533; note ID 278 renamed from
+                       connectionCountNew to newConnectionDeltaCount, and ID 263
+                       messageScope changed from unsigned64 to unsigned8) and
+                       RFC 5103 reverse IEs; add unsigned256 (RFC 9740) and
+                       arbitrary-width integer RLE; harden IPFIX and NetFlow v9
+                       decoders against malformed packets (setlen < 4, zero-
+                       length templates, bounds checks, template set padding,
+                       template withdrawals, unbounded unknown IE cache); fix
+                       varlen-first templates, strict RLE validation and fixed-
+                       length string parse/unparse/resizing, use_integer_ipv4,
+                       IE hashing, accepted_tids caching, empty set emission and
+                       delete_template atomicity, export_record error propagation,
+                       begin_export(0), writer default domain and flush/template
+                       bugs, reader msgcount, and v9pdu Options Templates, stream
+                       version check, and sequence accounting; accept timezone-
+                       aware datetimes on encode/parse/unparse while eliminating
+                       Python 3.12+ deprecation warnings (note:
+                       template_record_hook now also fires on template
+                       withdrawals with tmpl.count() == 0); expand pytest suite.

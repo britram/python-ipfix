@@ -109,6 +109,33 @@ def test_rle_power_of_two_and_arbitrary_widths():
         types.for_name("unsigned32").for_length(types.VARLEN)
     with pytest.raises(types.IpfixTypeError):
         types.for_name("octetArray").for_length(-1)
+    for dt_name, bad_len in (
+        ("dateTimeSeconds", 2),
+        ("dateTimeMilliseconds", 4),
+        ("dateTimeMicroseconds", 4),
+        ("dateTimeNanoseconds", 4),
+    ):
+        with pytest.raises(types.IpfixTypeError):
+            types.for_name(dt_name).for_length(bad_len)
+
+    # Resizing reduced types back to native width & unsigned256 fast struct RLE
+    assert u64_2.for_length(8) is types.for_name("unsigned64")
+    assert u256_16.for_length(32) is types.for_name("unsigned256")
+    assert f64_4.for_length(8) is types.for_name("float64")
+    u256_4 = types.for_name("unsigned256").for_length(4)
+    assert u256_4.stel == "L"
+    assert u256_4.length == 4
+
+    # _make_int_encoder rejects non-integers and out-of-range ints
+    enc3 = types._make_int_encoder(3, signed=False)
+    with pytest.raises(TypeError):
+        enc3(1.5)
+    with pytest.raises(TypeError):
+        enc3("42")
+    with pytest.raises(OverflowError):
+        enc3(1 << 24)
+    with pytest.raises(OverflowError):
+        enc3(-1)
 
 
 def test_fixed_length_string_and_octet_array():
@@ -123,21 +150,23 @@ def test_fixed_length_string_and_octet_array():
     assert s14.valstr("abc") == "abc"
     assert s14.valparse("abc") == "abc"
 
-    # Re-sizing fixed-length string
+    # Re-sizing fixed-length string and back to VARLEN
     s16 = s14.for_length(16)
     assert s16.length == 16
+    assert s14.for_length(types.VARLEN) is types.for_name("string")
 
     # Oversized UTF-8 string raises ValueError instead of silent mid-codepoint truncation
     s4 = types.for_name("string").for_length(4)
     with pytest.raises(ValueError):
         s4.encode_single_value_to("Grüezi", buf, 0)
 
-    # Fixed-length octetArray + re-sizing
+    # Fixed-length octetArray + re-sizing and back to VARLEN
     oa4 = types.for_name("octetArray").for_length(4)
     assert oa4.length == 4
     oa8 = oa4.for_length(8)
     assert oa8.length == 8
     assert oa8.valstr(b"\xab") == b"ab"
+    assert oa4.for_length(types.VARLEN) is types.for_name("octetArray")
 
 
 def test_boolean_validation_and_str():
@@ -161,6 +190,8 @@ def test_use_integer_ipv4_and_restore():
         end = t.encode_single_value_to(0xC0000201, buf, 0)
         assert end == 4
         assert t.decode_single_value_from(buf, 0, 4) == 0xC0000201
+        with pytest.raises(types.IpfixTypeError):
+            t.for_length(2)
     finally:
         types.use_ipaddress_ipv4()
 
@@ -208,6 +239,13 @@ def test_datetime_aware_and_naive_encode_and_parse():
         types.for_name("dateTimeMicroseconds").valstr(naive)
         == "2024-06-15 12:30:45.500000"
     )
+
+    # Aware non-UTC datetime round-trips consistently via valstr -> valparse
+    for tname in ("dateTimeSeconds", "dateTimeMilliseconds", "dateTimeMicroseconds"):
+        t = types.for_name(tname)
+        t.encode_single_value_to(aware_plus2, buf, 0)
+        decoded = t.decode_single_value_from(buf, 0, t.length)
+        assert t.valparse(t.valstr(aware_plus2)) == decoded
 
 
 def test_varlen_encode_decode_and_bounds():

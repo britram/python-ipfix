@@ -327,3 +327,171 @@ def test_unsigned256_in_message_roundtrip():
     msg2 = message.MessageBuffer()
     msg2.from_bytes(raw)
     assert list(msg2.namedict_iterator()) == [rec]
+
+
+def test_accepted_tids_cache_switches_and_multidomain():
+    t1 = template.for_specs(256, "sourceIPv4Address", "packetDeltaCount")
+    t2 = template.for_specs(256, "sourceIPv4Address")
+
+    builder = message.MessageBuffer()
+    builder.begin_export(1)
+    builder.add_template(t1)
+    builder.export_ensure_set(256)
+    builder.export_namedict(
+        {"sourceIPv4Address": ip_address("10.0.0.1"), "packetDeltaCount": 1}
+    )
+    msg1_raw = builder.to_bytes()
+
+    builder.begin_export(1)
+    builder.export_ensure_set(256)
+    builder.export_namedict(
+        {"sourceIPv4Address": ip_address("10.0.0.2"), "packetDeltaCount": 2}
+    )
+    msg1_data_raw = builder.to_bytes()
+
+    # Switching from rejecting tuple_iterator back to namedict_iterator
+    dec = message.MessageBuffer()
+    dec.from_bytes(msg1_raw)
+    assert list(dec.tuple_iterator(ie.spec_list(["destinationIPv4Address"]))) == []
+    dec.from_bytes(msg1_data_raw)
+    assert list(dec.namedict_iterator()) == [
+        {"sourceIPv4Address": ip_address("10.0.0.2"), "packetDeltaCount": 2}
+    ]
+
+    # Multi-domain tuple_iterator with same ielist across domains
+    builder.begin_export(2)
+    builder.add_template(t2)
+    msg2_tmpl_raw = builder.to_bytes()
+    builder.begin_export(2)
+    builder.export_ensure_set(256)
+    builder.export_namedict({"sourceIPv4Address": ip_address("10.0.0.9")})
+    msg2_data_raw = builder.to_bytes()
+
+    dec2 = message.MessageBuffer()
+    dec2.from_bytes(msg1_raw)
+    assert len(list(dec2.namedict_iterator())) == 1
+    dec2.from_bytes(msg2_tmpl_raw)
+    assert list(dec2.namedict_iterator()) == []
+
+    iel = ie.spec_list(["packetDeltaCount"])
+    dec2.from_bytes(msg1_data_raw)
+    assert list(dec2.tuple_iterator(iel)) == [(2,)]
+    dec2.from_bytes(msg2_data_raw)
+    assert list(dec2.tuple_iterator(iel)) == []
+    assert list(dec2.namedict_iterator()) == [{"sourceIPv4Address": ip_address("10.0.0.9")}]
+
+    # Pre-seeded template via add_template() works with namedict_iterator
+    pre = message.MessageBuffer()
+    pre.odid = 1
+    pre.add_template(t1, export=False)
+    pre.from_bytes(msg1_data_raw)
+    assert list(pre.namedict_iterator()) == [
+        {"sourceIPv4Address": ip_address("10.0.0.2"), "packetDeltaCount": 2}
+    ]
+
+
+def test_no_empty_sets_and_delete_template_atomicity():
+    t1 = template.for_specs(256, "sourceIPv4Address", "packetDeltaCount")
+    t2 = template.for_specs(257, "sourceIPv4Address", "octetDeltaCount")
+
+    # export_template hitting EndOfMessage emits no trailing empty set
+    msg = message.MessageBuffer()
+    msg.mtu = 48
+    msg.begin_export(1)
+    msg.add_template(t1)  # length = 32
+    msg.export_ensure_set(256)  # length = 36
+    msg.export_namedict(
+        {"sourceIPv4Address": ip_address("10.0.0.1"), "packetDeltaCount": 1}
+    )  # length = 48
+    with pytest.raises(message.EndOfMessage):
+        msg.add_template(t2)
+    raw = msg.to_bytes()
+    chk = message.MessageBuffer()
+    chk.from_bytes(raw)
+    assert [(sid, slen) for _, sid, slen in chk.setlist] == [(2, 16), (256, 16)]
+
+    # delete_template(export=True) hitting EndOfMessage preserves template & emits no empty set
+    msg2 = message.MessageBuffer()
+    msg2.mtu = 52
+    msg2.begin_export(1)
+    msg2.add_template(t1)  # 32
+    msg2.export_ensure_set(256)  # 36
+    msg2.export_namedict(
+        {"sourceIPv4Address": ip_address("10.0.0.1"), "packetDeltaCount": 1}
+    )  # 48
+    with pytest.raises(message.EndOfMessage):
+        msg2.delete_template(256, export=True)
+    assert (1, 256) in msg2.templates
+    raw2 = msg2.to_bytes()
+    chk2 = message.MessageBuffer()
+    chk2.from_bytes(raw2)
+    assert [(sid, slen) for _, sid, slen in chk2.setlist] == [(2, 16), (256, 16)]
+
+    # Flush and retry delete_template(256, export=True)
+    msg2.begin_export(1)
+    msg2.delete_template(256, export=True)
+    assert (1, 256) not in msg2.templates
+
+    # delete_template(export=False) closes active set and clears curtmpl
+    msg3 = message.MessageBuffer()
+    msg3.begin_export(1)
+    msg3.add_template(t1)
+    msg3.export_ensure_set(256)
+    msg3.delete_template(256, export=False)
+    assert msg3.cursetid is None
+    assert msg3.curtmpl is None
+
+
+def test_export_record_errors_and_validation():
+    # No active data set
+    msg = message.MessageBuffer()
+    msg.begin_export(1)
+    with pytest.raises(IpfixEncodeError):
+        msg.export_namedict({"packetDeltaCount": 1})
+
+    # Out-of-range integer raises struct.error (NOT EndOfMessage)
+    t_fixed = template.for_specs(256, "sourceTransportPort", "packetDeltaCount")
+    msg.add_template(t_fixed)
+    msg.export_ensure_set(256)
+    saved_len = msg.length
+    with pytest.raises(struct.error):
+        msg.export_namedict({"sourceTransportPort": 70000, "packetDeltaCount": 1})
+    assert msg.length == saved_len
+
+    # Wrong-length tuple on fixed and varlen templates raises ValueError (NOT EndOfMessage)
+    with pytest.raises(ValueError):
+        msg.export_tuple((80,))
+    with pytest.raises(ValueError):
+        msg.export_tuple((80, 1, 2))
+    t_var = template.for_specs(257, "applicationName", "packetDeltaCount")
+    msg.add_template(t_var)
+    msg.export_ensure_set(257)
+    with pytest.raises(ValueError):
+        msg.export_tuple(("app",))
+
+    # Cross-set withdrawal TID must raise IpfixDecodeError
+    for setid, bad_tid in ((2, 3), (3, 2)):
+        body = (
+            struct.pack("!HH", bad_tid, 0)
+            if setid == 2
+            else struct.pack("!HHH", bad_tid, 0, 0)
+        )
+        wset = struct.pack("!HH", setid, 4 + len(body)) + body
+        wraw = struct.pack("!HHLLL", 10, 16 + len(wset), 0, 0, 1) + wset
+        dec = message.MessageBuffer()
+        dec.from_bytes(wraw)
+        with pytest.raises(IpfixDecodeError):
+            list(dec.namedict_iterator())
+
+    # Invalid scopecount on template creation
+    iel = ie.spec_list(["observationDomainId", "octetDeltaCount"])
+    with pytest.raises(ValueError):
+        template.from_ielist(260, iel, scopecount=-1)
+    with pytest.raises(ValueError):
+        template.from_ielist(260, iel, scopecount=3)
+
+    # Small buf_sz caps mtu, and Template.decode_from clamps setend to len(buf)
+    small_msg = message.MessageBuffer(buf_sz=128)
+    assert small_msg.mtu == 128
+    with pytest.raises(IpfixDecodeError):
+        t_fixed.decode_from(bytearray(4), 0, setend=9999)

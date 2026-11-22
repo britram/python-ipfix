@@ -188,17 +188,10 @@ from datetime import UTC, datetime
 from warnings import warn
 
 from . import template, types
-from .template import IpfixDecodeError, IpfixEncodeError
+from .template import EndOfMessage, IpfixDecodeError, IpfixEncodeError
 
 _sethdr_st = struct.Struct("!HH")
 _msghdr_st = struct.Struct("!HHLLL")
-
-
-class EndOfMessage(Exception):
-    """
-    Exception raised when a write operation on a Message
-    fails because there is not enough space in the message.
-    """
 
 
 def accept_all_templates(tmpl):
@@ -207,6 +200,36 @@ def accept_all_templates(tmpl):
 
 def _is_zero_padding(buf, start, end):
     return all(b == 0 for b in buf[start:end])
+
+
+def _iter_template_set_records(buf, offset, setend, setid, *, v9=False):
+    setview = buf[:setend]
+    label = "v9 template set" if v9 else "template set"
+    while offset < setend:
+        rem = setend - offset
+        # RFC 7011 §3.3.1: alignment padding at end of Template Set
+        if rem < template._tmplhdr_st.size:
+            if _is_zero_padding(buf, offset, setend):
+                break
+            raise IpfixDecodeError(f"Non-zero trailing bytes ({rem}) in {label}")
+        if (
+            buf[offset] == 0
+            and buf[offset + 1] == 0
+            and _is_zero_padding(buf, offset, setend)
+        ):
+            break
+
+        tmpl, offset = template.decode_template_from(
+            setview, offset, setid, setend=setend
+        )
+        yield tmpl
+
+
+def _recache_all_accepted_tids(templates, accepted_tids, tmplaccept_fn):
+    accepted_tids.clear()
+    for key, tmpl in templates.items():
+        if tmplaccept_fn(tmpl):
+            accepted_tids.add(key)
 
 
 class MessageBuffer:
@@ -235,8 +258,9 @@ class MessageBuffer:
         self.curtmpl = None
 
         self.last_tuple_iterator_ielist = None
+        self._accepted_cache_key = None
 
-        self.mtu = 65535
+        self.mtu = min(65535, buf_sz)
 
         self.template_record_hook = None
         self.unknown_data_set_hook = None
@@ -379,6 +403,57 @@ class MessageBuffer:
             self.templates.pop(key, None)
             self.accepted_tids.discard(key)
 
+    def _iter_records(self, decode_fn, tmplaccept_fn, recinf):
+        for offset, setid, setlen in self.setlist:
+            setend = offset + setlen
+            setview = self.mbuf[:setend]
+            offset += _sethdr_st.size  # skip set header in decode
+            if setid in (template.TEMPLATE_SET_ID, template.OPTIONS_SET_ID):
+                for tmpl in _iter_template_set_records(
+                    self.mbuf, offset, setend, setid, v9=False
+                ):
+                    if tmpl.count() == 0:
+                        self._handle_template_withdrawal(setid, tmpl.tid)
+                    else:
+                        key = (self.odid, tmpl.tid)
+                        self.templates[key] = tmpl
+                        if tmplaccept_fn(tmpl):
+                            self.accepted_tids.add(key)
+                        else:
+                            self.accepted_tids.discard(key)
+
+                    if self.template_record_hook:
+                        self.template_record_hook(self, tmpl)
+
+            elif setid < 256:
+                warn("skipping illegal set id " + str(setid), stacklevel=2)
+            else:
+                key = (self.odid, setid)
+                try:
+                    tmpl = self.templates[key]
+                except KeyError:
+                    if self.unknown_data_set_hook:
+                        self.unknown_data_set_hook(
+                            self, self.mbuf[offset - _sethdr_st.size : setend]
+                        )
+                    continue
+
+                if key in self.accepted_tids:
+                    if tmpl.minlength <= 0:
+                        raise IpfixDecodeError(
+                            f"Template {tmpl.tid} has zero minimum record length"
+                        )
+                    while offset + tmpl.minlength <= setend:
+                        rec, offset = decode_fn(
+                            tmpl, setview, offset, recinf=recinf
+                        )
+                        yield rec
+                        self._increment_sequence()
+                elif self.ignored_data_set_hook:
+                    self.ignored_data_set_hook(
+                        self, tmpl, self.mbuf[offset - _sethdr_st.size : setend]
+                    )
+
     def record_iterator(
         self,
         decode_fn=template.Template.decode_namedict_from,
@@ -405,69 +480,16 @@ class MessageBuffer:
         :param recinf: Record information opaquely passed to decode function
         :returns: an iterator over records decoded by decode_fn.
         """
-        for offset, setid, setlen in self.setlist:
-            setend = offset + setlen
-            setview = self.mbuf[:setend]
-            offset += _sethdr_st.size  # skip set header in decode
-            if setid in (template.TEMPLATE_SET_ID, template.OPTIONS_SET_ID):
-                while offset < setend:
-                    rem = setend - offset
-                    # RFC 7011 §3.3.1: alignment padding at end of Template Set
-                    if rem < template._tmplhdr_st.size:
-                        if _is_zero_padding(self.mbuf, offset, setend):
-                            break
-                        raise IpfixDecodeError(
-                            f"Non-zero trailing bytes ({rem}) in template set"
-                        )
-                    if (
-                        self.mbuf[offset] == 0
-                        and self.mbuf[offset + 1] == 0
-                        and _is_zero_padding(self.mbuf, offset, setend)
-                    ):
-                        break
+        if tmplaccept_fn is accept_all_templates:
+            if self._accepted_cache_key != "all":
+                self._recache_accepted_tids(accept_all_templates)
+                self._accepted_cache_key = "all"
+                self.last_tuple_iterator_ielist = None
+        else:
+            self._recache_accepted_tids(tmplaccept_fn)
+            self._accepted_cache_key = None
 
-                    tmpl, offset = template.decode_template_from(
-                        setview, offset, setid, setend=setend
-                    )
-                    if tmpl.count() == 0:
-                        self._handle_template_withdrawal(setid, tmpl.tid)
-                    else:
-                        self.templates[(self.odid, tmpl.tid)] = tmpl
-                        if tmplaccept_fn(tmpl):
-                            self.accepted_tids.add((self.odid, tmpl.tid))
-                        else:
-                            self.accepted_tids.discard((self.odid, tmpl.tid))
-
-                    if self.template_record_hook:
-                        self.template_record_hook(self, tmpl)
-
-            elif setid < 256:
-                warn("skipping illegal set id " + str(setid), stacklevel=2)
-            else:
-                try:
-                    tmpl = self.templates[(self.odid, setid)]
-                except KeyError:
-                    if self.unknown_data_set_hook:
-                        self.unknown_data_set_hook(
-                            self, self.mbuf[offset - _sethdr_st.size : setend]
-                        )
-                    continue
-
-                if (self.odid, setid) in self.accepted_tids:
-                    if tmpl.minlength <= 0:
-                        raise IpfixDecodeError(
-                            f"Template {tmpl.tid} has zero minimum record length"
-                        )
-                    while offset + tmpl.minlength <= setend:
-                        rec, offset = decode_fn(
-                            tmpl, setview, offset, recinf=recinf
-                        )
-                        yield rec
-                        self._increment_sequence()
-                elif self.ignored_data_set_hook:
-                    self.ignored_data_set_hook(
-                        self, tmpl, self.mbuf[offset - _sethdr_st.size : setend]
-                    )
+        return self._iter_records(decode_fn, tmplaccept_fn, recinf)
 
     def namedict_iterator(self):
         """
@@ -476,14 +498,16 @@ class MessageBuffer:
 
         :returns: a name dictionary iterator
         """
-        return self.record_iterator(decode_fn=template.Template.decode_namedict_from)
+        if self._accepted_cache_key != "all":
+            self._recache_accepted_tids(accept_all_templates)
+            self._accepted_cache_key = "all"
+            self.last_tuple_iterator_ielist = None
+        return self._iter_records(
+            template.Template.decode_namedict_from, accept_all_templates, None
+        )
 
     def _recache_accepted_tids(self, tmplaccept_fn):
-        for tid in self.active_template_ids():
-            if tmplaccept_fn(self.templates[(self.odid, tid)]):
-                self.accepted_tids.add((self.odid, tid))
-            else:
-                self.accepted_tids.discard((self.odid, tid))
+        _recache_all_accepted_tids(self.templates, self.accepted_tids, tmplaccept_fn)
 
     def tuple_iterator(self, ielist):
         """
@@ -497,17 +521,14 @@ class MessageBuffer:
         def tmplaccept_fn(tmpl):
             return all(elem in tmpl.ies for elem in ielist)
 
-        if (
-            self.last_tuple_iterator_ielist is None
-            or ielist is not self.last_tuple_iterator_ielist
-        ):
+        cache_key = tuple(ielist)
+        if self._accepted_cache_key != cache_key:
             self._recache_accepted_tids(tmplaccept_fn)
+            self._accepted_cache_key = cache_key
         self.last_tuple_iterator_ielist = ielist
 
-        return self.record_iterator(
-            decode_fn=template.Template.decode_tuple_from,
-            tmplaccept_fn=tmplaccept_fn,
-            recinf=ielist,
+        return self._iter_records(
+            template.Template.decode_tuple_from, tmplaccept_fn, ielist
         )
 
     def to_bytes(self):
@@ -555,6 +576,7 @@ class MessageBuffer:
         :raises: EndOfMessage
         """
         self.templates[(self.odid, tmpl.tid)] = tmpl
+        self._accepted_cache_key = None
 
         if export:
             self.export_template(tmpl.tid)
@@ -568,14 +590,17 @@ class MessageBuffer:
 
         :param tid: ID of the template to delete
         :param export: if True, export a Template Withdrawal for this
-                       Template after deleting it
+                       Template before deleting it
         :raises: EndOfMessage, KeyError
         """
-        setid = self.templates[(self.odid, tid)].native_setid()
-        del self.templates[(self.odid, tid)]
-        self.accepted_tids.discard((self.odid, tid))
+        key = (self.odid, tid)
+        setid = self.templates[key].native_setid()
         if export:
             self._export_template_withdrawal(setid, tid)
+        elif self.cursetid == tid:
+            self._export_close_set()
+        del self.templates[key]
+        self.accepted_tids.discard(key)
 
     def active_template_ids(self):
         """
@@ -631,6 +656,7 @@ class MessageBuffer:
 
         # no current set
         self.cursetid = None
+        self.curtmpl = None
 
     def export_new_set(self, setid):
         """
@@ -693,14 +719,27 @@ class MessageBuffer:
         return self.length > _msghdr_st.size + _sethdr_st.size
 
     def _export_close_set(self):
-        if self.cursetid:
-            _sethdr_st.pack_into(
-                self.mbuf,
-                self.cursetoff,
-                self.cursetid,
-                self.length - self.cursetoff,
-            )
+        if self.cursetid is not None:
+            if self.length == self.cursetoff + _sethdr_st.size:
+                self.length = self.cursetoff
+            else:
+                _sethdr_st.pack_into(
+                    self.mbuf,
+                    self.cursetoff,
+                    self.cursetid,
+                    self.length - self.cursetoff,
+                )
             self.cursetid = None
+            self.curtmpl = None
+
+    def _effective_length_for_set(self, setid):
+        if (
+            self.cursetid is not None
+            and self.cursetid != setid
+            and self.length == self.cursetoff + _sethdr_st.size
+        ):
+            return self.cursetoff
+        return self.length
 
     def export_template(self, tid):
         """
@@ -717,20 +756,23 @@ class MessageBuffer:
             if setid == template.OPTIONS_SET_ID
             else template._tmplhdr_st.size
         )
+        sethdr_needed = 0 if self.cursetid == setid else _sethdr_st.size
+        base_len = self._effective_length_for_set(setid)
 
-        self.export_ensure_set(setid)
-
-        if self.length + hdrlen + tmpl.enclength > self.mtu:
+        if base_len + sethdr_needed + hdrlen + tmpl.enclength > self.mtu:
             raise EndOfMessage()
 
+        self.export_ensure_set(setid)
         self.length = tmpl.encode_template_to(self.mbuf, self.length, setid)
 
     def _export_template_withdrawal(self, setid, tid):
-        self.export_ensure_set(setid)
+        sethdr_needed = 0 if self.cursetid == setid else _sethdr_st.size
+        base_len = self._effective_length_for_set(setid)
 
-        if self.length + template.withdrawal_length(setid) > self.mtu:
+        if base_len + sethdr_needed + template.withdrawal_length(setid) > self.mtu:
             raise EndOfMessage()
 
+        self.export_ensure_set(setid)
         self.length = template.encode_withdrawal_to(
             self.mbuf, self.length, setid, tid
         )
@@ -754,17 +796,19 @@ class MessageBuffer:
                           must be an (unbound) "encode" instance method of the
                           :class:`ipfix.template.Template` class.
         :param recinf: Record information opaquely passed to encode function
-        :raises: EndOfMessage
+        :raises: EndOfMessage, IpfixEncodeError
         """
+        if self.curtmpl is None:
+            raise IpfixEncodeError("no active data set for record export")
         savelength = self.length
 
         try:
             self.length = encode_fn(
                 self.curtmpl, self.mbuf, self.length, rec, recinf
             )
-        except struct.error as exc:  # out of bounds on the underlying mbuf
+        except Exception:
             self.length = savelength
-            raise EndOfMessage() from exc
+            raise
 
         # check for mtu overrun
         if self.length > self.mtu:

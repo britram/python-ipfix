@@ -19,5 +19,5 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: uv sync --group dev
-      - run: uv run ruff check ipfix tests
+      - run: uv run ruff check ipfix tests scripts
       - run: uv run pytest
